@@ -46,43 +46,46 @@ jobs:
     #    # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
     #    flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Test with pytest
-      run: |
-        conda install pytest
-        conda install pytest-cov
-        pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
+    # Uncomment the following lines if you want to run tests and generate coverage reports
+    #  Note: This section is commented out to avoid running tests and coverage reports during repo setup phase
+    #        Enable these sections once the repository is ready for testing.
+    #- name: Test with pytest
+    #  run: |
+    #    conda install pytest
+    #    conda install pytest-cov
+    #    pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
 
-    - name: Pytest coverage comment
-      if: ${{ github.ref == 'refs/heads/code/pre_release' }}
-      id: coverageComment
-      uses: MishaKav/pytest-coverage-comment@main
-      with:
-        default-branch: code/pre_release
-        pytest-coverage-path: ./pytest-coverage.txt
-        junitxml-path: ./pytest.xml
+    #- name: Pytest coverage comment
+    #  if: ${{ github.ref == 'refs/heads/code/pre_release' }}
+    #  id: coverageComment
+    #  uses: MishaKav/pytest-coverage-comment@main
+    #  with:
+    #    default-branch: code/pre_release
+    #    pytest-coverage-path: ./pytest-coverage.txt
+    #    junitxml-path: ./pytest.xml
 
-    - name: Rerun coverage generation for Codacy
-      if: ${{ github.ref == 'refs/heads/code/pre_release' }}
-      run: |
-        conda install coverage
-        coverage report -m --skip-covered
-        coverage xml
+    #- name: Rerun coverage generation for Codacy
+    #  if: ${{ github.ref == 'refs/heads/code/pre_release' }}
+    #  run: |
+    #    conda install coverage
+    #    coverage report -m --skip-covered
+    #    coverage xml
 
-    - name: Upload coverage report to Codacy
-      if: ${{ github.ref == 'refs/heads/code/pre_release' }}
-      run: |
-        export CODACY_PROJECT_TOKEN=${{ secrets.CODACY_PROJECT_TOKEN }}
-        bash <(curl -s https://coverage.codacy.com/get.sh) report -r coverage.xml
+    #- name: Upload coverage report to Codacy
+    #  if: ${{ github.ref == 'refs/heads/code/pre_release' }}
+    #  run: |
+    #    export CODACY_PROJECT_TOKEN=${{ secrets.CODACY_PROJECT_TOKEN }}
+    #    bash <(curl -s https://coverage.codacy.com/get.sh) report -r coverage.xml
 
-    - name: Update README with Coverage HTML
-      if: ${{ github.ref == 'refs/heads/code/pre_release' }}
-      run: |
-        sed -i '/<!-- Pytest Coverage Comment:Begin -->/,/<!-- Pytest Coverage Comment:End -->/c\<!-- Pytest Coverage Comment:Begin -->\n\${{ steps.coverageComment.outputs.coverageHtml }}\n<!-- Pytest Coverage Comment:End -->' ./README.md
+    #- name: Update README with Coverage HTML
+    #  if: ${{ github.ref == 'refs/heads/code/pre_release' }}
+    #  run: |
+    #    sed -i '/<!-- Pytest Coverage Comment:Begin -->/,/<!-- Pytest Coverage Comment:End -->/c\<!-- Pytest Coverage Comment:Begin -->\n\${{ steps.coverageComment.outputs.coverageHtml }}\n<!-- Pytest Coverage Comment:End -->' ./README.md
 
-    - name: Commit & Push changes to README
-      if: ${{ github.ref == 'refs/heads/code/pre_release' }}
-      uses: actions-js/push@master
-      with:
-        branch: code/pre_release
-        message: Update coverage in README
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+    #- name: Commit & Push changes to README
+    #  if: ${{ github.ref == 'refs/heads/code/pre_release' }}
+    #  uses: actions-js/push@master
+    #  with:
+    #    branch: code/pre_release
+    #    message: Update coverage in README
+    #    github_token: ${{ secrets.GITHUB_TOKEN }}
