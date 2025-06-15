@@ -1,0 +1,9 @@
+name: conda_env_setup
+dependencies:
+  - flask
+  - pyyaml
+  - requests
+  - matplotlib
+  - openpyxl
+  - plotly
+  - pandas
