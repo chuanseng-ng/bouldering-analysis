@@ -2,6 +2,14 @@
 
 Analyze bouldering routes and provide an appropriate grade level
 
+## DISCLAIMER
+
+This repository should only be used for its intended purpose as stated above
+We, the collaborators of this repository, do not take any responsibility for issues arising from modifying this database
+This repository is created as a point of reference and is not meant to criticize the grades assigned by the route setters
+
+Please refer to the code [README](./src/README.md) for details on the code database
+
 ## References
 
 - [Bouldering and Computer Vision Blog Post](https://blog.tjtl.io/bouldering-and-computer-vision/)
