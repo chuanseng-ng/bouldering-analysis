@@ -1,19 +1,378 @@
-"""This module serves as the entry point for the application."""
+import os
+import uuid
+import json
+from datetime import datetime
+from flask import Flask, request, jsonify, render_template, send_from_directory
+from werkzeug.utils import secure_filename
+from PIL import Image
+from ultralytics import YOLO
+import numpy as np
+
+app = Flask(__name__, template_folder="templates")
+
+# Configuration
+app.config["SECRET_KEY"] = (
+    os.environ.get("SECRET_KEY") or "dev-secret-key-change-in-production"
+)
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    os.environ.get("DATABASE_URL") or "sqlite:///bouldering_analysis.db"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["UPLOAD_FOLDER"] = "data/uploads"
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
+app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg"}
+
+# Import models and db after app creation
+from models import db
+
+# Initialize extensions
+db.init_app(app)
+
+# Import models after db is initialized
+from models import (
+    Analysis,
+    Feedback,
+    HoldType,
+    DetectedHold,
+    ModelVersion,
+    UserSession,
+)
+
+# Load models
+try:
+    hold_detection_model = YOLO("yolov8n.pt")
+    print("YOLOv8 model loaded successfully")
+except Exception as e:
+    print(f"Error loading YOLOv8 model: {e}")
+    hold_detection_model = None
+
+# Hold type mapping (this should be populated from the database)
+HOLD_TYPES = {
+    0: "crimp",
+    1: "jug",
+    2: "sloper",
+    3: "pinch",
+    4: "pocket",
+    5: "foot-hold",
+    6: "start-hold",
+    7: "top-out-hold",
+}
 
 
-def main():
-    """Main function to run the application."""
-    # Get config settings
-    # Load configuration settings from a file or environment variables
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return (
+        "." in filename
+        and filename.rsplit(".", 1)[1].lower() in app.config["ALLOWED_EXTENSIONS"]
+    )
 
-    # Get route pictures as input - Store input as a list
-    # So that they can be passed thru in a for loop
 
-    # Perform basic setup of Neural Network here
-    # Then pass the input list to the Neural Network
+def create_tables():
+    """Create database tables"""
+    with app.app_context():
+        db.create_all()
 
-    # Return the output of the Neural Network - Route grade
+        # Initialize hold types if they don't exist
+        if HoldType.query.count() == 0:
+            hold_type_data = [
+                (0, "crimp", "Small, narrow hold requiring crimping fingers"),
+                (1, "jug", "Large, easy-to-hold jug"),
+                (2, "sloper", "Round, sloping hold that requires open-handed grip"),
+                (3, "pinch", "Hold that requires pinching between thumb and fingers"),
+                (4, "pocket", "Small hole that fingers fit into"),
+                (5, "foot-hold", "Hold specifically for feet"),
+                (6, "start-hold", "Starting hold for the route"),
+                (7, "top-out-hold", "Hold used to complete the route"),
+            ]
+
+            for hold_id, name, description in hold_type_data:
+                hold_type = HoldType(id=hold_id, name=name, description=description)
+                db.session.add(hold_type)
+
+            db.session.commit()
+            print("Hold types initialized")
+
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    """Main page with image upload form"""
+    if request.method == "POST":
+        if "file" not in request.files:
+            return render_template("index.html", error="No file part")
+
+        file = request.files["file"]
+        if file.filename == "":
+            return render_template("index.html", error="No selected file")
+
+        if file and allowed_file(file.filename):
+            # Save uploaded file
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4()}_{filename}"
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+            os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+            file.save(filepath)
+
+            # Process the image
+            try:
+                result = analyze_image(filepath, unique_filename)
+                return render_template(
+                    "index.html", result=result, image_path=unique_filename
+                )
+            except Exception as e:
+                return render_template(
+                    "index.html", error=f"Error processing image: {str(e)}"
+                )
+        else:
+            return render_template(
+                "index.html",
+                error="Invalid file type. Please upload PNG, JPG, or JPEG images.",
+            )
+
+    return render_template("index.html")
+
+
+@app.route("/analyze", methods=["POST"])
+def analyze_route():
+    """API endpoint for analyzing a bouldering route"""
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        # Save uploaded file
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+        file.save(filepath)
+
+        # Process the image
+        try:
+            result = analyze_image(filepath, unique_filename)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": f"Error processing image: {str(e)}"}), 500
+    else:
+        return (
+            jsonify(
+                {"error": "Invalid file type. Please upload PNG, JPG, or JPEG images."}
+            ),
+            400,
+        )
+
+
+@app.route("/feedback", methods=["POST"])
+def submit_feedback():
+    """API endpoint for submitting user feedback"""
+    data = request.get_json()
+
+    if not data or "analysis_id" not in data:
+        return jsonify({"error": "Missing analysis_id"}), 400
+
+    try:
+        analysis = Analysis.query.get(data["analysis_id"])
+        if not analysis:
+            return jsonify({"error": "Analysis not found"}), 404
+
+        # Create feedback record
+        feedback = Feedback(
+            analysis_id=data["analysis_id"],
+            user_grade=data.get("user_grade"),
+            is_accurate=data.get("is_accurate", False),
+            comments=data.get("comments"),
+        )
+
+        db.session.add(feedback)
+        db.session.commit()
+
+        return jsonify(
+            {"message": "Feedback submitted successfully", "feedback_id": feedback.id}
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
+
+
+@app.route("/stats", methods=["GET"])
+def get_stats():
+    """API endpoint for getting usage statistics"""
+    try:
+        total_analyses = Analysis.query.count()
+        total_feedback = Feedback.query.count()
+        accurate_predictions = Feedback.query.filter_by(is_accurate=True).count()
+
+        # Get grade distribution
+        grade_counts = (
+            db.session.query(Analysis.predicted_grade, db.func.count(Analysis.id))
+            .group_by(Analysis.predicted_grade)
+            .all()
+        )
+
+        stats = {
+            "total_analyses": total_analyses,
+            "total_feedback": total_feedback,
+            "accurate_predictions": accurate_predictions,
+            "accuracy_rate": (
+                (accurate_predictions / total_feedback * 100)
+                if total_feedback > 0
+                else 0
+            ),
+            "grade_distribution": {grade: count for grade, count in grade_counts},
+        }
+
+        return jsonify(stats)
+
+    except Exception as e:
+        return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
+
+
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint"""
+    status = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "model_loaded": hold_detection_model is not None,
+        "database_connected": True,
+    }
+    return jsonify(status)
+
+
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+def analyze_image(image_path, image_filename):
+    """Analyze a bouldering route image"""
+    if not hold_detection_model:
+        raise Exception("Hold detection model not loaded")
+
+    # Load and preprocess image
+    img = Image.open(image_path)
+    img = img.convert("RGB")
+
+    # Run detection
+    results = hold_detection_model(img)
+
+    # Process results
+    holds = []
+    features = {"total_holds": 0, "hold_types": {}, "average_confidence": 0}
+
+    total_confidence = 0
+
+    for result in results:
+        boxes = result.boxes
+        if boxes is not None:
+            for box in boxes:
+                # Get box coordinates
+                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                confidence = box.conf[0].cpu().numpy()
+                class_id = int(box.cls[0].cpu().numpy())
+
+                # Map class ID to hold type
+                hold_type = HOLD_TYPES.get(class_id, "unknown")
+
+                hold_data = {
+                    "type": hold_type,
+                    "confidence": float(confidence),
+                    "bbox": {
+                        "x1": float(x1),
+                        "y1": float(y1),
+                        "x2": float(x2),
+                        "y2": float(y2),
+                    },
+                }
+
+                holds.append(hold_data)
+                total_confidence += confidence
+
+                # Update features
+                features["total_holds"] += 1
+                features["hold_types"][hold_type] = (
+                    features["hold_types"].get(hold_type, 0) + 1
+                )
+
+    # Calculate average confidence
+    if holds:
+        features["average_confidence"] = total_confidence / len(holds)
+    else:
+        features["average_confidence"] = 0
+
+    # Predict grade (simplified - in production this would use a trained model)
+    predicted_grade = predict_grade(features)
+
+    # Save analysis to database
+    analysis = Analysis(
+        image_filename=image_filename,
+        image_path=image_path,
+        predicted_grade=predicted_grade,
+        confidence_score=features["average_confidence"],
+        holds_detected=json.dumps(holds),
+        features_extracted=json.dumps(features),
+    )
+
+    db.session.add(analysis)
+    db.session.commit()
+
+    return {
+        "analysis_id": analysis.id,
+        "predicted_grade": predicted_grade,
+        "confidence": features["average_confidence"],
+        "holds": holds,
+        "features": features,
+    }
+
+
+def predict_grade(features):
+    """Predict V-grade based on extracted features (simplified)"""
+    # This is a simplified grading algorithm
+    # In production, this would use a trained machine learning model
+
+    hold_count = features["total_holds"]
+    hold_types = features["hold_types"]
+    avg_confidence = features["average_confidence"]
+
+    # Base grade on hold count
+    if hold_count <= 3:
+        base_grade = "V0"
+    elif hold_count <= 5:
+        base_grade = "V1"
+    elif hold_count <= 7:
+        base_grade = "V2"
+    elif hold_count <= 9:
+        base_grade = "V3"
+    elif hold_count <= 12:
+        base_grade = "V4"
+    else:
+        base_grade = "V5"
+
+    # Adjust based on hold types
+    difficulty_multiplier = 1.0
+
+    # Small holds increase difficulty
+    if hold_types.get("crimp", 0) > 0:
+        difficulty_multiplier += 0.2 * hold_types["crimp"]
+    if hold_types.get("pocket", 0) > 0:
+        difficulty_multiplier += 0.3 * hold_types["pocket"]
+    if hold_types.get("sloper", 0) > 0:
+        difficulty_multiplier += 0.1 * hold_types["sloper"]
+
+    # Adjust grade based on difficulty
+    grade_value = int(base_grade[1:])
+    grade_value = min(grade_value + int(difficulty_multiplier), 10)  # Cap at V10
+
+    return f"V{grade_value}"
 
 
 if __name__ == "__main__":
-    main()
+    # Create tables before running the app
+    create_tables()
+
+    # Run the application
+    app.run(debug=True, host="0.0.0.0", port=5000)
