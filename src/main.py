@@ -24,13 +24,15 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
 app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg"}
 
 # Import models and db after app creation
-from src.models import db
+# pylint: disable=import-outside-toplevel, wrong-import-position
+from src.models import db  # noqa: E402
 
 # Initialize extensions
 db.init_app(app)
 
 # Import models after db is initialized
-from src.models import (
+# pylint: disable=import-outside-toplevel, wrong-import-position
+from src.models import (  # noqa: E402
     Analysis,
     Feedback,
     HoldType,
@@ -334,7 +336,7 @@ def predict_grade(features):
 
     hold_count = features["total_holds"]
     hold_types = features["hold_types"]
-    avg_confidence = features["average_confidence"]
+    # avg_confidence = features["average_confidence"] # TODO: Incorporate confidence into grading
 
     # Base grade on hold count
     if hold_count <= 3:
@@ -373,4 +375,7 @@ if __name__ == "__main__":
     create_tables()
 
     # Run the application
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", 5000))
+    app.run(debug=debug_mode, host=host, port=port)
