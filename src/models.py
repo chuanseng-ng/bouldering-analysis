@@ -5,6 +5,11 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+def utcnow():
+    """Return current UTC datetime with timezone awareness."""
+    return datetime.now(timezone.utc)
+
+
 class Analysis(db.Model):
     """Stores analysis results for uploaded images"""
 
@@ -17,11 +22,11 @@ class Analysis(db.Model):
     confidence_score = db.Column(db.Float, nullable=True)
     holds_detected = db.Column(db.JSON, nullable=True)  # Store hold detection results
     features_extracted = db.Column(db.JSON, nullable=True)  # Store extracted features
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.now(timezone.utc),
-        onupdate=datetime.now(timezone.utc),
+        default=utcnow,
+        onupdate=utcnow,
     )
 
     # Relationship to feedback
@@ -49,7 +54,7 @@ class Feedback(db.Model):
         db.Boolean, nullable=False, default=False
     )  # Whether user agreed with prediction
     comments = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     # Index for faster queries
     __table_args__ = (
@@ -84,7 +89,7 @@ class DetectedHold(db.Model):
     bbox_y1 = db.Column(db.Float, nullable=False)
     bbox_x2 = db.Column(db.Float, nullable=False)
     bbox_y2 = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     # Index for faster queries
     __table_args__ = (
@@ -105,7 +110,7 @@ class ModelVersion(db.Model):
     version = db.Column(db.String(20), nullable=False)
     model_path = db.Column(db.String(500), nullable=False)
     accuracy = db.Column(db.Float, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
     # Index for faster queries
@@ -125,8 +130,8 @@ class UserSession(db.Model):
     session_id = db.Column(db.String(36), nullable=False, unique=True)
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    last_activity = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
+    last_activity = db.Column(db.DateTime, default=utcnow)
 
     # Index for faster queries
     __table_args__ = (db.Index("idx_user_session_created_at", "created_at"),)

@@ -35,6 +35,7 @@ from src.models import (  # noqa: E402
     Analysis,
     Feedback,
     HoldType,
+    DetectedHold,
 )
 
 # Load models
@@ -243,13 +244,17 @@ def check_db_connection():
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
+    model_ok = hold_detection_model is not None
+    db_ok = check_db_connection()
+    overall_ok = model_ok and db_ok
+
     status = {
-        "status": "healthy",
+        "status": "healthy" if overall_ok else "unhealthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "model_loaded": hold_detection_model is not None,
-        "database_connected": check_db_connection(),
+        "model_loaded": model_ok,
+        "database_connected": db_ok,
     }
-    return jsonify(status)
+    return jsonify(status), 200 if overall_ok else 503
 
 
 @app.route("/uploads/<filename>")
@@ -271,10 +276,11 @@ def analyze_image(image_path, image_filename):
     results = hold_detection_model(img)
 
     # Process results
-    holds = []
+    holds = []  # Keep for API response compatibility
     features = {"total_holds": 0, "hold_types": {}, "average_confidence": 0}
 
-    total_confidence = 0
+    total_confidence = 0.0
+    detected_holds_data = []  # Temporary storage for hold data
 
     for result in results:
         boxes = result.boxes
@@ -288,6 +294,19 @@ def analyze_image(image_path, image_filename):
                 # Map class ID to hold type
                 hold_type = HOLD_TYPES.get(class_id, "unknown")
 
+                # Store data for DetectedHold creation
+                detected_holds_data.append(
+                    {
+                        "hold_type": hold_type,
+                        "confidence": float(confidence),
+                        "bbox_x1": float(x1),
+                        "bbox_y1": float(y1),
+                        "bbox_x2": float(x2),
+                        "bbox_y2": float(y2),
+                    }
+                )
+
+                # Keep for API response
                 hold_data = {
                     "type": hold_type,
                     "confidence": float(confidence),
@@ -298,9 +317,8 @@ def analyze_image(image_path, image_filename):
                         "y2": float(y2),
                     },
                 }
-
                 holds.append(hold_data)
-                total_confidence += confidence
+                total_confidence += float(confidence)
 
                 # Update features
                 features["total_holds"] += 1
@@ -310,31 +328,64 @@ def analyze_image(image_path, image_filename):
 
     # Calculate average confidence
     if holds:
-        features["average_confidence"] = total_confidence / len(holds)
+        features["average_confidence"] = float(total_confidence) / len(holds)
     else:
         features["average_confidence"] = 0
 
-    # Predict grade (simplified - in production this would use a trained model)
+    # Predict grade
     predicted_grade = predict_grade(features)
 
-    # Save analysis to database
+    # Create Analysis record (without holds_detected JSON)
     analysis = Analysis(
         image_filename=image_filename,
         image_path=image_path,
         predicted_grade=predicted_grade,
         confidence_score=features["average_confidence"],
-        holds_detected=holds,
         features_extracted=features,
     )
-
     db.session.add(analysis)
+    db.session.flush()  # Flush to get the analysis.id before creating DetectedHold records
+
+    # Create DetectedHold records
+    for hold_data in detected_holds_data:
+        # Look up HoldType by name
+        hold_type = HoldType.query.filter_by(name=hold_data["hold_type"]).first()
+
+        if hold_type:  # Only create if valid hold type exists
+            detected_hold = DetectedHold(
+                analysis_id=analysis.id,
+                hold_type_id=hold_type.id,
+                confidence=hold_data["confidence"],
+                bbox_x1=hold_data["bbox_x1"],
+                bbox_y1=hold_data["bbox_y1"],
+                bbox_x2=hold_data["bbox_x2"],
+                bbox_y2=hold_data["bbox_y2"],
+            )
+            db.session.add(detected_hold)
+
     db.session.commit()
+
+    # Query back the detected holds for response
+    detected_holds_query = DetectedHold.query.filter_by(analysis_id=analysis.id).all()
+    holds_from_db = [
+        {
+            "type": dh.hold_type.name,
+            "confidence": dh.confidence,
+            "bbox": {
+                "x1": dh.bbox_x1,
+                "y1": dh.bbox_y1,
+                "x2": dh.bbox_x2,
+                "y2": dh.bbox_y2,
+            },
+        }
+        for dh in detected_holds_query
+    ]
 
     return {
         "analysis_id": analysis.id,
         "predicted_grade": predicted_grade,
         "confidence": features["average_confidence"],
-        "holds": holds,
+        "holds": holds_from_db,
         "features": features,
     }
 
