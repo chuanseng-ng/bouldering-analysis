@@ -3,10 +3,8 @@
 Development environment setup script for Bouldering Route Analysis
 """
 
-import os
 import sys
 import subprocess
-import sqlite3
 from pathlib import Path
 from src.setup import setup_database, create_directories
 
@@ -34,21 +32,22 @@ def verify_installation():
 
     try:
         # Test imports
-        from src.main import app
-        from src.models import db, Analysis, Feedback
-        from PIL import Image
-        from ultralytics import YOLO
+        from src.main import app  # noqa: F401
+        from src.models import db, Analysis, Feedback  # noqa: F401
+        from PIL import Image  # noqa: F401
+        from ultralytics import YOLO  # noqa: F401
+        from sqlalchemy import text
 
         print("✓ All imports successful")
 
         # Test database connection
         with app.app_context():
-            db.session.execute("SELECT 1")
+            db.session.execute(text("SELECT 1"))
         print("✓ Database connection successful")
 
         # Test if YOLO model can be loaded
         try:
-            model = YOLO("yolov8n.pt")
+            _ = YOLO("yolov8n.pt")  # Assign to _ to indicate intentional discard
             print("✓ YOLO model loaded successfully")
         except Exception as e:
             print(f"⚠ YOLO model loading failed: {e}")

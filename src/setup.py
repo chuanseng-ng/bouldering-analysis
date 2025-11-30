@@ -19,7 +19,7 @@ def setup_database():
         create_tables()
         print("✓ Database tables created successfully")
         return True
-    except SQLAlchemyError as e:
+    except (SQLAlchemyError, ImportError) as e:
         print(f"✗ Failed to create database tables: {e}")
         return False
 

@@ -6,14 +6,15 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
 from PIL import Image
 from ultralytics import YOLO
-import numpy as np
 
 app = Flask(__name__, template_folder="templates")
 
 # Configuration
-app.config["SECRET_KEY"] = (
-    os.environ.get("SECRET_KEY") or "dev-secret-key-change-in-production"
-)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+if not app.config["SECRET_KEY"]:
+    if os.environ.get("FLASK_ENV") == "production":
+        raise ValueError("SECRET_KEY must be set in production")
+    app.config["SECRET_KEY"] = "dev-secret-key-change-in-production"
 app.config["SQLALCHEMY_DATABASE_URI"] = (
     os.environ.get("DATABASE_URL") or "sqlite:///bouldering_analysis.db"
 )
@@ -23,19 +24,16 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
 app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg"}
 
 # Import models and db after app creation
-from models import db
+from src.models import db
 
 # Initialize extensions
 db.init_app(app)
 
 # Import models after db is initialized
-from models import (
+from src.models import (
     Analysis,
     Feedback,
     HoldType,
-    DetectedHold,
-    ModelVersion,
-    UserSession,
 )
 
 # Load models
