@@ -1,6 +1,5 @@
 import os
 import uuid
-import json
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
@@ -173,7 +172,7 @@ def submit_feedback():
         return jsonify({"error": "Missing analysis_id"}), 400
 
     try:
-        analysis = Analysis.query.get(data["analysis_id"])
+        analysis = db.session.get(Analysis, data["analysis_id"])
         if not analysis:
             return jsonify({"error": "Analysis not found"}), 404
 
@@ -230,6 +229,17 @@ def get_stats():
         return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
 
 
+def check_db_connection():
+    """Check database connectivity"""
+    try:
+        from sqlalchemy import text
+
+        db.session.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
@@ -237,7 +247,7 @@ def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "model_loaded": hold_detection_model is not None,
-        "database_connected": True,
+        "database_connected": check_db_connection(),
     }
     return jsonify(status)
 
@@ -313,8 +323,8 @@ def analyze_image(image_path, image_filename):
         image_path=image_path,
         predicted_grade=predicted_grade,
         confidence_score=features["average_confidence"],
-        holds_detected=json.dumps(holds),
-        features_extracted=json.dumps(features),
+        holds_detected=holds,
+        features_extracted=features,
     )
 
     db.session.add(analysis)

@@ -126,12 +126,12 @@ This is the most critical and labor-intensive phase, as the quality and quantity
 
 ## Hardware Considerations:
 
-- **Training**: The availability of an __RTX 3080__ is excellent for model training. This GPU will significantly accelerate the training process for both the hold detection and route grading models.
+- **Training**: The availability of an **RTX 3080** is excellent for model training. This GPU will significantly accelerate the training process for both the hold detection and route grading models.
 - **Inference**: The GTX 1060 can serve as a backup or for testing inference on a less powerful machine.
 
 ## User Interface Design:
 
-For the user interface, we will focus on a __clean, intuitive, and uncluttered design__. This means:
+For the user interface, we will focus on a **clean, intuitive, and uncluttered design**. This means:
 
 - A clear section for image upload.
 - A prominent display area for the uploaded image and the analysis results (detected holds with bounding boxes/labels, and the predicted grade).

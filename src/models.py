@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from flask_sqlalchemy import SQLAlchemy
 
@@ -17,13 +17,18 @@ class Analysis(db.Model):
     confidence_score = db.Column(db.Float, nullable=True)
     holds_detected = db.Column(db.JSON, nullable=True)  # Store hold detection results
     features_extracted = db.Column(db.JSON, nullable=True)  # Store extracted features
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        db.DateTime,
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc),
     )
 
     # Relationship to feedback
     feedback = db.relationship("Feedback", backref="analysis", uselist=False, lazy=True)
+
+    # Relationship to detected holds
+    detected_holds = db.relationship("DetectedHold", backref="analysis", lazy=True)
 
 
 class Feedback(db.Model):
@@ -38,7 +43,7 @@ class Feedback(db.Model):
         db.Boolean, nullable=False, default=False
     )  # Whether user agreed with prediction
     comments = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
 
     # Index for faster queries
     __table_args__ = (
@@ -73,7 +78,7 @@ class DetectedHold(db.Model):
     bbox_y1 = db.Column(db.Float, nullable=False)
     bbox_x2 = db.Column(db.Float, nullable=False)
     bbox_y2 = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
 
     # Index for faster queries
     __table_args__ = (
@@ -94,13 +99,14 @@ class ModelVersion(db.Model):
     version = db.Column(db.String(20), nullable=False)
     model_path = db.Column(db.String(500), nullable=False)
     accuracy = db.Column(db.Float, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     is_active = db.Column(db.Boolean, default=True)
 
     # Index for faster queries
     __table_args__ = (
         db.Index("idx_model_version_type", "model_type"),
         db.Index("idx_model_version_active", "is_active"),
+        db.UniqueConstraint("model_type", "version", name="uq_model_type_version"),
     )
 
 
@@ -113,11 +119,8 @@ class UserSession(db.Model):
     session_id = db.Column(db.String(36), nullable=False, unique=True)
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_activity = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    last_activity = db.Column(db.DateTime, default=datetime.now(timezone.utc))
 
     # Index for faster queries
-    __table_args__ = (
-        db.Index("idx_user_session_session_id", "session_id"),
-        db.Index("idx_user_session_created_at", "created_at"),
-    )
+    __table_args__ = (db.Index("idx_user_session_created_at", "created_at"),)
