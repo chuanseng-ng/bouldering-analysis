@@ -1,3 +1,9 @@
+"""
+Setup utilities for initializing the bouldering analysis environment.
+
+Provides functions for database setup and directory creation.
+"""
+
 from pathlib import Path
 from sqlalchemy.exc import SQLAlchemyError
 
