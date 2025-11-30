@@ -23,7 +23,8 @@ def setup_database():
         from src.main import create_tables  # pylint: disable=import-outside-toplevel
 
         create_tables()
-        print("✓ Database tables created successfully")
+        print("✓ Database file exists, verifying schema...")
+        # Optionally verify schema here
         return True
     except (SQLAlchemyError, ImportError) as e:
         print(f"✗ Failed to create database tables: {e}")

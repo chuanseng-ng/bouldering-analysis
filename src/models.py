@@ -30,6 +30,12 @@ class Analysis(db.Model):
     # Relationship to detected holds
     detected_holds = db.relationship("DetectedHold", backref="analysis", lazy=True)
 
+    # Indexes for common queries
+    __table_args__ = (
+        db.Index("idx_analysis_predicted_grade", "predicted_grade"),
+        db.Index("idx_analysis_created_at", "created_at"),
+    )
+
 
 class Feedback(db.Model):
     """Stores user feedback on analysis results"""

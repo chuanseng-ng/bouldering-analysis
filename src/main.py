@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -245,7 +245,7 @@ def health_check():
     """Health check endpoint"""
     status = {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "model_loaded": hold_detection_model is not None,
         "database_connected": check_db_connection(),
     }
@@ -261,7 +261,7 @@ def uploaded_file(filename):
 def analyze_image(image_path, image_filename):
     """Analyze a bouldering route image"""
     if not hold_detection_model:
-        raise Exception("Hold detection model not loaded")
+        raise RuntimeError("Hold detection model not loaded")
 
     # Load and preprocess image
     img = Image.open(image_path)
