@@ -1,6 +1,19 @@
+"""
+This module implements the main Flask application for the bouldering analysis web service.
+
+It provides endpoints for:
+- Uploading and analyzing bouldering route images
+- Submitting user feedback on analysis results
+- Retrieving usage statistics
+- Health checks
+
+The application uses YOLOv8 for hold detection and a simplified algorithm for route grading.
+"""
+
 import os
 import uuid
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
 from PIL import Image
@@ -24,14 +37,14 @@ app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg"}
 
 # Import models and db after app creation
 # pylint: disable=import-outside-toplevel, wrong-import-position
-from src.models import db  # noqa: E402
+from src.models import db  # noqa: E402 # pylint: disable=E0401
 
 # Initialize extensions
 db.init_app(app)
 
 # Import models after db is initialized
 # pylint: disable=import-outside-toplevel, wrong-import-position
-from src.models import (  # noqa: E402
+from src.models import (  # noqa: E402 # pylint: disable=E0401
     Analysis,
     Feedback,
     HoldType,
@@ -39,12 +52,12 @@ from src.models import (  # noqa: E402
 )
 
 # Load models
+hold_detection_model: Optional[YOLO] = None
 try:
     hold_detection_model = YOLO("yolov8n.pt")
     print("YOLOv8 model loaded successfully")
-except Exception as e:
+except (ImportError, RuntimeError) as e:
     print(f"Error loading YOLOv8 model: {e}")
-    hold_detection_model = None
 
 # Hold type mapping (this should be populated from the database)
 HOLD_TYPES = {
@@ -59,7 +72,7 @@ HOLD_TYPES = {
 }
 
 
-def allowed_file(filename):
+def allowed_file(filename: str):
     """Check if file extension is allowed"""
     return (
         "." in filename
@@ -73,7 +86,7 @@ def create_tables():
         db.create_all()
 
         # Initialize hold types if they don't exist
-        if HoldType.query.count() == 0:
+        if db.session.query(HoldType).count() == 0:
             hold_type_data = [
                 (0, "crimp", "Small, narrow hold requiring crimping fingers"),
                 (1, "jug", "Large, easy-to-hold jug"),
@@ -104,7 +117,7 @@ def index():
         if file.filename == "":
             return render_template("index.html", error="No selected file")
 
-        if file and allowed_file(file.filename):
+        if file and file.filename and allowed_file(file.filename):
             # Save uploaded file
             filename = secure_filename(file.filename)
             unique_filename = f"{uuid.uuid4()}_{filename}"
@@ -118,7 +131,7 @@ def index():
                 return render_template(
                     "index.html", result=result, image_path=unique_filename
                 )
-            except Exception as e:
+            except (IOError, RuntimeError) as e:
                 return render_template(
                     "index.html", error=f"Error processing image: {str(e)}"
                 )
@@ -141,7 +154,7 @@ def analyze_route():
     if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
 
-    if file and allowed_file(file.filename):
+    if file and file.filename and allowed_file(file.filename):
         # Save uploaded file
         filename = secure_filename(file.filename)
         unique_filename = f"{uuid.uuid4()}_{filename}"
@@ -153,7 +166,7 @@ def analyze_route():
         try:
             result = analyze_image(filepath, unique_filename)
             return jsonify(result)
-        except Exception as e:
+        except (IOError, RuntimeError) as e:
             return jsonify({"error": f"Error processing image: {str(e)}"}), 500
     else:
         return (
@@ -192,7 +205,7 @@ def submit_feedback():
             {"message": "Feedback submitted successfully", "feedback_id": feedback.id}
         )
 
-    except Exception as e:
+    except (ValueError, RuntimeError) as e:
         db.session.rollback()
         return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
 
@@ -201,9 +214,11 @@ def submit_feedback():
 def get_stats():
     """API endpoint for getting usage statistics"""
     try:
-        total_analyses = Analysis.query.count()
-        total_feedback = Feedback.query.count()
-        accurate_predictions = Feedback.query.filter_by(is_accurate=True).count()
+        total_analyses = db.session.query(Analysis).count()
+        total_feedback = db.session.query(Feedback).count()
+        accurate_predictions = (
+            db.session.query(Feedback).filter_by(is_accurate=True).count()
+        )
 
         # Get grade distribution
         grade_counts = (
@@ -212,7 +227,7 @@ def get_stats():
             .all()
         )
 
-        stats = {
+        stats: Dict[str, Any] = {
             "total_analyses": total_analyses,
             "total_feedback": total_feedback,
             "accurate_predictions": accurate_predictions,
@@ -221,12 +236,12 @@ def get_stats():
                 if total_feedback > 0
                 else 0
             ),
-            "grade_distribution": {grade: count for grade, count in grade_counts},
+            "grade_distribution": dict(grade_counts),
         }
 
         return jsonify(stats)
 
-    except Exception as e:
+    except (ValueError, RuntimeError) as e:
         return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
 
 
@@ -237,7 +252,7 @@ def check_db_connection():
 
         db.session.execute(text("SELECT 1"))
         return True
-    except Exception:
+    except (ValueError, RuntimeError):
         return False
 
 
@@ -248,7 +263,7 @@ def health_check():
     db_ok = check_db_connection()
     overall_ok = model_ok and db_ok
 
-    status = {
+    status: Dict[str, Any] = {
         "status": "healthy" if overall_ok else "unhealthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "model_loaded": model_ok,
@@ -258,98 +273,89 @@ def health_check():
 
 
 @app.route("/uploads/<filename>")
-def uploaded_file(filename):
+def uploaded_file(filename: str) -> Any:
     """Serve uploaded files"""
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
-def analyze_image(image_path, image_filename):
-    """Analyze a bouldering route image"""
-    if not hold_detection_model:
-        raise RuntimeError("Hold detection model not loaded")
+def _process_box(box, hold_types_mapping):
+    """Process a single detection box and return hold data."""
+    # Get box coordinates
+    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+    confidence = box.conf[0].cpu().numpy()
+    class_id = int(box.cls[0].cpu().numpy())
 
-    # Load and preprocess image
-    img = Image.open(image_path)
-    img = img.convert("RGB")
+    # Map class ID to hold type
+    hold_type = hold_types_mapping.get(class_id, "unknown")
 
-    # Run detection
-    results = hold_detection_model(img)
+    # Store data for DetectedHold creation
+    hold_data: Dict[str, Any] = {
+        "hold_type": hold_type,
+        "confidence": float(confidence),
+        "bbox_x1": float(x1),
+        "bbox_y1": float(y1),
+        "bbox_x2": float(x2),
+        "bbox_y2": float(y2),
+    }
 
-    # Process results
-    holds = []  # Keep for API response compatibility
-    features = {"total_holds": 0, "hold_types": {}, "average_confidence": 0}
+    # Update features
+    features: Dict[str, Any] = {
+        "total_holds": 1,
+        "hold_types": {hold_type: 1},
+        "average_confidence": float(confidence),
+    }
 
+    return hold_data, features
+
+
+def _process_detection_results(
+    results: Any, hold_types_mapping: Any
+) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
+    """Process YOLO detection results and extract features."""
+    total_features: Dict[str, Any] = {
+        "total_holds": 0,
+        "hold_types": {},
+        "average_confidence": 0,
+    }
     total_confidence = 0.0
-    detected_holds_data = []  # Temporary storage for hold data
+    detected_holds_data = []
 
     for result in results:
         boxes = result.boxes
         if boxes is not None:
             for box in boxes:
-                # Get box coordinates
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                confidence = box.conf[0].cpu().numpy()
-                class_id = int(box.cls[0].cpu().numpy())
+                hold_data, features = _process_box(box, hold_types_mapping)
+                detected_holds_data.append(hold_data)
 
-                # Map class ID to hold type
-                hold_type = HOLD_TYPES.get(class_id, "unknown")
-
-                # Store data for DetectedHold creation
-                detected_holds_data.append(
-                    {
-                        "hold_type": hold_type,
-                        "confidence": float(confidence),
-                        "bbox_x1": float(x1),
-                        "bbox_y1": float(y1),
-                        "bbox_x2": float(x2),
-                        "bbox_y2": float(y2),
-                    }
-                )
-
-                # Keep for API response
-                hold_data = {
-                    "type": hold_type,
-                    "confidence": float(confidence),
-                    "bbox": {
-                        "x1": float(x1),
-                        "y1": float(y1),
-                        "x2": float(x2),
-                        "y2": float(y2),
-                    },
-                }
-                holds.append(hold_data)
-                total_confidence += float(confidence)
-
-                # Update features
-                features["total_holds"] += 1
-                features["hold_types"][hold_type] = (
-                    features["hold_types"].get(hold_type, 0) + 1
-                )
+                # Update total features
+                total_features["total_holds"] += features["total_holds"]
+                for hold_type, count in features["hold_types"].items():
+                    total_features["hold_types"][hold_type] = (
+                        total_features["hold_types"].get(hold_type, 0) + count
+                    )
+                total_confidence += features["average_confidence"]
 
     # Calculate average confidence
-    if holds:
-        features["average_confidence"] = float(total_confidence) / len(holds)
+    if detected_holds_data:
+        total_features["average_confidence"] = float(total_confidence) / len(
+            detected_holds_data
+        )
     else:
-        features["average_confidence"] = 0
+        total_features["average_confidence"] = 0
 
-    # Predict grade
-    predicted_grade = predict_grade(features)
+    return detected_holds_data, total_features
 
-    # Create Analysis record (without holds_detected JSON)
-    analysis = Analysis(
-        image_filename=image_filename,
-        image_path=image_path,
-        predicted_grade=predicted_grade,
-        confidence_score=features["average_confidence"],
-        features_extracted=features,
-    )
-    db.session.add(analysis)
-    db.session.flush()  # Flush to get the analysis.id before creating DetectedHold records
 
+def _create_database_records(
+    analysis: Analysis, detected_holds_data: list[Dict[str, Any]]
+) -> None:
+    """Create database records for analysis and detected holds."""
     # Create DetectedHold records
     for hold_data in detected_holds_data:
         # Look up HoldType by name
-        hold_type = HoldType.query.filter_by(name=hold_data["hold_type"]).first()
+        hold_type = (
+            db.session.query(HoldType).filter_by(name=hold_data["hold_type"]).first()
+        )
 
         if hold_type:  # Only create if valid hold type exists
             detected_hold = DetectedHold(
@@ -365,21 +371,67 @@ def analyze_image(image_path, image_filename):
 
     db.session.commit()
 
+
+def _format_holds_for_response(
+    detected_holds_query: list[DetectedHold],
+) -> list[Dict[str, Any]]:
+    """Format detected holds for API response."""
+    result = []
+    for dh in detected_holds_query:
+        hold_type = db.session.query(HoldType).get(dh.hold_type_id)
+        if hold_type:
+            result.append(
+                {
+                    "type": hold_type.name,
+                    "confidence": dh.confidence,
+                    "bbox": {
+                        "x1": dh.bbox_x1,
+                        "y1": dh.bbox_y1,
+                        "x2": dh.bbox_x2,
+                        "y2": dh.bbox_y2,
+                    },
+                }
+            )
+    return result
+
+
+def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
+    """Analyze a bouldering route image"""
+    if not hold_detection_model:
+        raise RuntimeError("Hold detection model not loaded")
+
+    # Load and preprocess image
+    img: Image.Image = Image.open(image_path)
+    img = img.convert("RGB")
+
+    # Run detection
+    results = hold_detection_model(img)
+
+    # Process results
+    detected_holds_data, features = _process_detection_results(results, HOLD_TYPES)
+
+    # Predict grade
+    predicted_grade = predict_grade(features)
+
+    # Create Analysis record
+    analysis = Analysis(
+        image_filename=image_filename,
+        image_path=image_path,
+        predicted_grade=predicted_grade,
+        confidence_score=features["average_confidence"],
+        features_extracted=features,
+    )
+    db.session.add(analysis)
+    db.session.flush()  # Flush to get the analysis.id before creating DetectedHold records
+
+    # Create database records
+    _create_database_records(analysis, detected_holds_data)
+
     # Query back the detected holds for response
-    detected_holds_query = DetectedHold.query.filter_by(analysis_id=analysis.id).all()
-    holds_from_db = [
-        {
-            "type": dh.hold_type.name,
-            "confidence": dh.confidence,
-            "bbox": {
-                "x1": dh.bbox_x1,
-                "y1": dh.bbox_y1,
-                "x2": dh.bbox_x2,
-                "y2": dh.bbox_y2,
-            },
-        }
-        for dh in detected_holds_query
-    ]
+    detected_holds_query = (
+        db.session.query(DetectedHold).filter_by(analysis_id=analysis.id).all()
+    )
+    holds_from_db = _format_holds_for_response(detected_holds_query)
 
     return {
         "analysis_id": analysis.id,
@@ -390,7 +442,7 @@ def analyze_image(image_path, image_filename):
     }
 
 
-def predict_grade(features):
+def predict_grade(features: Dict[str, Any]) -> str:
     """Predict V-grade based on extracted features (simplified)"""
     # This is a simplified grading algorithm
     # In production, this would use a trained machine learning model
