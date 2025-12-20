@@ -6,10 +6,11 @@ Development environment setup script for Bouldering Route Analysis
 import sys
 import subprocess
 from pathlib import Path
+from typing import Any
 from src.setup import setup_database, create_directories
 
 
-def run_command(command, description):
+def run_command(command: Any, description: str) -> bool:
     """Run a command and handle errors"""
     print(f"\n{description}...")
     try:
@@ -26,6 +27,7 @@ def run_command(command, description):
         return False
 
 
+# pylint: disable=import-outside-toplevel, wrong-import-position
 def verify_installation():
     """Verify the installation"""
     print("\nVerifying installation...")
@@ -33,8 +35,7 @@ def verify_installation():
     try:
         # Test imports
         from src.main import app  # noqa: F401
-        from src.models import db, Analysis, Feedback  # noqa: F401
-        from PIL import Image  # noqa: F401
+        from src.models import db  # noqa: F401
         from ultralytics import YOLO  # noqa: F401
         from sqlalchemy import text
 
@@ -49,13 +50,13 @@ def verify_installation():
         try:
             _ = YOLO("yolov8n.pt")  # Assign to _ to indicate intentional discard
             print("✓ YOLO model loaded successfully")
-        except Exception as e:
+        except (ImportError, FileNotFoundError) as e:
             print(f"⚠ YOLO model loading failed: {e}")
             print("  This might be normal if the model file is not available")
 
         return True
 
-    except Exception as e:
+    except (ImportError, RuntimeError) as e:
         print(f"✗ Verification failed: {e}")
         return False
 
@@ -71,7 +72,7 @@ def main():
         return False
 
     # Run setup steps
-    steps = [
+    steps: list[Any] = [
         (create_directories, "Creating directories"),
         (setup_database, "Setting up database"),
         (verify_installation, "Verifying installation"),
