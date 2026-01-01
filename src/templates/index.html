@@ -228,8 +228,12 @@
                 
                 // Display stats
                 let statsHtml = '<h3>Analysis Details</h3>';
-                statsHtml += `<p><strong>Total Holds:</strong> ${data.features.total_holds}</p>`;
-                statsHtml += `<p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>`;
+                if (data.features) {
+                    statsHtml += `<p><strong>Total Holds:</strong> ${data.features.total_holds || 0}</p>`;
+                }
+                if (data.confidence != null) {
+                    statsHtml += `<p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>`;
+                }
                 
                 if (data.features.hold_types && Object.keys(data.features.hold_types).length > 0) {
                     statsHtml += '<p><strong>Hold Types:</strong></p><ul>';

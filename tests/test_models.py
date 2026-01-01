@@ -2,7 +2,6 @@
 Unit tests for src/models.py
 """
 
-import uuid
 from uuid import uuid4
 
 import pytest
@@ -57,7 +56,7 @@ class TestHoldType:
         """Test creating a HoldType instance."""
         with test_app.app_context():
             # Use a unique name that won't conflict
-            unique_name = f"test_hold_{uuid.uuid4().hex[:8]}"
+            unique_name = f"test_hold_{uuid4().hex[:8]}"
             hold_type = HoldType(
                 name=unique_name,
                 description="Test hold for testing purposes",

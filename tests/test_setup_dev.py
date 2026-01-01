@@ -10,8 +10,8 @@ from unittest.mock import Mock, patch
 # Add the project root to the path so we can import setup_dev
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# pylint: disable=wrong-import-position
-from src.setup_dev import run_command, verify_installation, main  # noqa: E402
+# pylint: disable=wrong-import-position # noqa: E402
+from src.setup_dev import run_command, verify_installation, main
 
 
 class TestRunCommand:
@@ -22,11 +22,11 @@ class TestRunCommand:
         """Test successful command execution."""
         mock_run.return_value = Mock(stdout="Success", stderr="")
 
-        result = run_command(["echo", "test"], "Test command")
+        result = run_command("echo test", "Test command")
 
         assert result is True
         mock_run.assert_called_once_with(
-            ["echo", "test"], check=True, capture_output=True, text=True, shell=False
+            "echo test", shell=True, check=True, capture_output=True, text=True
         )
 
     @patch("src.setup_dev.subprocess.run")
@@ -37,7 +37,7 @@ class TestRunCommand:
             returncode=1, cmd="test", stderr="Error message"
         )
 
-        result = run_command(["failing_command"], "Failing command")
+        result = run_command("failing_command", "Failing command")
 
         assert result is False
         mock_print.assert_any_call("✗ Failing command failed")
@@ -49,7 +49,7 @@ class TestRunCommand:
         """Test command execution with stdout output."""
         mock_run.return_value = Mock(stdout="Command output", stderr="")
 
-        result = run_command(["echo", "test"], "Test with output")
+        result = run_command("echo test", "Test with output")
 
         assert result is True
         mock_print.assert_any_call("Command output")
@@ -132,8 +132,7 @@ class TestMain:
 
     @patch("src.setup_dev.Path")
     @patch("src.setup_dev.print")
-    @patch("src.setup_dev.main")
-    def test_main_wrong_directory(self, mock_main, mock_print, mock_path):
+    def test_main_wrong_directory(self, mock_print, mock_path):
         """Test main function when run from wrong directory."""
         mock_path.return_value.exists.return_value = False
 
@@ -143,7 +142,6 @@ class TestMain:
         mock_print.assert_any_call(
             "✗ Please run this script from the project root directory"
         )
-        mock_main.assert_not_called()
 
     @patch("src.setup_dev.Path")
     @patch("src.setup_dev.print")

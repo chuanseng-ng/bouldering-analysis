@@ -423,9 +423,22 @@ def _format_holds_for_response(
     detected_holds_query: list[DetectedHold],
 ) -> list[Dict[str, Any]]:
     """Format detected holds for API response."""
+    # Pre-fetch all hold types to avoid N+1 queries
+    hold_type_ids = {dh.hold_type_id for dh in detected_holds_query}
+    hold_types_by_id = (
+        {
+            ht.id: ht
+            for ht in db.session.query(HoldType)
+            .filter(HoldType.id.in_(hold_type_ids))
+            .all()
+        }
+        if hold_type_ids
+        else {}
+    )
+
     result = []
     for dh in detected_holds_query:
-        hold_type = db.session.get(HoldType, dh.hold_type_id)
+        hold_type = hold_types_by_id.get(dh.hold_type_id)
         if hold_type:
             result.append(
                 {
