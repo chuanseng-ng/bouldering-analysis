@@ -15,6 +15,7 @@ def test_app():
     """Create and configure a test Flask application instance."""
     # Create a temporary database file
     db_fd, db_path = tempfile.mkstemp()
+    os.close(db_fd)  # Close immediately, SQLAlchemy will open it
 
     # Configure the app for testing
     flask_app.config["TESTING"] = True
@@ -45,15 +46,15 @@ def test_app():
 
         db.session.commit()
 
-    yield flask_app
+    try:
+        yield flask_app
+    finally:
+        # Cleanup
+        with flask_app.app_context():
+            db.session.remove()
+            db.drop_all()
 
-    # Cleanup
-    with flask_app.app_context():
-        db.session.remove()
-        db.drop_all()
-
-    os.close(db_fd)
-    os.unlink(db_path)
+        os.unlink(db_path)
 
 
 @pytest.fixture

@@ -8,8 +8,10 @@ on:
 
 jobs:
   build-linux:
-    permissions: write-all
-    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       max-parallel: 5
 
@@ -36,7 +38,7 @@ jobs:
       run: |
         conda install ruff
         ruff check
-        ruff format
+        ruff format --check
 
     #- name: Lint with flake8
     #  run: |
@@ -84,5 +86,5 @@ jobs:
       uses: actions-js/push@master
       with:
         branch: python/pre_release
-        message: Update coverage in README
+        message: Update coverage in README [skip_ci]
         github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -6,49 +6,37 @@ Development environment setup script for Bouldering Route Analysis
 import sys
 import subprocess
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Any, List
 from src.setup import setup_database, create_directories
 
 
-def run_command(command: Union[List[str], str], description: str) -> bool:
-    """Run a command and handle errors.
+def run_command(command: List[str], description: str) -> bool:
+    """Run a command given as a list of arguments and handle errors.
 
-    Prefer passing `command` as a list of arguments (safe, runs without a shell).
-    If a string is provided, it will be executed through the shell after a
-    basic safety check for dangerous metacharacters.
+    The `command` parameter must be a list (e.g. `['echo', 'hello']`).
+    If callers have a raw command string, they should explicitly parse it
+    (for example with `shlex.split`) before calling this helper. This
+    function does not invoke a shell and runs commands with `shell=False`
+    to avoid shell injection risks.
     """
+    if not isinstance(command, list):
+        raise TypeError("command must be a list of arguments")
+
     print(f"\n{description}...")
     try:
-        # If caller provided a list, run without a shell (safer).
-        if isinstance(command, list):
-            result = subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        else:
-            # Basic validation: reject commands containing common metacharacters
-            # that could be used for shell injection.
-            unsafe_chars = [";", "&", "|", ">", "<", "$", "`"]
-            if any(ch in command for ch in unsafe_chars):
-                raise ValueError("Unsafe characters found in command string")
-
-            result = subprocess.run(
-                command,
-                shell=True,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        result = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
         print(f"✓ {description} completed successfully")
         if result.stdout:
             print(result.stdout)
         return True
-    except (subprocess.CalledProcessError, ValueError) as e:
+    except subprocess.CalledProcessError as e:
         print(f"✗ {description} failed")
-        # CalledProcessError has stderr attribute; fall back to string repr.
         err = getattr(e, "stderr", None) or str(e)
         print(f"Error: {err}")
         return False
@@ -99,7 +87,7 @@ def main() -> bool:
         return False
 
     # Run setup steps
-    steps: list[Any] = [
+    steps: List[Any] = [
         (create_directories, "Creating directories"),
         (setup_database, "Setting up database"),
         (verify_installation, "Verifying installation"),

@@ -439,7 +439,7 @@ def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
         "confidence": features["average_confidence"],
         # Provide a server-safe URL for the uploaded image so the frontend
         # does not need to construct paths from the original filename.
-        "image_url": url_for("uploaded_file", filename=image_filename),
+        "image_url": url_for("uploaded_file", filename=image_filename, _external=True),
         "holds": holds_from_db,
         "features": features,
     }

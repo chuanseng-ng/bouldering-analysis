@@ -22,11 +22,11 @@ class TestRunCommand:
         """Test successful command execution."""
         mock_run.return_value = Mock(stdout="Success", stderr="")
 
-        result = run_command("echo test", "Test command")
+        result = run_command(["echo", "test"], "Test command")
 
         assert result is True
         mock_run.assert_called_once_with(
-            "echo test", shell=True, check=True, capture_output=True, text=True
+            ["echo", "test"], check=True, capture_output=True, text=True
         )
 
     @patch("src.setup_dev.subprocess.run")
@@ -37,7 +37,7 @@ class TestRunCommand:
             returncode=1, cmd="test", stderr="Error message"
         )
 
-        result = run_command("failing_command", "Failing command")
+        result = run_command(["failing_command"], "Failing command")
 
         assert result is False
         mock_print.assert_any_call("✗ Failing command failed")
@@ -49,7 +49,7 @@ class TestRunCommand:
         """Test command execution with stdout output."""
         mock_run.return_value = Mock(stdout="Command output", stderr="")
 
-        result = run_command("echo test", "Test with output")
+        result = run_command(["echo", "test"], "Test with output")
 
         assert result is True
         mock_print.assert_any_call("Command output")
