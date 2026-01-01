@@ -235,7 +235,7 @@
                     statsHtml += `<p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>`;
                 }
                 
-                if (data.features.hold_types && Object.keys(data.features.hold_types).length > 0) {
+                if (data.features && data.features.hold_types && Object.keys(data.features.hold_types).length > 0) {
                     statsHtml += '<p><strong>Hold Types:</strong></p><ul>';
                     for (const [type, count] of Object.entries(data.features.hold_types)) {
                         statsHtml += `<li>${type}: ${count}</li>`;
