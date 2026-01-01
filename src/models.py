@@ -9,13 +9,14 @@ from datetime import datetime, timezone
 import uuid
 from typing import Any, Dict
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
 
 db = SQLAlchemy()
 
 
-class Base(DeclarativeBase):
+class Base(db.Model):  # type: ignore[name-defined]
     """Base class for all SQLAlchemy models"""
+
+    __abstract__ = True
 
     def __repr__(self) -> str:
         """Return a string representation of the model."""
@@ -62,6 +63,12 @@ class Analysis(Base):
         db.Index("idx_analysis_created_at", "created_at"),
     )
 
+    def __init__(self, **kwargs):
+        """Initialize Analysis with generated UUID if not provided."""
+        if "id" not in kwargs:
+            kwargs["id"] = str(uuid.uuid4())
+        super().__init__(**kwargs)
+
     def __repr__(self):
         """Return a string representation of the Analysis object."""
         return f"<Analysis {self.id}: {self.image_filename} - Grade {self.predicted_grade}>"
@@ -100,6 +107,12 @@ class Feedback(Base):
         db.Index("idx_feedback_analysis_id", "analysis_id"),
         db.Index("idx_feedback_created_at", "created_at"),
     )
+
+    def __init__(self, **kwargs):
+        """Initialize Feedback with generated UUID if not provided."""
+        if "id" not in kwargs:
+            kwargs["id"] = str(uuid.uuid4())
+        super().__init__(**kwargs)
 
     def __repr__(self):
         """Return a string representation of the Feedback object."""
@@ -206,6 +219,12 @@ class ModelVersion(Base):
         db.UniqueConstraint("model_type", "version", name="uq_model_type_version"),
     )
 
+    def __init__(self, **kwargs):
+        """Initialize ModelVersion with is_active default if not provided."""
+        if "is_active" not in kwargs:
+            kwargs["is_active"] = True
+        super().__init__(**kwargs)
+
     def __repr__(self):
         """Return a string representation of the ModelVersion object."""
         return f"<ModelVersion {self.id}: {self.model_type} v{self.version} - Active {self.is_active}>"
@@ -237,6 +256,12 @@ class UserSession(Base):
 
     # Index for faster queries
     __table_args__ = (db.Index("idx_user_session_created_at", "created_at"),)
+
+    def __init__(self, **kwargs):
+        """Initialize UserSession with generated UUID if not provided."""
+        if "id" not in kwargs:
+            kwargs["id"] = str(uuid.uuid4())
+        super().__init__(**kwargs)
 
     def __repr__(self):
         """Return a string representation of the UserSession object."""
