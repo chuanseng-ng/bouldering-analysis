@@ -7,3 +7,6 @@ dependencies:
   - openpyxl
   - plotly
   - pandas
+  - ultralytics
+  - scikit-learn
+  - sqlalchemy
