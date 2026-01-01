@@ -37,7 +37,6 @@ jobs:
 
     - name: Lint with ruff
       run: |
-        conda install ruff
         ruff check
         ruff format --check
 
@@ -51,8 +50,6 @@ jobs:
 
     - name: Test with pytest
       run: |
-        conda install pytest
-        conda install pytest-cov
         pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
 
     - name: Pytest coverage comment
@@ -67,7 +64,6 @@ jobs:
     - name: Rerun coverage generation for Codacy
       if: ${{ github.ref == 'refs/heads/python/pre_release' }}
       run: |
-        conda install coverage
         coverage report -m --skip-covered
         coverage xml
 
