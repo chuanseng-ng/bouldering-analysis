@@ -29,3 +29,6 @@ jobs:
       run: |
         ruff check
         ruff format
+    - name: Analysing the code with mypy
+      run: |
+        mypy src/ tests/
