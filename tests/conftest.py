@@ -8,6 +8,7 @@ import pytest
 from PIL import Image
 from src.main import app as flask_app
 from src.models import db, HoldType
+from src.constants import HOLD_TYPES
 
 
 @pytest.fixture
@@ -29,19 +30,22 @@ def test_app():
         db.create_all()
 
         # Initialize hold types
-        hold_type_data = [
-            (0, "crimp", "Small, narrow hold requiring crimping fingers"),
-            (1, "jug", "Large, easy-to-hold jug"),
-            (2, "sloper", "Round, sloping hold that requires open-handed grip"),
-            (3, "pinch", "Hold that requires pinching between thumb and fingers"),
-            (4, "pocket", "Small hole that fingers fit into"),
-            (5, "foot-hold", "Hold specifically for feet"),
-            (6, "start-hold", "Starting hold for the route"),
-            (7, "top-out-hold", "Hold used to complete the route"),
-        ]
+        # Preserve descriptions from the original hard-coded data
+        HOLD_TYPE_DESCRIPTIONS = {
+            "crimp": "Small, narrow hold requiring crimping fingers",
+            "jug": "Large, easy-to-hold jug",
+            "sloper": "Round, sloping hold that requires open-handed grip",
+            "pinch": "Hold that requires pinching between thumb and fingers",
+            "pocket": "Small hole that fingers fit into",
+            "foot-hold": "Hold specifically for feet",
+            "start-hold": "Starting hold for the route",
+            "top-out-hold": "Hold used to complete the route",
+        }
 
-        for hold_id, name, description in hold_type_data:
-            hold_type = HoldType(id=hold_id, name=name, description=description)
+        for hold_id, name in HOLD_TYPES.items():
+            hold_type = HoldType(
+                id=hold_id, name=name, description=HOLD_TYPE_DESCRIPTIONS.get(name, "")
+            )
             db.session.add(hold_type)
 
         db.session.commit()

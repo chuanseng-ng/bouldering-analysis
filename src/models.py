@@ -7,7 +7,7 @@ detected holds, model versions, and user sessions.
 
 from datetime import datetime, timezone
 import uuid
-from typing import Any, Dict
+from typing import Any
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -22,7 +22,7 @@ class Base(db.Model):  # type: ignore[name-defined]
         """Return a string representation of the model."""
         return f"<{self.__class__.__name__}>"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the model to a dictionary."""
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
@@ -73,7 +73,7 @@ class Analysis(Base):
         """Return a string representation of the Analysis object."""
         return f"<Analysis {self.id}: {self.image_filename} - Grade {self.predicted_grade}>"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the Analysis object to a dictionary."""
         return {
             "id": self.id,
@@ -118,7 +118,7 @@ class Feedback(Base):
         """Return a string representation of the Feedback object."""
         return f"<Feedback {self.id}: Analysis {self.analysis_id} - Accurate {self.is_accurate}>"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the Feedback object to a dictionary."""
         return {
             "id": self.id,
@@ -146,7 +146,7 @@ class HoldType(Base):
         """Return a string representation of the HoldType object."""
         return f"<HoldType {self.id}: {self.name}>"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the HoldType object to a dictionary."""
         return {
             "id": self.id,
@@ -180,7 +180,7 @@ class DetectedHold(Base):
         """Return a string representation of the DetectedHold object."""
         return f"<DetectedHold {self.id}: Analysis {self.analysis_id} - Type {self.hold_type_id}>"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the DetectedHold object to a dictionary."""
         return {
             "id": self.id,
@@ -229,7 +229,7 @@ class ModelVersion(Base):
         """Return a string representation of the ModelVersion object."""
         return f"<ModelVersion {self.id}: {self.model_type} v{self.version} - Active {self.is_active}>"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the ModelVersion object to a dictionary."""
         return {
             "id": self.id,
@@ -267,7 +267,7 @@ class UserSession(Base):
         """Return a string representation of the UserSession object."""
         return f"<UserSession {self.id}: {self.session_id}>"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the UserSession object to a dictionary."""
         return {
             "id": self.id,

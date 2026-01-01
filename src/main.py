@@ -22,6 +22,8 @@ from PIL import Image
 from ultralytics import YOLO
 from sqlalchemy.exc import SQLAlchemyError
 
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__, template_folder="templates")
 
 # Configure proxy behavior: when the app is deployed behind a reverse proxy
@@ -254,6 +256,7 @@ def submit_feedback():
         )
 
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+        logger.exception("Error submitting feedback: %s", str(e))
         db.session.rollback()
         return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
 
@@ -289,6 +292,7 @@ def get_stats():
         return jsonify(stats)
 
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+        logger.exception("Error getting stats: %s", str(e))
         return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
 
 
@@ -299,7 +303,8 @@ def check_db_connection():
 
         db.session.execute(text("SELECT 1"))
         return True
-    except (SQLAlchemyError, Exception):  # pylint: disable=broad-exception-caught
+    except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+        logger.exception("Database connection check failed: %s", str(e))
         return False
 
 
