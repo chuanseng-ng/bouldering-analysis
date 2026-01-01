@@ -83,5 +83,5 @@ jobs:
       uses: actions-js/push@master
       with:
         branch: python/pre_release
-        message: Update coverage in README [skip_ci]
+        message: Update coverage in README [skip ci]
         github_token: ${{ secrets.GITHUB_TOKEN }}
