@@ -58,28 +58,46 @@ class TestRunCommand:
 class TestVerifyInstallation:
     """Test cases for the verify_installation function."""
 
-    @patch("ultralytics.YOLO")
-    @patch("sqlalchemy.text")
-    @patch("src.models.db")
-    @patch("src.main.app")
     @patch("src.setup_dev.print")
     @patch("src.setup_dev.subprocess.run")
-    # pylint: disable=too-many-arguments,too-many-positional-arguments,unused-argument
-    def test_verify_installation_success(
-        self, mock_run, mock_print, mock_app, mock_db, mock_text, mock_yolo
-    ):
+    # pylint: disable=unused-argument
+    def test_verify_installation_success(self, mock_run, mock_print):
         """Test successful installation verification."""
-        # Mock the YOLO model loading
-        mock_yolo.return_value = Mock()
+        # Create mock context manager for app.app_context()
+        mock_context = Mock()
+        mock_context.__enter__ = Mock(return_value=None)
+        mock_context.__exit__ = Mock(return_value=None)
 
-        # Mock app context
-        mock_app.app_context.return_value.__enter__ = Mock()
-        mock_app.app_context.return_value.__exit__ = Mock()
+        # Create stub module for src.main with app object
+        mock_src_main = Mock()
+        mock_src_main.app = Mock()
+        mock_src_main.app.app_context = Mock(return_value=mock_context)
 
-        # Mock db session execute
-        mock_db.session.execute = Mock()
+        # Create stub module for src.models with db object
+        mock_src_models = Mock()
+        mock_src_models.db = Mock()
+        mock_src_models.db.session = Mock()
+        mock_src_models.db.session.execute = Mock()
 
-        result = verify_installation()
+        # Create stub module for ultralytics with YOLO callable
+        mock_ultralytics = Mock()
+        mock_ultralytics.YOLO = Mock(return_value=Mock())
+
+        # Create stub module for sqlalchemy with text callable
+        mock_sqlalchemy = Mock()
+        mock_sqlalchemy.text = Mock(return_value="SELECT 1")
+
+        # Inject mocks into sys.modules
+        with patch.dict(
+            sys.modules,
+            {
+                "src.main": mock_src_main,
+                "src.models": mock_src_models,
+                "ultralytics": mock_ultralytics,
+                "sqlalchemy": mock_sqlalchemy,
+            },
+        ):
+            result = verify_installation()
 
         assert result is True
         mock_print.assert_any_call("✓ All imports successful")
@@ -103,25 +121,46 @@ class TestVerifyInstallation:
         # Check that verification failed message is printed
         assert any("✗ Verification failed" in str(c) for c in mock_print.call_args_list)
 
-    @patch("ultralytics.YOLO", side_effect=ImportError("Model not found"))
-    @patch("sqlalchemy.text")
-    @patch("src.models.db")
-    @patch("src.main.app")
     @patch("src.setup_dev.print")
     @patch("src.setup_dev.subprocess.run")
-    # pylint: disable=too-many-arguments,too-many-positional-arguments,unused-argument
-    def test_verify_installation_model_loading_error(
-        self, mock_run, mock_print, mock_app, mock_db, mock_text, mock_yolo
-    ):
+    # pylint: disable=unused-argument
+    def test_verify_installation_model_loading_error(self, mock_run, mock_print):
         """Test installation verification with YOLO model loading error."""
-        # Mock app context
-        mock_app.app_context.return_value.__enter__ = Mock()
-        mock_app.app_context.return_value.__exit__ = Mock()
+        # Create mock context manager for app.app_context()
+        mock_context = Mock()
+        mock_context.__enter__ = Mock(return_value=None)
+        mock_context.__exit__ = Mock(return_value=None)
 
-        # Mock db session execute
-        mock_db.session.execute = Mock()
+        # Create stub module for src.main with app object
+        mock_src_main = Mock()
+        mock_src_main.app = Mock()
+        mock_src_main.app.app_context = Mock(return_value=mock_context)
 
-        result = verify_installation()
+        # Create stub module for src.models with db object
+        mock_src_models = Mock()
+        mock_src_models.db = Mock()
+        mock_src_models.db.session = Mock()
+        mock_src_models.db.session.execute = Mock()
+
+        # Create stub module for ultralytics with YOLO that raises ImportError
+        mock_ultralytics = Mock()
+        mock_ultralytics.YOLO = Mock(side_effect=ImportError("Model not found"))
+
+        # Create stub module for sqlalchemy with text callable
+        mock_sqlalchemy = Mock()
+        mock_sqlalchemy.text = Mock(return_value="SELECT 1")
+
+        # Inject mocks into sys.modules
+        with patch.dict(
+            sys.modules,
+            {
+                "src.main": mock_src_main,
+                "src.models": mock_src_models,
+                "ultralytics": mock_ultralytics,
+                "sqlalchemy": mock_sqlalchemy,
+            },
+        ):
+            result = verify_installation()
 
         assert result is True  # Should still pass with warning
         mock_print.assert_any_call("⚠ YOLO model loading failed: Model not found")
