@@ -1,8 +1,5 @@
-
 {
-    "python.analysis.diagnosticSeverityOverrides": {
-        "reportPrivateImportUsage": "none"
-    },
-    "python.analysis.typeCheckingMode": "off",
-    "python.analysis.ignore": ["*"]
+    "python.analysis.typeCheckingMode": "basic",
+    "python.linting.mypyEnabled": true,
+    "python.linting.enabled": true
 }
