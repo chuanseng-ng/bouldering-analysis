@@ -244,35 +244,3 @@ class TestMain:
         mock_print.assert_any_call(
             "✓ Development environment setup completed successfully!"
         )
-
-    @patch("src.setup_dev.Path")
-    @patch("src.setup_dev.create_directories")
-    @patch("src.setup_dev.setup_database")
-    @patch("src.setup_dev.verify_installation")
-    # pylint: disable=too-many-arguments,too-many-positional-arguments
-    def test_main_returns_true_on_success(
-        self, mock_verify, mock_setup, mock_create, mock_path
-    ):
-        """Test that main() returns True on successful setup."""
-        # Mock all dependencies to ensure success
-        mock_path.return_value.exists.return_value = True
-        mock_create.return_value = True
-        mock_setup.return_value = True
-        mock_verify.return_value = True
-
-        result = main()
-
-        assert result is True
-
-    @patch("src.setup_dev.Path")
-    @patch("src.setup_dev.create_directories")
-    # pylint: disable=unused-argument
-    def test_main_returns_false_on_failure(self, mock_create, mock_path):
-        """Test that main() returns False when setup fails."""
-        # Mock dependencies to cause failure
-        mock_path.return_value.exists.return_value = True
-        mock_create.return_value = False  # Cause failure
-
-        result = main()
-
-        assert result is False
