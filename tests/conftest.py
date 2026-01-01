@@ -57,7 +57,7 @@ def test_app():
 
 
 @pytest.fixture
-def test_client(test_app):
+def test_client(test_app):  # pylint: disable=redefined-outer-name
     """Create a test client for the Flask application."""
     return test_app.test_client()
 

@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # pylint: disable=wrong-import-position
-from src.setup_dev import run_command, verify_installation, main
+from src.setup_dev import run_command, verify_installation, main  # noqa: E402
 
 
 class TestRunCommand:
