@@ -11,6 +11,7 @@ The application uses YOLOv8 for hold detection and a simplified algorithm for ro
 """
 
 import os
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -29,9 +30,34 @@ app = Flask(__name__, template_folder="templates")
 # `request.scheme/host` produce correct external URLs. This is enabled by
 # default but may be disabled by setting `ENABLE_PROXY_FIX=false` in the
 # environment for local development or tests.
-if os.environ.get("ENABLE_PROXY_FIX", "true").lower() != "false":
-    # Trust one proxy by default; increase counts if you have multiple proxies.
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+# Enable ProxyFix only when explicitly opted-in via environment variables.
+# Default is disabled to avoid accidentally trusting proxy headers.
+enable_proxy_fix = os.environ.get("ENABLE_PROXY_FIX", "").lower() in {
+    "true",
+    "1",
+    "yes",
+}
+if enable_proxy_fix:
+    # Allow configuring how many proxies to trust for each header.
+    try:
+        x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
+        x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
+        x_host = int(os.environ.get("PROXY_FIX_X_HOST", "1"))
+        x_port = int(os.environ.get("PROXY_FIX_X_PORT", "1"))
+    except ValueError:
+        # Fallback to 1 if values are invalid
+        x_for = x_proto = x_host = x_port = 1
+
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
+    )
+    logging.warning(
+        "ProxyFix enabled: trusting %d x_for, %d x_proto, %d x_host, %d x_port",
+        x_for,
+        x_proto,
+        x_host,
+        x_port,
+    )
 
 # Optional: allow configuring SERVER_NAME and preferred URL scheme from the
 # environment for production deployments where ProxyFix is not available.
