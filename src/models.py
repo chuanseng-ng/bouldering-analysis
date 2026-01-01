@@ -211,7 +211,7 @@ class ModelVersion(Base):
         db.UniqueConstraint("model_type", "version", name="uq_model_type_version"),
     )
 
-    # No custom __init__ needed - SQLAlchemy column default handles UUID generation
+    # No custom __init__ needed - SQLAlchemy handles primary key generation
 
     def __repr__(self):
         """Return a string representation of the ModelVersion object."""
