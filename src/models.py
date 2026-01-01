@@ -213,7 +213,7 @@ class ModelVersion(Base):
 
     # No custom __init__ needed - SQLAlchemy handles primary key generation
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a string representation of the ModelVersion object."""
         return f"<ModelVersion {self.id}: {self.model_type} v{self.version} - Active {self.is_active}>"
 
