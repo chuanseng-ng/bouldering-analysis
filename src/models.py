@@ -104,11 +104,7 @@ class Feedback(Base):
         db.Index("idx_feedback_created_at", "created_at"),
     )
 
-    def __init__(self, **kwargs):
-        """Initialize Feedback with generated UUID if not provided."""
-        if "id" not in kwargs:
-            kwargs["id"] = str(uuid.uuid4())
-        super().__init__(**kwargs)
+    # No custom __init__ needed - SQLAlchemy column default handles UUID generation
 
     def __repr__(self):
         """Return a string representation of the Feedback object."""
@@ -215,11 +211,7 @@ class ModelVersion(Base):
         db.UniqueConstraint("model_type", "version", name="uq_model_type_version"),
     )
 
-    def __init__(self, **kwargs):
-        """Initialize ModelVersion with is_active default if not provided."""
-        if "is_active" not in kwargs:
-            kwargs["is_active"] = True
-        super().__init__(**kwargs)
+    # No custom __init__ needed - SQLAlchemy column default handles UUID generation
 
     def __repr__(self):
         """Return a string representation of the ModelVersion object."""
@@ -253,11 +245,7 @@ class UserSession(Base):
     # Index for faster queries
     __table_args__ = (db.Index("idx_user_session_created_at", "created_at"),)
 
-    def __init__(self, **kwargs):
-        """Initialize UserSession with generated UUID if not provided."""
-        if "id" not in kwargs:
-            kwargs["id"] = str(uuid.uuid4())
-        super().__init__(**kwargs)
+    # No custom __init__ needed - SQLAlchemy column default handles UUID generation
 
     def __repr__(self):
         """Return a string representation of the UserSession object."""
