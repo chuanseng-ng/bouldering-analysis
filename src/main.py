@@ -48,7 +48,7 @@ if enable_proxy_fix:
         # Fallback to 1 if values are invalid
         x_for = x_proto = x_host = x_port = 1
 
-    app.wsgi_app = ProxyFix(
+    app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
         app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
     )
     logging.warning(
