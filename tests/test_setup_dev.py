@@ -86,17 +86,21 @@ class TestVerifyInstallation:
         mock_print.assert_any_call("✓ Database connection successful")
         mock_print.assert_any_call("✓ YOLO model loaded successfully")
 
-    @patch("src.main.app", side_effect=ImportError("Failed to import app"))
     @patch("src.setup_dev.print")
     @patch("src.setup_dev.subprocess.run")
     # pylint: disable=unused-argument
-    def test_verify_installation_import_error(self, mock_run, mock_print, mock_app):
-        """Test installation verification with import error."""
-        result = verify_installation()
+    def test_verify_installation_import_error(self, mock_run, mock_print):
+        """Test installation verification with import error.
+
+        Simulate an import-time failure for `src.main` by inserting a
+        sentinel into `sys.modules` so that importing `src.main` raises
+        ImportError during `verify_installation()`.
+        """
+        with patch.dict(sys.modules, {"src.main": None}):
+            result = verify_installation()
 
         assert result is False
         # Check that verification failed message is printed
-        # The actual message includes the error details
         assert any("✗ Verification failed" in str(c) for c in mock_print.call_args_list)
 
     @patch("ultralytics.YOLO", side_effect=ImportError("Model not found"))

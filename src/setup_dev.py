@@ -6,29 +6,56 @@ Development environment setup script for Bouldering Route Analysis
 import sys
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Union
 from src.setup import setup_database, create_directories
 
 
-def run_command(command: Any, description: str) -> bool:
-    """Run a command and handle errors"""
+def run_command(command: Union[List[str], str], description: str) -> bool:
+    """Run a command and handle errors.
+
+    Prefer passing `command` as a list of arguments (safe, runs without a shell).
+    If a string is provided, it will be executed through the shell after a
+    basic safety check for dangerous metacharacters.
+    """
     print(f"\n{description}...")
     try:
-        result = subprocess.run(
-            command, shell=True, check=True, capture_output=True, text=True
-        )
+        # If caller provided a list, run without a shell (safer).
+        if isinstance(command, list):
+            result = subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        else:
+            # Basic validation: reject commands containing common metacharacters
+            # that could be used for shell injection.
+            unsafe_chars = [";", "&", "|", ">", "<", "$", "`"]
+            if any(ch in command for ch in unsafe_chars):
+                raise ValueError("Unsafe characters found in command string")
+
+            result = subprocess.run(
+                command,
+                shell=True,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
         print(f"✓ {description} completed successfully")
         if result.stdout:
             print(result.stdout)
         return True
-    except subprocess.CalledProcessError as e:
+    except (subprocess.CalledProcessError, ValueError) as e:
         print(f"✗ {description} failed")
-        print(f"Error: {e.stderr}")
+        # CalledProcessError has stderr attribute; fall back to string repr.
+        err = getattr(e, "stderr", None) or str(e)
+        print(f"Error: {err}")
         return False
 
 
 # pylint: disable=import-outside-toplevel, wrong-import-position
-def verify_installation():
+def verify_installation() -> bool:
     """Verify the installation"""
     print("\nVerifying installation...")
 
@@ -61,7 +88,7 @@ def verify_installation():
         return False
 
 
-def main():
+def main() -> bool:
     """Main setup function"""
     print("Bouldering Route Analysis - Development Setup")
     print("=" * 50)
