@@ -63,11 +63,7 @@ class Analysis(Base):
         db.Index("idx_analysis_created_at", "created_at"),
     )
 
-    def __init__(self, **kwargs):
-        """Initialize Analysis with generated UUID if not provided."""
-        if "id" not in kwargs:
-            kwargs["id"] = str(uuid.uuid4())
-        super().__init__(**kwargs)
+    # No custom __init__ needed - SQLAlchemy column default handles UUID generation
 
     def __repr__(self):
         """Return a string representation of the Analysis object."""
