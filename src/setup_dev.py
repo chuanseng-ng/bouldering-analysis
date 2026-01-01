@@ -6,11 +6,11 @@ Development environment setup script for Bouldering Route Analysis
 import sys
 import subprocess
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 from src.setup import setup_database, create_directories
 
 
-def run_command(command: List[str], description: str) -> bool:
+def run_command(command: list[str], description: str) -> bool:
     """Run a command given as a list of arguments and handle errors.
 
     The `command` parameter must be a list (e.g. `['echo', 'hello']`).
@@ -29,8 +29,8 @@ def run_command(command: List[str], description: str) -> bool:
             check=True,
             capture_output=True,
             text=True,
+            shell=False,
         )
-
         print(f"✓ {description} completed successfully")
         if result.stdout:
             print(result.stdout)
@@ -87,7 +87,7 @@ def main() -> bool:
         return False
 
     # Run setup steps
-    steps: List[Any] = [
+    steps: list[Any] = [
         (create_directories, "Creating directories"),
         (setup_database, "Setting up database"),
         (verify_installation, "Verifying installation"),

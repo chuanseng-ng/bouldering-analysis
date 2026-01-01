@@ -1,12 +1,15 @@
 name: conda_env_setup
+channels:
+  - conda-forge
 dependencies:
-  - flask
-  - pyyaml
-  - requests
-  - matplotlib
-  - openpyxl
-  - plotly
-  - pandas
-  - ultralytics
-  - scikit-learn
-  - sqlalchemy
+  - python=3.11
+  - flask>=2.3,<3.0
+  - pyyaml>=6.0,<7.0
+  - requests>=2.31,<3.0
+  - matplotlib>=3.7,<4.0
+  - openpyxl>=3.1,<4.0
+  - plotly>=5.17,<6.0
+  - pandas>=2.0,<3.0
+  - ultralytics>=8.0,<9.0
+  - scikit-learn>=1.3,<2.0
+  - sqlalchemy>=2.0,<3.0

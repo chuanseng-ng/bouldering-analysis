@@ -10,7 +10,8 @@ jobs:
   build-linux:
     permissions:
       contents: write
-      pull-requests: write    runs-on: ubuntu-latest
+      pull-requests: write
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       max-parallel: 5

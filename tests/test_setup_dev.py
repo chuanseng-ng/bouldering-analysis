@@ -26,7 +26,7 @@ class TestRunCommand:
 
         assert result is True
         mock_run.assert_called_once_with(
-            ["echo", "test"], check=True, capture_output=True, text=True
+            ["echo", "test"], check=True, capture_output=True, text=True, shell=False
         )
 
     @patch("src.setup_dev.subprocess.run")

@@ -15,12 +15,33 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from PIL import Image
 from ultralytics import YOLO
 from sqlalchemy.exc import SQLAlchemyError
 
 app = Flask(__name__, template_folder="templates")
+
+# Configure proxy behavior: when the app is deployed behind a reverse proxy
+# that forwards `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` or
+# `X-Forwarded-Port`, enable `ProxyFix` so `url_for(..., _external=True)` and
+# `request.scheme/host` produce correct external URLs. This is enabled by
+# default but may be disabled by setting `ENABLE_PROXY_FIX=false` in the
+# environment for local development or tests.
+if os.environ.get("ENABLE_PROXY_FIX", "true").lower() != "false":
+    # Trust one proxy by default; increase counts if you have multiple proxies.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+# Optional: allow configuring SERVER_NAME and preferred URL scheme from the
+# environment for production deployments where ProxyFix is not available.
+server_name = os.environ.get("SERVER_NAME")
+if server_name:
+    app.config["SERVER_NAME"] = server_name
+
+preferred_scheme = os.environ.get("PREFERRED_URL_SCHEME")
+if preferred_scheme:
+    app.config["PREFERRED_URL_SCHEME"] = preferred_scheme
 
 # Configuration
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
