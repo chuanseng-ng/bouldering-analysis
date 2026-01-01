@@ -61,11 +61,11 @@ jobs:
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml
 
-    - name: Rerun coverage generation for Codacy
-      if: ${{ github.ref == 'refs/heads/python/pre_release' }}
-      run: |
-        coverage report -m --skip-covered
-        coverage xml
+    #- name: Rerun coverage generation for Codacy
+    #  if: ${{ github.ref == 'refs/heads/python/pre_release' }}
+    #  run: |
+    #    coverage report -m --skip-covered
+    #    coverage xml
 
     #- name: Upload coverage report to Codacy
     #  if: ${{ github.ref == 'refs/heads/python/pre_release' }}
