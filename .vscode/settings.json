@@ -1,0 +1,8 @@
+
+{
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportPrivateImportUsage": "none"
+    },
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.ignore": ["*"]
+}
