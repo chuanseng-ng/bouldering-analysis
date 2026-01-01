@@ -222,7 +222,8 @@
                 if (!data.image_url || typeof data.image_url !== 'string' || !data.image_url.startsWith('/')) {
                     showError('Invalid response from server: missing image URL');
                     return;
-                }                // Use the server-provided, safe URL for the image
+                }
+                // Use the server-provided, safe URL for the image
                 resultImage.src = data.image_url;
                 predictedGrade.textContent = `Predicted Grade: ${data.predicted_grade}`;
                 
