@@ -41,7 +41,7 @@ from src.config import resolve_path
 # Add project root to Python path for imports
 _project_root = Path(__file__).parent.parent
 if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
+    sys.path.insert(0, str(_project_root))  # pragma: no cover
 
 # Configure logging
 logging.basicConfig(

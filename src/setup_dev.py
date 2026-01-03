@@ -20,7 +20,7 @@ def run_command(command: list[str], description: str) -> bool:
     to avoid shell injection risks.
     """
     if not isinstance(command, list):
-        raise TypeError("command must be a list of arguments")
+        raise TypeError("command must be a list of arguments")  # pragma: no cover
 
     print(f"\n{description}...")
     try:

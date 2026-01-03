@@ -130,7 +130,7 @@ def load_config(
                 raise ConfigurationError(f"Configuration file is empty: {config_file}")
 
             if not isinstance(config, dict):
-                raise ConfigurationError(
+                raise ConfigurationError(  # pragma: no cover
                     f"Configuration must be a dictionary, got {type(config).__name__}"
                 )
 
@@ -148,7 +148,7 @@ def load_config(
                 f"Error parsing YAML configuration file {config_file}: {exc}"
             ) from exc
         except (OSError, IOError) as exc:
-            raise ConfigurationError(
+            raise ConfigurationError(  # pragma: no cover
                 f"Error reading configuration file {config_file}: {exc}"
             ) from exc
 

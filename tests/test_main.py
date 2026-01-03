@@ -741,7 +741,9 @@ class TestLoadActiveHoldDetectionModel:
             mock_yolo.assert_called_once_with(active_model_version.model_path)
 
     @patch("src.main.get_config_value")
-    def test_load_model_with_custom_threshold(self, mock_config, test_app):  # pylint: disable=unused-argument
+    def test_load_model_with_custom_threshold(
+        self, mock_config, test_app
+    ):  # pylint: disable=unused-argument
         """Test that custom confidence threshold is loaded from config."""
         mock_config.return_value = 0.35
 
@@ -749,14 +751,18 @@ class TestLoadActiveHoldDetectionModel:
         from src.main import load_active_hold_detection_model
 
         with test_app.app_context():
-            model, threshold = load_active_hold_detection_model()  # pylint: disable=unused-variable
+            model, threshold = (
+                load_active_hold_detection_model()
+            )  # pylint: disable=unused-variable
             _ = model  # May be None
 
             assert threshold == 0.35
 
     @patch("src.main.YOLO")
     @patch("src.main.get_model_path")
-    def test_fallback_to_base_model(self, mock_get_path, mock_yolo, test_app, tmp_path):  # pylint: disable=unused-argument
+    def test_fallback_to_base_model(
+        self, mock_get_path, mock_yolo, test_app, tmp_path
+    ):  # pylint: disable=unused-argument
         """Test fallback to base model when no active model exists."""
         # Setup base model path
         base_model = tmp_path / "yolov8n.pt"
@@ -805,7 +811,9 @@ class TestLoadActiveHoldDetectionModel:
         from src.main import load_active_hold_detection_model
 
         with test_app.app_context():
-            model, threshold = load_active_hold_detection_model()  # pylint: disable=unused-variable
+            model, threshold = (
+                load_active_hold_detection_model()
+            )  # pylint: disable=unused-variable
             _ = model  # May be None
 
             # Should fallback to base model
@@ -826,9 +834,9 @@ class TestProcessDetectionResultsWithThreshold:
         high_conf_box.xyxy = [Mock()]
         high_conf_box.xyxy[0].cpu.return_value.numpy.return_value = [10, 10, 50, 50]
         high_conf_box.conf = [Mock()]
-        high_conf_box.conf[
-            0
-        ].cpu.return_value.numpy.return_value = 0.8  # Above threshold
+        high_conf_box.conf[0].cpu.return_value.numpy.return_value = (
+            0.8  # Above threshold
+        )
         high_conf_box.cls = [Mock()]
         high_conf_box.cls[0].cpu.return_value.numpy.return_value = 0
 
@@ -837,9 +845,9 @@ class TestProcessDetectionResultsWithThreshold:
         low_conf_box.xyxy = [Mock()]
         low_conf_box.xyxy[0].cpu.return_value.numpy.return_value = [60, 60, 100, 100]
         low_conf_box.conf = [Mock()]
-        low_conf_box.conf[
-            0
-        ].cpu.return_value.numpy.return_value = 0.15  # Below threshold
+        low_conf_box.conf[0].cpu.return_value.numpy.return_value = (
+            0.15  # Below threshold
+        )
         low_conf_box.cls = [Mock()]
         low_conf_box.cls[0].cpu.return_value.numpy.return_value = 1
 
@@ -946,9 +954,9 @@ class TestAnalyzeEndpointIntegration:
             mock_box.xyxy = [Mock()]
             mock_box.xyxy[0].cpu.return_value.numpy.return_value = [10, 20, 50, 60]
             mock_box.conf = [Mock()]
-            mock_box.conf[
-                0
-            ].cpu.return_value.numpy.return_value = 0.3  # Below threshold
+            mock_box.conf[0].cpu.return_value.numpy.return_value = (
+                0.3  # Below threshold
+            )
             mock_box.cls = [Mock()]
             mock_box.cls[0].cpu.return_value.numpy.return_value = 0
 
@@ -1019,9 +1027,9 @@ class TestAnalysisResultsStorage:
             low_box.xyxy = [Mock()]
             low_box.xyxy[0].cpu.return_value.numpy.return_value = [60, 60, 100, 100]
             low_box.conf = [Mock()]
-            low_box.conf[
-                0
-            ].cpu.return_value.numpy.return_value = 0.15  # Below default 0.25
+            low_box.conf[0].cpu.return_value.numpy.return_value = (
+                0.15  # Below default 0.25
+            )
             low_box.cls = [Mock()]
             low_box.cls[0].cpu.return_value.numpy.return_value = 1
 
@@ -1094,3 +1102,155 @@ class TestAnalysisResultsStorage:
             # Features should only count the 2 high-confidence holds
             assert result["features"]["total_holds"] == 2
             assert len(result["holds"]) == 2
+
+
+class TestLoadActiveModelErrorPaths:
+    """Test error paths in load_active_hold_detection_model - covers lines 177-201."""
+
+    @patch("src.main.get_config_value")
+    def test_load_model_config_error_exception(self, mock_get_config, test_app):
+        """Test handling of general Exception in config loading - covers lines 147-149."""
+        # Make get_config_value raise a general Exception
+        mock_get_config.side_effect = Exception("Unexpected error")
+
+        from src.main import (  # pylint: disable=import-outside-toplevel
+            load_active_hold_detection_model,
+        )  # pylint: disable=import-outside-toplevel
+
+        with test_app.app_context():
+            model, threshold = load_active_hold_detection_model()
+            _ = model  # May be None
+
+            # Should use default threshold despite exception
+            assert threshold == 0.25
+
+    @patch("src.main.YOLO")
+    def test_load_model_file_loading_error(self, mock_yolo, test_app, tmp_path):
+        """Test handling of model file loading errors - covers lines 195-201."""
+        from src.models import ModelVersion  # pylint: disable=import-outside-toplevel
+
+        with test_app.app_context():
+            # Create model version with existing file but YOLO fails to load
+            model_file = tmp_path / "bad_model.pt"
+            model_file.write_text("corrupted model")
+
+            model_v = ModelVersion(
+                model_type="hold_detection",
+                version="v_corrupt",
+                model_path=str(model_file),
+                accuracy=0.85,
+                is_active=True,
+            )
+            db.session.add(model_v)
+            db.session.commit()
+
+        # Make YOLO raise an error when loading the active model
+        mock_yolo.side_effect = [
+            RuntimeError("Failed to load model"),  # First call for active model fails
+            Mock(),  # Second call for base model succeeds
+        ]
+
+        from src.main import (  # pylint: disable=import-outside-toplevel
+            load_active_hold_detection_model,
+        )  # pylint: disable=import-outside-toplevel
+
+        with test_app.app_context():
+            model, threshold = load_active_hold_detection_model()
+
+            # Should fallback to base model
+            assert model is not None
+            assert threshold == 0.25
+
+    @patch("src.main.YOLO")
+    def test_load_active_model_with_relative_path(self, mock_yolo, test_app, tmp_path):
+        """Test loading active model with relative path - covers lines 177-179."""
+        from src.models import ModelVersion  # pylint: disable=import-outside-toplevel
+
+        # Create a real model file in a subdirectory
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        model_file = models_dir / "test_model.pt"
+        model_file.write_text("test model")
+
+        # Use a relative path (relative to project root)
+        relative_path = "models/test_model.pt"
+
+        with test_app.app_context():
+            # Create model version with relative path
+            model_v = ModelVersion(
+                model_type="hold_detection",
+                version="v_relative",
+                model_path=relative_path,
+                accuracy=0.85,
+                is_active=True,
+            )
+            db.session.add(model_v)
+            db.session.commit()
+
+        # Mock YOLO to succeed
+        mock_model = Mock()
+        mock_yolo.return_value = mock_model
+
+        from src.main import (  # pylint: disable=import-outside-toplevel
+            load_active_hold_detection_model,
+        )  # pylint: disable=import-outside-toplevel
+
+        with test_app.app_context():
+            _model, threshold = load_active_hold_detection_model()
+
+            # Should have loaded the model
+            # The relative path should be resolved
+            assert threshold == 0.25
+
+    @patch("src.main.YOLO")
+    @patch("src.main.get_model_path")
+    def test_load_model_base_model_config_error(
+        self, mock_get_path, mock_yolo, test_app
+    ):
+        """Test handling when base model config fails - covers lines 217-221."""
+        from src.config import (  # pylint: disable=import-outside-toplevel
+            ConfigurationError,
+        )  # pylint: disable=import-outside-toplevel
+
+        # Make get_model_path raise ConfigurationError
+        mock_get_path.side_effect = ConfigurationError("Base model not configured")
+
+        # Make YOLO succeed for hardcoded path
+        mock_yolo.return_value = Mock()
+
+        from src.main import (  # pylint: disable=import-outside-toplevel
+            load_active_hold_detection_model,
+        )  # pylint: disable=import-outside-toplevel
+
+        with test_app.app_context():
+            _model, threshold = load_active_hold_detection_model()
+
+            # Should try hardcoded yolov8n.pt path
+            assert threshold == 0.25
+            # YOLO should be called with hardcoded path
+            mock_yolo.assert_called_with("yolov8n.pt")
+
+    @patch("src.main.YOLO")
+    @patch("src.main.get_model_path")
+    def test_load_model_all_paths_fail(self, mock_get_path, mock_yolo, test_app):
+        """Test when all model loading paths fail - covers lines 228-230."""
+        from src.config import (  # pylint: disable=import-outside-toplevel
+            ConfigurationError,
+        )  # pylint: disable=import-outside-toplevel
+
+        # Make get_model_path raise ConfigurationError
+        mock_get_path.side_effect = ConfigurationError("Base model not configured")
+
+        # Make YOLO fail for hardcoded path too
+        mock_yolo.side_effect = OSError("Model file not found")
+
+        from src.main import (  # pylint: disable=import-outside-toplevel
+            load_active_hold_detection_model,
+        )  # pylint: disable=import-outside-toplevel
+
+        with test_app.app_context():
+            model, threshold = load_active_hold_detection_model()
+
+            # Should return None when all paths fail
+            assert model is None
+            assert threshold == 0.25

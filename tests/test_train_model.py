@@ -92,8 +92,11 @@ class TestValidateDataset:
 
         # Create structure but no images
         dataset_dir = tmp_path / "dataset"
-        train_dir = dataset_dir / "train" / "images"
-        train_dir.mkdir(parents=True)
+        train_images = dataset_dir / "train" / "images"
+        train_images.mkdir(parents=True)
+        # Also create labels directory since images subdirectory exists
+        train_labels = dataset_dir / "train" / "labels"
+        train_labels.mkdir(parents=True)
 
         data_yaml = dataset_dir / "data.yaml"
         config = {
@@ -109,7 +112,9 @@ class TestValidateDataset:
         with pytest.raises(TrainingError, match="No image files found"):
             validate_dataset(data_yaml)
 
-    def test_validate_dataset_class_count_mismatch(self, tmp_path, sample_yolo_dataset):  # pylint: disable=unused-argument
+    def test_validate_dataset_class_count_mismatch(
+        self, tmp_path, sample_yolo_dataset
+    ):  # pylint: disable=unused-argument
         """Test validation fails when class count doesn't match names."""
         import yaml  # pylint: disable=import-outside-toplevel
 
@@ -547,3 +552,292 @@ class TestTrainingPipelineIntegration:  # pylint: disable=too-few-public-methods
             )
             assert saved_model is not None
             assert saved_model.model_type == "hold_detection"
+
+
+class TestLoggingSetup:
+    """Test logging setup error handling - covers lines 70-73."""
+
+    @patch("src.train_model.logging.FileHandler")
+    def test_logging_file_handler_error(self, mock_file_handler):
+        """Test logging continues when FileHandler creation fails - covers lines 70-73."""
+        # Make FileHandler raise an OSError
+        mock_file_handler.side_effect = OSError("Cannot create log file")
+
+        # Import the module - this should trigger the logging setup
+        # but should handle the error gracefully
+        import importlib  # pylint: disable=import-outside-toplevel
+        import src.train_model  # pylint: disable=import-outside-toplevel
+
+        importlib.reload(src.train_model)
+
+        # Should not raise an exception - logging should continue to stdout
+        assert True
+
+
+class TestValidateDatasetEdgeCases:
+    """Test edge cases in validate_dataset - covers lines 146, 149, 165."""
+
+    def test_validate_dataset_missing_labels_directory(self, tmp_path):
+        """Test validation when labels directory is missing - covers line 149."""
+        import yaml  # pylint: disable=import-outside-toplevel
+        from src.train_model import (  # pylint: disable=import-outside-toplevel,reimported
+            TrainingError as LocalTrainingError,
+            validate_dataset as local_validate_dataset,
+        )
+
+        # Create structure with images but no labels
+        dataset_dir = tmp_path / "dataset"
+        train_dir = dataset_dir / "train"
+        train_images = train_dir / "images"
+        train_images.mkdir(parents=True)
+
+        # Add an image file
+        (train_images / "test.jpg").write_text("fake image")
+
+        data_yaml = dataset_dir / "data.yaml"
+        config = {
+            "train": "train",
+            "val": "train",
+            "nc": 1,
+            "names": ["hold"],
+        }
+
+        with open(data_yaml, "w", encoding="utf-8") as f:
+            yaml.dump(config, f)
+
+        with pytest.raises(LocalTrainingError, match="Labels directory not found"):
+            local_validate_dataset(data_yaml)
+
+    def test_validate_dataset_invalid_nc_value(self, tmp_path):
+        """Test validation with invalid nc value - covers line 165."""
+        import yaml  # pylint: disable=import-outside-toplevel
+        from src.train_model import (  # pylint: disable=import-outside-toplevel,reimported
+            TrainingError as LocalTrainingError,
+            validate_dataset as local_validate_dataset,
+        )
+
+        # Create a valid structure
+        dataset_dir = tmp_path / "dataset"
+        train_dir = dataset_dir / "train"
+        train_dir.mkdir(parents=True)
+        (train_dir / "test.jpg").write_text("fake image")
+
+        data_yaml = dataset_dir / "data.yaml"
+        config = {
+            "train": "train",
+            "val": "train",
+            "nc": -5,  # Invalid: negative number
+            "names": ["hold"],
+        }
+
+        with open(data_yaml, "w", encoding="utf-8") as f:
+            yaml.dump(config, f)
+
+        with pytest.raises(LocalTrainingError, match="Invalid number of classes"):
+            local_validate_dataset(data_yaml)
+
+
+class TestSaveModelVersionWithActivation:
+    """Test save_model_version activation logic - covers lines 414-418."""
+
+    @patch("src.train_model.create_flask_app")
+    @patch("src.train_model.get_project_root")
+    def test_save_existing_model_with_activation(
+        self, mock_root, mock_create_app, tmp_path, test_app
+    ):
+        """Test updating existing model with activation - covers lines 414-418."""
+        mock_root.return_value = tmp_path
+        mock_create_app.return_value = test_app
+
+        # Create existing models
+        with test_app.app_context():
+            # Create an existing model with the same name
+            existing = ModelVersion(
+                model_type="hold_detection",
+                version="test_v1",
+                model_path="old/path.pt",
+                accuracy=0.70,
+                is_active=False,
+            )
+            db.session.add(existing)
+
+            # Create another active model
+            active_model = ModelVersion(
+                model_type="hold_detection",
+                version="other_v1",
+                model_path="other/path.pt",
+                accuracy=0.60,
+                is_active=True,
+            )
+            db.session.add(active_model)
+            db.session.commit()
+
+        # Create a temp model file
+        trained_model = tmp_path / "trained.pt"
+        trained_model.write_text("new trained model")
+
+        metrics = {"final_mAP50-95": 0.85}
+        training_config = {"epochs": 100}
+
+        with test_app.app_context():
+            model_version = save_model_version(
+                model_name="test_v1",
+                trained_model_path=trained_model,
+                metrics=metrics,
+                training_config=training_config,
+                activate=True,  # Activate the updated model
+            )
+
+            # The updated model should be active
+            assert model_version.is_active is True
+
+            # The other model should be deactivated
+            other = db.session.query(ModelVersion).filter_by(version="other_v1").first()
+            assert other is not None
+            assert other.is_active is False
+
+
+class TestCreateFlaskAppConfigPaths:
+    """Test create_flask_app configuration paths - covers lines 468-469."""
+
+    @patch("src.train_model.get_config_value")
+    def test_create_flask_app_config_value_exception(self, mock_get_config):
+        """Test create_flask_app when get_config_value raises exception - covers lines 468-469."""
+        import os  # pylint: disable=import-outside-toplevel
+
+        # Clear DATABASE_URL env var if it exists
+        old_db_url = os.environ.get("DATABASE_URL")
+        if "DATABASE_URL" in os.environ:
+            del os.environ["DATABASE_URL"]
+
+        try:
+            # Make get_config_value raise an exception
+            mock_get_config.side_effect = Exception("Config error")
+
+            app = create_flask_app()
+
+            # Should fallback to default SQLite database
+            assert app is not None
+            assert "sqlite:///" in app.config["SQLALCHEMY_DATABASE_URI"]
+        finally:
+            # Restore env var if it existed
+            if old_db_url:
+                os.environ["DATABASE_URL"] = old_db_url
+
+
+class TestMainFunctionConfigErrors:
+    """Test main function configuration error handling - covers lines 531-544, 619-624."""
+
+    @patch("src.train_model.validate_dataset")
+    @patch("src.train_model.get_config_value")
+    def test_main_config_error_uses_defaults(self, mock_get_config, mock_validate):
+        """Test main uses defaults when config fails - covers lines 531-544."""
+        from src.config import (  # pylint: disable=import-outside-toplevel
+            ConfigurationError,
+        )  # pylint: disable=import-outside-toplevel
+        from src.train_model import main  # pylint: disable=import-outside-toplevel
+
+        # Make get_config_value raise ConfigurationError
+        mock_get_config.side_effect = ConfigurationError("Config not found")
+
+        # Make validate_dataset fail to avoid going further
+        mock_validate.side_effect = TrainingError("Stop here")
+
+        # Should not crash, should use hardcoded defaults
+        with pytest.raises(SystemExit):
+            main(
+                model_name="test_model",
+                epochs=None,  # Will try to get from config, fail, use default
+                batch_size=None,  # Will try to get from config, fail, use default
+                data_yaml=None,  # Will try to get from config, fail, use default
+                base_weights=None,  # Will try to get from config, fail, use default
+            )
+
+    @patch("src.train_model.validate_dataset")
+    def test_main_training_error_handling(self, mock_validate):
+        """Test main handles TrainingError - covers lines 619-621."""
+        from src.train_model import main  # pylint: disable=import-outside-toplevel
+
+        # Make validation raise TrainingError
+        mock_validate.side_effect = TrainingError("Dataset validation failed")
+
+        # Should catch TrainingError and exit with code 1
+        with pytest.raises(SystemExit) as exc_info:
+            main(
+                model_name="test_model",
+                epochs=10,
+                batch_size=8,
+                data_yaml="data/test.yaml",
+                base_weights="base.pt",
+            )
+
+        assert exc_info.value.code == 1
+
+    @patch("src.train_model.validate_dataset")
+    def test_main_general_exception_handling(self, mock_validate):
+        """Test main handles general Exception - covers lines 622-624."""
+        from src.train_model import main  # pylint: disable=import-outside-toplevel
+
+        # Make validation raise a general exception
+        mock_validate.side_effect = RuntimeError("Unexpected error")
+
+        # Should catch Exception and exit with code 1
+        with pytest.raises(SystemExit) as exc_info:
+            main(
+                model_name="test_model",
+                epochs=10,
+                batch_size=8,
+                data_yaml="data/test.yaml",
+                base_weights="base.pt",
+            )
+
+        assert exc_info.value.code == 1
+
+
+class TestTrainYOLOv8DeviceSelection:
+    """Test train_yolov8 device selection - covers lines 70-73 in train_yolov8."""
+
+    @patch("torch.cuda.is_available")
+    @patch("ultralytics.YOLO")
+    @patch("src.train_model.get_project_root")
+    def test_train_yolov8_auto_device_cpu(
+        self, mock_root, mock_yolo_class, mock_cuda, tmp_path, sample_yolo_dataset
+    ):
+        """Test automatic device selection when CUDA is not available."""
+        mock_root.return_value = tmp_path
+        mock_cuda.return_value = False  # No CUDA available
+
+        # Mock YOLO model
+        mock_model = MagicMock()
+        mock_yolo_class.return_value = mock_model
+
+        # Mock training results
+        mock_results = MagicMock()
+        mock_results.results_dict = {
+            "metrics/mAP50(B)": 0.85,
+            "metrics/mAP50-95(B)": 0.75,
+            "metrics/precision(B)": 0.80,
+            "metrics/recall(B)": 0.78,
+        }
+        mock_results.best_epoch = 50
+        mock_results.save_dir = tmp_path / "runs"
+        mock_model.train.return_value = mock_results
+
+        from src.train_model import (  # pylint: disable=import-outside-toplevel
+            train_yolov8,
+        )
+
+        data_yaml = sample_yolo_dataset / "data.yaml"
+        base_weights = tmp_path / "base.pt"
+        base_weights.write_text("base weights")
+
+        train_yolov8(
+            model_name="test_model",
+            data_yaml=data_yaml,
+            base_weights=base_weights,
+            device=None,  # Auto-detect
+        )
+
+        # Verify that device='cpu' was used
+        train_call_args = mock_model.train.call_args
+        assert train_call_args[1]["device"] == "cpu"

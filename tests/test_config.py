@@ -70,7 +70,9 @@ class TestResolvePath:
 class TestLoadConfig:
     """Test cases for load_config function."""
 
-    def test_load_config_success(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_success(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test successful configuration loading."""
         # Clear cache before test
         clear_config_cache()
@@ -89,7 +91,9 @@ class TestLoadConfig:
         assert "data_paths" in config
         assert config["model_defaults"]["hold_detection_confidence_threshold"] == 0.25
 
-    def test_load_config_caching(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_caching(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test that configuration is cached after first load."""
         clear_config_cache()
 
@@ -107,7 +111,9 @@ class TestLoadConfig:
         # Should be the same object (cached)
         assert config1 is config2
 
-    def test_load_config_force_reload(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_force_reload(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test force reload bypasses cache."""
         clear_config_cache()
 
@@ -125,7 +131,9 @@ class TestLoadConfig:
         # Should have same content but potentially different objects
         assert config1 == config2
 
-    def test_load_config_file_not_found(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_file_not_found(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when config file doesn't exist."""
         clear_config_cache()
 
@@ -139,7 +147,9 @@ class TestLoadConfig:
         with pytest.raises(ConfigurationError, match="Configuration file not found"):
             load_config()
 
-    def test_load_config_invalid_yaml(self, invalid_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_invalid_yaml(
+        self, invalid_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for invalid YAML syntax."""
         clear_config_cache()
 
@@ -151,7 +161,9 @@ class TestLoadConfig:
         with pytest.raises(ConfigurationError, match="Error parsing YAML"):
             load_config()
 
-    def test_load_config_empty_file(self, empty_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_empty_file(
+        self, empty_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for empty configuration file."""
         clear_config_cache()
 
@@ -163,7 +175,9 @@ class TestLoadConfig:
         with pytest.raises(ConfigurationError, match="Configuration file is empty"):
             load_config()
 
-    def test_load_config_missing_required_sections(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_missing_required_sections(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test validation of required configuration sections."""
         clear_config_cache()
 
@@ -183,7 +197,9 @@ class TestLoadConfig:
         ):
             load_config()
 
-    def test_load_config_missing_yaml_library(self, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_missing_yaml_library(
+        self, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when PyYAML is not installed."""
         clear_config_cache()
 
@@ -206,7 +222,9 @@ class TestLoadConfig:
 class TestGetConfigValue:
     """Test cases for get_config_value function."""
 
-    def test_get_config_value_existing_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_config_value_existing_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test retrieving an existing configuration value."""
         clear_config_cache()
 
@@ -218,7 +236,9 @@ class TestGetConfigValue:
         value = get_config_value("model_defaults.hold_detection_confidence_threshold")
         assert value == 0.25
 
-    def test_get_config_value_nested_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_config_value_nested_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test retrieving a nested configuration value."""
         clear_config_cache()
 
@@ -262,7 +282,9 @@ class TestGetConfigValue:
 class TestClearConfigCache:  # pylint: disable=too-few-public-methods
     """Test cases for clear_config_cache function."""
 
-    def test_clear_config_cache(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_clear_config_cache(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test that cache is cleared correctly."""
         clear_config_cache()
 
@@ -287,7 +309,9 @@ class TestClearConfigCache:  # pylint: disable=too-few-public-methods
 class TestGetModelPath:
     """Test cases for get_model_path function."""
 
-    def test_get_model_path_success(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_model_path_success(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test successful retrieval of model path."""
         clear_config_cache()
 
@@ -309,7 +333,9 @@ class TestGetModelPath:
         assert isinstance(path, Path)
         assert path.is_absolute()
 
-    def test_get_model_path_missing_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_model_path_missing_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for missing model path key."""
         clear_config_cache()
 
@@ -321,7 +347,9 @@ class TestGetModelPath:
         with pytest.raises(ConfigurationError, match="Model path .* not found"):
             get_model_path("nonexistent_model")
 
-    def test_get_model_path_missing_section(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_model_path_missing_section(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when model_paths section is missing."""
         clear_config_cache()
 
@@ -348,7 +376,9 @@ class TestGetModelPath:
 class TestGetDataPath:
     """Test cases for get_data_path function."""
 
-    def test_get_data_path_success(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_data_path_success(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test successful retrieval of data path."""
         clear_config_cache()
 
@@ -367,7 +397,9 @@ class TestGetDataPath:
         assert isinstance(path, Path)
         assert path.is_absolute()
 
-    def test_get_data_path_missing_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_data_path_missing_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for missing data path key."""
         clear_config_cache()
 
@@ -379,7 +411,9 @@ class TestGetDataPath:
         with pytest.raises(ConfigurationError, match="Data path .* not found"):
             get_data_path("nonexistent_data")
 
-    def test_get_data_path_missing_section(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_data_path_missing_section(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when data_paths section is missing."""
         clear_config_cache()
 
@@ -404,3 +438,123 @@ class TestGetDataPath:
 
         with pytest.raises(ConfigurationError, match="Missing required configuration"):
             get_data_path("uploads")
+
+
+class TestValidateConfigErrorPaths:
+    """Test cases for _validate_config error handling - covers lines 181, 187."""
+
+    def test_validate_config_invalid_section_type(self, tmp_path, monkeypatch):
+        """Test validation when a section is not a dictionary - covers line 181."""
+        clear_config_cache()
+
+        # Create config where model_defaults is a list instead of dict
+        config_file = tmp_path / "invalid_section.yaml"
+        import yaml  # pylint: disable=import-outside-toplevel
+
+        config_data = {
+            "model_defaults": ["not", "a", "dict"],  # Should be a dict
+            "model_paths": {
+                "base_yolov8": "yolov8n.pt",
+                "fine_tuned_models": "models/",
+            },
+            "data_paths": {"hold_dataset": "data/", "uploads": "uploads/"},
+        }
+        with open(config_file, "w", encoding="utf-8") as f:
+            yaml.dump(config_data, f)
+
+        def mock_resolve(_path):
+            return config_file
+
+        monkeypatch.setattr("src.config.resolve_path", mock_resolve)
+
+        with pytest.raises(
+            ConfigurationError, match="Configuration section .* must be a dictionary"
+        ):
+            load_config()
+
+    def test_validate_config_missing_keys_in_section(self, tmp_path, monkeypatch):
+        """Test validation when required keys are missing - covers line 187."""
+        clear_config_cache()
+
+        # Create config missing required key
+        config_file = tmp_path / "missing_key.yaml"
+        import yaml  # pylint: disable=import-outside-toplevel
+
+        config_data = {
+            "model_defaults": {
+                # Missing 'hold_detection_confidence_threshold'
+                "other_key": "value"
+            },
+            "model_paths": {
+                "base_yolov8": "yolov8n.pt",
+                "fine_tuned_models": "models/",
+            },
+            "data_paths": {"hold_dataset": "data/", "uploads": "uploads/"},
+        }
+        with open(config_file, "w", encoding="utf-8") as f:
+            yaml.dump(config_data, f)
+
+        def mock_resolve(_path):
+            return config_file
+
+        monkeypatch.setattr("src.config.resolve_path", mock_resolve)
+
+        with pytest.raises(
+            ConfigurationError, match="Missing required configuration key"
+        ):
+            load_config()
+
+
+class TestGetModelPathErrorPaths:  # pylint: disable=too-few-public-methods
+    """Test cases for get_model_path error handling - covers line 260."""
+
+    def test_get_model_path_missing_model_paths_section(
+        self,
+    ):  # pylint: disable=unused-argument
+        """Test get_model_path when model_paths section is missing - covers line 260."""
+        clear_config_cache()
+
+        # We'll create a config that passes initial validation but lacks model_paths
+        # by directly manipulating the cache
+        import src.config  # pylint: disable=import-outside-toplevel
+
+        # Set a minimal config in cache that's missing model_paths
+        with src.config._config_lock:  # pylint: disable=protected-access
+            src.config._config_cache = {  # pylint: disable=protected-access
+                "model_defaults": {"hold_detection_confidence_threshold": 0.25},
+                "data_paths": {"hold_dataset": "data/", "uploads": "uploads/"},
+                # model_paths is missing
+            }
+
+        with pytest.raises(ConfigurationError, match="Missing 'model_paths' section"):
+            get_model_path("base_yolov8")
+
+        # Clean up
+        clear_config_cache()
+
+
+class TestGetDataPathErrorPaths:  # pylint: disable=too-few-public-methods
+    """Test cases for get_data_path error handling - covers line 291."""
+
+    def test_get_data_path_missing_data_paths_section(self):
+        """Test get_data_path when data_paths section is missing - covers line 291."""
+        clear_config_cache()
+
+        # Directly set cache with missing data_paths section
+        import src.config  # pylint: disable=import-outside-toplevel
+
+        with src.config._config_lock:  # pylint: disable=protected-access
+            src.config._config_cache = {  # pylint: disable=protected-access
+                "model_defaults": {"hold_detection_confidence_threshold": 0.25},
+                "model_paths": {
+                    "base_yolov8": "yolov8n.pt",
+                    "fine_tuned_models": "models/",
+                },
+                # data_paths is missing
+            }
+
+        with pytest.raises(ConfigurationError, match="Missing 'data_paths' section"):
+            get_data_path("uploads")
+
+        # Clean up
+        clear_config_cache()
