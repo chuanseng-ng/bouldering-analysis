@@ -432,12 +432,39 @@ def create_flask_app() -> Flask:
     Returns:
         Flask: Configured Flask application.
     """
+    import os  # pylint: disable=import-outside-toplevel
+
     app = Flask(__name__)
 
-    # Configure database
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + str(
-        get_project_root() / "bouldering_analysis.db"
-    )
+    # Configure database - try environment variable, then config, then default
+    database_url = os.environ.get("DATABASE_URL")
+
+    if not database_url:
+        try:
+            database_url = get_config_value("database.url")
+        except (
+            ConfigurationError,
+            Exception,
+        ):  # pylint: disable=broad-exception-caught
+            pass
+
+    if not database_url:
+        database_url = "sqlite:///bouldering_analysis.db"
+
+    # For SQLite relative paths, resolve against project root
+    if database_url.startswith("sqlite:///") and not database_url.startswith(
+        "sqlite:////"
+    ):
+        # Extract the path after sqlite:///
+        db_path = database_url[10:]  # Remove "sqlite:///"
+        path_obj = Path(db_path)
+
+        # If path is relative, resolve against project root
+        if not path_obj.is_absolute():
+            resolved_path = get_project_root() / db_path
+            database_url = "sqlite:///" + str(resolved_path)
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # Initialize database
