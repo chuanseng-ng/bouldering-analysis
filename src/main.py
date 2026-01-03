@@ -215,8 +215,9 @@ def analyze_route():
         # Process the image
         try:
             result = analyze_image(filepath, unique_filename)
-            return jsonify(result)  # pragma: no cover
+            return jsonify(result)
         except (IOError, RuntimeError) as e:
+            app.logger.exception("Error processing image")
             return jsonify({"error": f"Error processing image: {str(e)}"}), 500
     else:
         return (
@@ -258,7 +259,8 @@ def submit_feedback():
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
         logger.exception("Error submitting feedback: %s", str(e))
         db.session.rollback()
-        return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
+        app.logger.exception("Error submitting feedback")
+        return jsonify({"error": "Error submitting feedback"}), 500
 
 
 @app.route("/stats", methods=["GET"])
