@@ -5,7 +5,7 @@ mypy .
 echo "Running ruff check & format..."
 ruff check && ruff format --check
 echo "Running pytest..."
-pytest --cov=src tests/ 
+pytest tests/ --cov-report=term-missing --cov=src/ 
 echo "Running pylint..."
 pylint src/ tests/
 echo "All QA checks passed!"
