@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
 from PIL import Image
 from ultralytics import YOLO
+import logging
 
 app = Flask(__name__, template_folder="templates")
 
@@ -154,7 +155,8 @@ def analyze_route():
             result = analyze_image(filepath, unique_filename)
             return jsonify(result)
         except Exception as e:
-            return jsonify({"error": f"Error processing image: {str(e)}"}), 500
+            logging.exception("Error processing image")
+            return jsonify({"error": "An internal error occurred while processing the image."}), 500
     else:
         return (
             jsonify(
@@ -194,7 +196,8 @@ def submit_feedback():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
+        logging.exception("Error submitting feedback")
+        return jsonify({"error": "An internal error occurred while submitting feedback."}), 500
 
 
 @app.route("/stats", methods=["GET"])
@@ -227,7 +230,8 @@ def get_stats():
         return jsonify(stats)
 
     except Exception as e:
-        return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
+        logging.exception("Error getting stats")
+        return jsonify({"error": "An internal error occurred while retrieving stats."}), 500
 
 
 def check_db_connection():
