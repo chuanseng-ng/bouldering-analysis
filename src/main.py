@@ -153,7 +153,7 @@ def create_tables():
                 db.session.add(hold_type)
 
             db.session.commit()
-            print("Hold types initialized")
+            logger.info("Hold types initialized")
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -404,12 +404,23 @@ def _create_database_records(
     analysis: Analysis, detected_holds_data: list[Dict[str, Any]]
 ) -> None:
     """Create database records for analysis and detected holds."""
+    # Pre-fetch all hold types to avoid N+1 queries
+    hold_type_names = {hd["hold_type"] for hd in detected_holds_data}
+    hold_types_by_name = (
+        {
+            ht.name: ht
+            for ht in db.session.query(HoldType)
+            .filter(HoldType.name.in_(hold_type_names))
+            .all()
+        }
+        if hold_type_names
+        else {}
+    )
+
     # Create DetectedHold records
     for hold_data in detected_holds_data:
         # Look up HoldType by name
-        hold_type = (
-            db.session.query(HoldType).filter_by(name=hold_data["hold_type"]).first()
-        )
+        hold_type = hold_types_by_name.get(hold_data["hold_type"])
 
         if hold_type:  # Only create if valid hold type exists
             detected_hold = DetectedHold(
@@ -522,9 +533,8 @@ def predict_grade(features: Dict[str, Any]) -> str:
     # avg_confidence = features["average_confidence"] # TODO: Incorporate confidence into grading
 
     # Base grade on hold count - adjusted to match test expectations
-    if hold_count <= 3:
-        base_grade = "V0"
-    elif hold_count <= 4:
+    # TODO: Revise to match reality - Temp placeholder logic
+    if hold_count <= 4:
         base_grade = "V0"
     elif hold_count <= 5:
         base_grade = "V1"
