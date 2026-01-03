@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from werkzeug.utils import secure_filename
 from PIL import Image
 from ultralytics import YOLO
+import logging
 
 app = Flask(__name__, template_folder="templates")
 
@@ -226,8 +227,11 @@ def get_stats():
 
         return jsonify(stats)
 
-    except Exception as e:
-        return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
+    except Exception:
+        logging.exception("Error getting stats")
+        return jsonify(
+            {"error": "An internal error occurred while getting stats."}
+        ), 500
 
 
 def check_db_connection():
