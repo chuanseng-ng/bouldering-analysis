@@ -384,6 +384,18 @@ def save_model_version(
                 existing_version.model_path = str(final_model_path)
                 existing_version.accuracy = metrics.get("final_mAP50-95", 0.0)
                 existing_version.created_at = datetime.now(timezone.utc)
+
+                # Handle activation state
+                if activate:
+                    # Deactivate other versions if this one should be active
+                    ModelVersion.query.filter_by(
+                        model_type="hold_detection", is_active=True
+                    ).update({"is_active": False})
+                    logger.info("Deactivated previous active models")
+                    existing_version.is_active = True
+                else:
+                    existing_version.is_active = False
+
                 model_version = existing_version
             else:
                 # Deactivate other versions if this one should be active

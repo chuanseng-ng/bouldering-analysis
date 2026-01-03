@@ -60,7 +60,7 @@ graph TD
   - `weights`: Path to initial weights (e.g., `yolov8n.pt`).
 - **Validation**:
   - Evaluate the model on the validation set after each epoch.
-  - Save the best performing model based on mAP (mean Average Precision).
+  - Save the best-performing model based on mAP (mean Average Precision).
 - **Logging**: Log training metrics (loss, mAP, recall, precision) to a file or a specialized ML experiment tracking tool (e.g., MLflow if integrated later).
 
 ### 2.4. Model Versioning Strategy

@@ -70,13 +70,15 @@ class TestResolvePath:
 class TestLoadConfig:
     """Test cases for load_config function."""
 
-    def test_load_config_success(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_success(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test successful configuration loading."""
         # Clear cache before test
         clear_config_cache()
 
         # Mock resolve_path to return our test config
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -89,11 +91,13 @@ class TestLoadConfig:
         assert "data_paths" in config
         assert config["model_defaults"]["hold_detection_confidence_threshold"] == 0.25
 
-    def test_load_config_caching(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_caching(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test that configuration is cached after first load."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -107,11 +111,13 @@ class TestLoadConfig:
         # Should be the same object (cached)
         assert config1 is config2
 
-    def test_load_config_force_reload(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_force_reload(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test force reload bypasses cache."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -125,13 +131,15 @@ class TestLoadConfig:
         # Should have same content but potentially different objects
         assert config1 == config2
 
-    def test_load_config_file_not_found(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_file_not_found(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when config file doesn't exist."""
         clear_config_cache()
 
         nonexistent_file = tmp_path / "nonexistent.yaml"
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return nonexistent_file
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -139,11 +147,13 @@ class TestLoadConfig:
         with pytest.raises(ConfigurationError, match="Configuration file not found"):
             load_config()
 
-    def test_load_config_invalid_yaml(self, invalid_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_invalid_yaml(
+        self, invalid_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for invalid YAML syntax."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return invalid_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -151,11 +161,13 @@ class TestLoadConfig:
         with pytest.raises(ConfigurationError, match="Error parsing YAML"):
             load_config()
 
-    def test_load_config_empty_file(self, empty_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_empty_file(
+        self, empty_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for empty configuration file."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return empty_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -163,7 +175,9 @@ class TestLoadConfig:
         with pytest.raises(ConfigurationError, match="Configuration file is empty"):
             load_config()
 
-    def test_load_config_missing_required_sections(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_missing_required_sections(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test validation of required configuration sections."""
         clear_config_cache()
 
@@ -171,7 +185,7 @@ class TestLoadConfig:
         incomplete_config = tmp_path / "incomplete.yaml"
         incomplete_config.write_text("model_defaults:\n  threshold: 0.5\n")
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return incomplete_config
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -181,7 +195,9 @@ class TestLoadConfig:
         ):
             load_config()
 
-    def test_load_config_missing_yaml_library(self, monkeypatch):  # pylint: disable=unused-argument
+    def test_load_config_missing_yaml_library(
+        self, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when PyYAML is not installed."""
         clear_config_cache()
 
@@ -204,11 +220,13 @@ class TestLoadConfig:
 class TestGetConfigValue:
     """Test cases for get_config_value function."""
 
-    def test_get_config_value_existing_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_config_value_existing_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test retrieving an existing configuration value."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -216,11 +234,13 @@ class TestGetConfigValue:
         value = get_config_value("model_defaults.hold_detection_confidence_threshold")
         assert value == 0.25
 
-    def test_get_config_value_nested_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_config_value_nested_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test retrieving a nested configuration value."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -234,7 +254,7 @@ class TestGetConfigValue:
         """Test default value is returned for missing keys."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -248,7 +268,7 @@ class TestGetConfigValue:
         """Test None is returned for missing keys without default."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -260,11 +280,13 @@ class TestGetConfigValue:
 class TestClearConfigCache:  # pylint: disable=too-few-public-methods
     """Test cases for clear_config_cache function."""
 
-    def test_clear_config_cache(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_clear_config_cache(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test that cache is cleared correctly."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -285,7 +307,9 @@ class TestClearConfigCache:  # pylint: disable=too-few-public-methods
 class TestGetModelPath:
     """Test cases for get_model_path function."""
 
-    def test_get_model_path_success(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_model_path_success(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test successful retrieval of model path."""
         clear_config_cache()
 
@@ -307,11 +331,13 @@ class TestGetModelPath:
         assert isinstance(path, Path)
         assert path.is_absolute()
 
-    def test_get_model_path_missing_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_model_path_missing_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for missing model path key."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -319,7 +345,9 @@ class TestGetModelPath:
         with pytest.raises(ConfigurationError, match="Model path .* not found"):
             get_model_path("nonexistent_model")
 
-    def test_get_model_path_missing_section(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_model_path_missing_section(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when model_paths section is missing."""
         clear_config_cache()
 
@@ -334,7 +362,7 @@ class TestGetModelPath:
         with open(config_file, "w", encoding="utf-8") as f:
             yaml.dump(config_data, f)
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return config_file
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -346,7 +374,9 @@ class TestGetModelPath:
 class TestGetDataPath:
     """Test cases for get_data_path function."""
 
-    def test_get_data_path_success(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_data_path_success(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test successful retrieval of data path."""
         clear_config_cache()
 
@@ -365,11 +395,13 @@ class TestGetDataPath:
         assert isinstance(path, Path)
         assert path.is_absolute()
 
-    def test_get_data_path_missing_key(self, test_config_yaml, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_data_path_missing_key(
+        self, test_config_yaml, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling for missing data path key."""
         clear_config_cache()
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return test_config_yaml
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
@@ -377,7 +409,9 @@ class TestGetDataPath:
         with pytest.raises(ConfigurationError, match="Data path .* not found"):
             get_data_path("nonexistent_data")
 
-    def test_get_data_path_missing_section(self, tmp_path, monkeypatch):  # pylint: disable=unused-argument
+    def test_get_data_path_missing_section(
+        self, tmp_path, monkeypatch
+    ):  # pylint: disable=unused-argument
         """Test error handling when data_paths section is missing."""
         clear_config_cache()
 
@@ -395,7 +429,7 @@ class TestGetDataPath:
         with open(config_file, "w", encoding="utf-8") as f:
             yaml.dump(config_data, f)
 
-        def mock_resolve(path):
+        def mock_resolve(_path):
             return config_file
 
         monkeypatch.setattr("src.config.resolve_path", mock_resolve)
