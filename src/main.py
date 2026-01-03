@@ -20,7 +20,6 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from PIL import Image
 from ultralytics import YOLO
-import logging
 from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
