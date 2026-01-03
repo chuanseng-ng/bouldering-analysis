@@ -69,7 +69,7 @@ This is the most critical and labor-intensive phase, as the quality and quantity
 
 2. **Frontend Enhancements** (`src/templates/index.html`):
    - **Leverage Existing Structure**: Enhance the existing HTML template.
-   - **Interactive UI**: 
+   - **Interactive UI**:
      - Image upload form with drag-and-drop support
      - Display area for the uploaded image with hold overlays
      - Interactive grade correction interface
@@ -111,7 +111,7 @@ This is the most critical and labor-intensive phase, as the quality and quantity
    - **Performance Optimization**: Continuously optimize model inference and application performance.
    - **Security**: Implement security best practices for user data and API endpoints.
 
-## Key Python Libraries to Consider:
+## Key Python Libraries to Consider
 
 - **Image Processing**: `Pillow`, `OpenCV-Python`
 - **Machine Learning Frameworks**: `PyTorch` (recommended for YOLO models) or `TensorFlow`
@@ -124,12 +124,12 @@ This is the most critical and labor-intensive phase, as the quality and quantity
 - **API Documentation**: `flask-restx` or `flask-swagger-ui`
 - **Asynchronous Processing**: `celery` (for background tasks)
 
-## Hardware Considerations:
+## Hardware Considerations
 
 - **Training**: The availability of an **RTX 3080** is excellent for model training. This GPU will significantly accelerate the training process for both the hold detection and route grading models.
 - **Inference**: The GTX 1060 can serve as a backup or for testing inference on a less powerful machine.
 
-## User Interface Design:
+## User Interface Design
 
 For the user interface, we will focus on a **clean, intuitive, and uncluttered design**. This means:
 
@@ -138,7 +138,7 @@ For the user interface, we will focus on a **clean, intuitive, and uncluttered d
 - Minimal navigation or extraneous elements to keep the focus on the core functionality.
 - We'll use standard web technologies (HTML, CSS, JavaScript) for the frontend to ensure broad compatibility and a straightforward implementation.
 
-## Implementation Roadmap:
+## Implementation Roadmap
 
 1. **Week 1-2**: Set up development environment, database schema, and basic API endpoints
 2. **Week 3-4**: Implement hold detection model fine-tuning and basic analysis endpoint
