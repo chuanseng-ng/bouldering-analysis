@@ -6,15 +6,30 @@ Development environment setup script for Bouldering Route Analysis
 import sys
 import subprocess
 from pathlib import Path
+from typing import Any
 from src.setup import setup_database, create_directories
 
 
-def run_command(command, description):
-    """Run a command and handle errors"""
+def run_command(command: list[str], description: str) -> bool:
+    """Run a command given as a list of arguments and handle errors.
+
+    The `command` parameter must be a list (e.g. `['echo', 'hello']`).
+    If callers have a raw command string, they should explicitly parse it
+    (for example with `shlex.split`) before calling this helper. This
+    function does not invoke a shell and runs commands with `shell=False`
+    to avoid shell injection risks.
+    """
+    if not isinstance(command, list):
+        raise TypeError("command must be a list of arguments")
+
     print(f"\n{description}...")
     try:
         result = subprocess.run(
-            command, shell=True, check=True, capture_output=True, text=True
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            shell=False,
         )
         print(f"✓ {description} completed successfully")
         if result.stdout:
@@ -22,19 +37,20 @@ def run_command(command, description):
         return True
     except subprocess.CalledProcessError as e:
         print(f"✗ {description} failed")
-        print(f"Error: {e.stderr}")
+        err = getattr(e, "stderr", None) or str(e)
+        print(f"Error: {err}")
         return False
 
 
-def verify_installation():
+# pylint: disable=import-outside-toplevel, wrong-import-position
+def verify_installation() -> bool:
     """Verify the installation"""
     print("\nVerifying installation...")
 
     try:
         # Test imports
         from src.main import app  # noqa: F401
-        from src.models import db, Analysis, Feedback  # noqa: F401
-        from PIL import Image  # noqa: F401
+        from src.models import db  # noqa: F401
         from ultralytics import YOLO  # noqa: F401
         from sqlalchemy import text
 
@@ -49,18 +65,18 @@ def verify_installation():
         try:
             _ = YOLO("yolov8n.pt")  # Assign to _ to indicate intentional discard
             print("✓ YOLO model loaded successfully")
-        except Exception as e:
+        except (ImportError, FileNotFoundError) as e:
             print(f"⚠ YOLO model loading failed: {e}")
             print("  This might be normal if the model file is not available")
 
         return True
 
-    except Exception as e:
+    except (ImportError, RuntimeError) as e:
         print(f"✗ Verification failed: {e}")
         return False
 
 
-def main():
+def main() -> bool:
     """Main setup function"""
     print("Bouldering Route Analysis - Development Setup")
     print("=" * 50)
@@ -71,7 +87,7 @@ def main():
         return False
 
     # Run setup steps
-    steps = [
+    steps: list[Any] = [
         (create_directories, "Creating directories"),
         (setup_database, "Setting up database"),
         (verify_installation, "Verifying installation"),
