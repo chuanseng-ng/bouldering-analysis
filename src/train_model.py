@@ -35,7 +35,7 @@ import logging
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
 import yaml
@@ -59,13 +59,23 @@ from src.models import db, ModelVersion
 
 
 # Configure logging
+# First ensure the log directory exists
+log_file_path = Path("logs/training.log")
+log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+# Set up handlers with fallback for FileHandler failures
+handlers: List[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+try:
+    handlers.append(logging.FileHandler(str(log_file_path), mode="a"))
+except (OSError, IOError) as e:
+    # If FileHandler creation fails, log to stdout only
+    print(f"Warning: Could not create log file {log_file_path}: {e}", file=sys.stderr)
+    print("Logging will continue to stdout only.", file=sys.stderr)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("logs/training.log", mode="a"),
-    ],
+    handlers=handlers,
 )
 logger = logging.getLogger(__name__)
 
@@ -225,6 +235,7 @@ def train_yolov8(
     batch_size: int = 16,
     img_size: int = 640,
     learning_rate: float = 0.01,
+    device: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Train a YOLOv8 model on the specified dataset.
@@ -237,6 +248,10 @@ def train_yolov8(
         batch_size: Batch size for training (use -1 for auto-detect).
         img_size: Input image size.
         learning_rate: Initial learning rate.
+        device: Device to use for training (e.g., "0", "cpu", "cuda:0").
+            If None, automatically detects GPU availability:
+            - Uses "0" if CUDA is available
+            - Uses "cpu" otherwise
 
     Returns:
         Dict containing training results and metrics.
@@ -244,6 +259,13 @@ def train_yolov8(
     Raises:
         TrainingError: If training fails.
     """
+    # Determine device to use for training
+    if device is None:
+        import torch  # pylint: disable=import-outside-toplevel
+
+        device = "0" if torch.cuda.is_available() else "cpu"
+        logger.info("Auto-detected device: %s", device)
+
     logger.info("Starting YOLOv8 fine-tuning for model: %s", model_name)
     logger.info("Training configuration:")
     logger.info("  - Data: %s", data_yaml)
@@ -252,6 +274,7 @@ def train_yolov8(
     logger.info("  - Batch size: %d", batch_size)
     logger.info("  - Image size: %d", img_size)
     logger.info("  - Learning rate: %f", learning_rate)
+    logger.info("  - Device: %s", device)
 
     try:
         # Import YOLO here to handle dynamic loading
@@ -278,7 +301,7 @@ def train_yolov8(
             "save_period": 10,  # Save checkpoint every 10 epochs
             "patience": 50,  # Early stopping patience
             "plots": True,  # Generate training plots
-            "device": "0",  # Use GPU if available, else CPU
+            "device": device,  # Use computed device
         }
 
         # Start training
@@ -442,10 +465,7 @@ def create_flask_app() -> Flask:
     if not database_url:
         try:
             database_url = get_config_value("database.url")
-        except (
-            ConfigurationError,
-            Exception,
-        ):  # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             pass
 
     if not database_url:

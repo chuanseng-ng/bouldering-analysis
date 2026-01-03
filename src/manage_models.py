@@ -36,6 +36,8 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple, List, Dict, Any
 
+from src.config import resolve_path
+
 # Add project root to Python path for imports
 _project_root = Path(__file__).parent.parent
 if str(_project_root) not in sys.path:
@@ -85,36 +87,6 @@ def _setup_flask_app():
         raise RuntimeError(f"Failed to import Flask dependencies: {e}") from e
     except Exception as e:
         raise RuntimeError(f"Failed to initialize Flask app: {e}") from e
-
-
-def _get_project_root() -> Path:
-    """
-    Get the project root directory.
-
-    Returns:
-        Path to the project root directory
-    """
-    # This file is in src/, so parent is project root
-    return Path(__file__).parent.parent
-
-
-def _resolve_model_path(model_path: str) -> Path:
-    """
-    Resolve a model path to an absolute path.
-
-    Args:
-        model_path: Model path (absolute or relative to project root)
-
-    Returns:
-        Resolved absolute Path object
-    """
-    path = Path(model_path)
-    if path.is_absolute():
-        return path
-
-    # Resolve relative to project root
-    project_root = _get_project_root()
-    return (project_root / path).resolve()
 
 
 def activate_model(model_type: str, version: str) -> Tuple[bool, str]:
@@ -167,7 +139,7 @@ def activate_model(model_type: str, version: str) -> Tuple[bool, str]:
                 return False, error_msg
 
             # Validate that the model file exists
-            model_path = _resolve_model_path(target_model.model_path)
+            model_path = resolve_path(target_model.model_path)
             if not model_path.exists():
                 error_msg = (
                     f"Model file not found at path: {model_path}\n"
@@ -434,7 +406,7 @@ def list_models(  # pylint: disable=too-many-locals
                 )
 
                 # Check if model file exists
-                model_path = _resolve_model_path(model.model_path)
+                model_path = resolve_path(model.model_path)
                 file_exists = "[OK]" if model_path.exists() else "[FILE NOT FOUND]"
 
                 lines.append(f"\nID:           {model.id}")
@@ -496,7 +468,7 @@ def get_models_data(model_type: Optional[str] = None) -> List[Dict[str, Any]]:
             # Convert to list of dictionaries
             result = []
             for model in models:
-                model_path = _resolve_model_path(model.model_path)
+                model_path = resolve_path(model.model_path)
                 result.append(
                     {
                         "id": model.id,

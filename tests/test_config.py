@@ -167,9 +167,11 @@ class TestLoadConfig:
         """Test validation of required configuration sections."""
         clear_config_cache()
 
-        # Create config with missing sections
+        # Create config with missing sections (missing model_paths and data_paths)
         incomplete_config = tmp_path / "incomplete.yaml"
-        incomplete_config.write_text("model_defaults:\n  threshold: 0.5\n")
+        incomplete_config.write_text(
+            "model_defaults:\n  hold_detection_confidence_threshold: 0.5\n"
+        )
 
         def mock_resolve(_path):
             return incomplete_config

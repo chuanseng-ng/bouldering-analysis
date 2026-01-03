@@ -350,7 +350,7 @@ class TestCreateFlaskApp:  # pylint: disable=too-few-public-methods
 class TestTrainYOLOv8Mock:
     """Test cases for train_yolov8 function with mocked YOLO."""
 
-    @patch("src.train_model.YOLO")
+    @patch("ultralytics.YOLO")
     @patch("src.train_model.get_project_root")
     def test_train_yolov8_parameters(
         self, mock_root, mock_yolo_class, tmp_path, sample_yolo_dataset
@@ -407,7 +407,7 @@ class TestTrainYOLOv8Mock:
         assert "metrics" in result
         assert "best_model_path" in result
 
-    @patch("src.train_model.YOLO")
+    @patch("ultralytics.YOLO")
     def test_train_yolov8_error_handling(
         self, mock_yolo_class, tmp_path, sample_yolo_dataset
     ):
@@ -487,7 +487,7 @@ class TestParseArguments:
 class TestTrainingPipelineIntegration:  # pylint: disable=too-few-public-methods
     """Integration tests for the complete training pipeline."""
 
-    @patch("src.train_model.YOLO")
+    @patch("ultralytics.YOLO")
     @patch("src.train_model.get_project_root")
     @patch("src.train_model.create_flask_app")
     def test_main_pipeline_success(  # pylint: disable=too-many-arguments,too-many-positional-arguments

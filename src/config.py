@@ -9,11 +9,15 @@ and includes comprehensive error handling.
 from pathlib import Path
 from typing import Any, Dict, Optional
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
 # Cache for configuration to avoid repeated file reads
 _config_cache: Optional[Dict[str, Any]] = None
+
+# Lock for thread-safe access to the configuration cache
+_config_lock = threading.Lock()
 
 # Project root directory (parent of src/)
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -92,59 +96,61 @@ def load_config(
     """
     global _config_cache  # pylint: disable=global-statement
 
-    # Return cached config if available and not forcing reload
-    if _config_cache is not None and not force_reload:
-        logger.debug("Returning cached configuration")
-        return _config_cache
+    # Thread-safe cache check and update
+    with _config_lock:
+        # Return cached config if available and not forcing reload
+        if _config_cache is not None and not force_reload:
+            logger.debug("Returning cached configuration")
+            return _config_cache
 
-    try:
-        import yaml  # pylint: disable=import-outside-toplevel
-    except ImportError as exc:
-        raise ConfigurationError(
-            "PyYAML is required for configuration loading. "
-            "Please install it with: pip install PyYAML"
-        ) from exc
-
-    # Resolve the config file path
-    config_file = resolve_path(config_path)
-
-    # Check if file exists
-    if not config_file.exists():
-        raise ConfigurationError(
-            f"Configuration file not found: {config_file}\n"
-            f"Expected location: {config_path} (relative to project root)"
-        )
-
-    # Load and parse the YAML file
-    try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-
-        if config is None:
-            raise ConfigurationError(f"Configuration file is empty: {config_file}")
-
-        if not isinstance(config, dict):
+        try:
+            import yaml  # pylint: disable=import-outside-toplevel
+        except ImportError as exc:
             raise ConfigurationError(
-                f"Configuration must be a dictionary, got {type(config).__name__}"
+                "PyYAML is required for configuration loading. "
+                "Please install it with: pip install PyYAML"
+            ) from exc
+
+        # Resolve the config file path
+        config_file = resolve_path(config_path)
+
+        # Check if file exists
+        if not config_file.exists():
+            raise ConfigurationError(
+                f"Configuration file not found: {config_file}\n"
+                f"Expected location: {config_path} (relative to project root)"
             )
 
-        # Validate required configuration sections
-        _validate_config(config)
+        # Load and parse the YAML file
+        try:
+            with open(config_file, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
 
-        # Cache the configuration
-        _config_cache = config
-        logger.info("Configuration loaded successfully from %s", config_file)
+            if config is None:
+                raise ConfigurationError(f"Configuration file is empty: {config_file}")
 
-        return config
+            if not isinstance(config, dict):
+                raise ConfigurationError(
+                    f"Configuration must be a dictionary, got {type(config).__name__}"
+                )
 
-    except yaml.YAMLError as exc:
-        raise ConfigurationError(
-            f"Error parsing YAML configuration file {config_file}: {exc}"
-        ) from exc
-    except (OSError, IOError) as exc:
-        raise ConfigurationError(
-            f"Error reading configuration file {config_file}: {exc}"
-        ) from exc
+            # Validate required configuration sections
+            _validate_config(config)
+
+            # Cache the configuration
+            _config_cache = config
+            logger.info("Configuration loaded successfully from %s", config_file)
+
+            return config
+
+        except yaml.YAMLError as exc:
+            raise ConfigurationError(
+                f"Error parsing YAML configuration file {config_file}: {exc}"
+            ) from exc
+        except (OSError, IOError) as exc:
+            raise ConfigurationError(
+                f"Error reading configuration file {config_file}: {exc}"
+            ) from exc
 
 
 def _validate_config(config: Dict[str, Any]) -> None:
@@ -224,8 +230,9 @@ def clear_config_cache() -> None:
     Useful for testing or when configuration files are modified at runtime.
     """
     global _config_cache  # pylint: disable=global-statement
-    _config_cache = None
-    logger.debug("Configuration cache cleared")
+    with _config_lock:
+        _config_cache = None
+        logger.debug("Configuration cache cleared")
 
 
 def get_model_path(path_key: str) -> Path:

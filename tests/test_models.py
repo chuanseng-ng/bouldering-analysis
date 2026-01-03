@@ -118,6 +118,8 @@ class TestAnalysis:
         """Test the to_dict method of Analysis."""
         with test_app.app_context():
             analysis = Analysis(**sample_analysis_data)
+            db.session.add(analysis)
+            db.session.flush()
 
             result = analysis.to_dict()
 
@@ -148,6 +150,8 @@ class TestAnalysis:
         """Test Analysis relationships with other models."""
         with test_app.app_context():
             analysis = Analysis(**sample_analysis_data)
+            db.session.add(analysis)
+            db.session.flush()
 
             # Create feedback
             feedback = Feedback(
@@ -166,7 +170,7 @@ class TestAnalysis:
                 **sample_detected_hold_data,
             )
 
-            db.session.add_all([analysis, feedback, detected_hold])
+            db.session.add_all([feedback, detected_hold])
             db.session.commit()
 
             # Test relationships
@@ -213,6 +217,8 @@ class TestFeedback:
             db.session.flush()
 
             feedback = Feedback(analysis_id=analysis.id, **sample_feedback_data)
+            db.session.add(feedback)
+            db.session.flush()
 
             result = feedback.to_dict()
 
@@ -399,6 +405,9 @@ class TestModelVersion:
                 version="1.0.0",
                 model_path="/path/to/model.pt",
             )
+            db.session.add(model_version)
+            db.session.flush()
+
             repr_str = repr(model_version)
 
             assert "<ModelVersion" in repr_str
@@ -462,6 +471,8 @@ class TestUserSession:
             user_session = UserSession(
                 session_id=session_id, ip_address="192.168.1.1", user_agent="Test Agent"
             )
+            db.session.add(user_session)
+            db.session.flush()
 
             result = user_session.to_dict()
 

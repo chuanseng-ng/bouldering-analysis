@@ -135,9 +135,7 @@ def sample_model_version_data():
 
 
 @pytest.fixture
-def active_model_version(
-    test_app, sample_model_version_data, tmp_path
-):  # pylint: disable=redefined-outer-name,unused-argument
+def active_model_version(test_app, sample_model_version_data, tmp_path):  # pylint: disable=redefined-outer-name,unused-argument
     """Create an active ModelVersion entry in the test database with a mock model file."""
     with test_app.app_context():
         # Create a temporary model file
@@ -282,9 +280,7 @@ def sample_yolo_dataset(tmp_path):
 
 
 @pytest.fixture
-def create_analysis_with_hold_type(
-    test_app, sample_analysis_data
-):  # pylint: disable=redefined-outer-name
+def create_analysis_with_hold_type(test_app, sample_analysis_data):  # pylint: disable=redefined-outer-name
     """Helper fixture to create an analysis and return hold type."""
 
     def _create(hold_type_name="crimp"):
