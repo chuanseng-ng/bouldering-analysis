@@ -154,7 +154,8 @@ def analyze_route():
             result = analyze_image(filepath, unique_filename)
             return jsonify(result)
         except Exception as e:
-            return jsonify({"error": f"Error processing image: {str(e)}"}), 500
+            app.logger.exception("Error processing image")
+            return jsonify({"error": "Error processing image"}), 500
     else:
         return (
             jsonify(
@@ -194,7 +195,8 @@ def submit_feedback():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
+        app.logger.exception("Error submitting feedback")
+        return jsonify({"error": "Error submitting feedback"}), 500
 
 
 @app.route("/stats", methods=["GET"])
