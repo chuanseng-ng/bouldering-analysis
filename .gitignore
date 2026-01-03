@@ -195,3 +195,8 @@ cython_debug/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+
+# Ignore coverage reports
+pytest-coverage.txt
+coverage.xml
+.coverage
