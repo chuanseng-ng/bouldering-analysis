@@ -1,3 +1,3 @@
 #!/bin/bash
 set -e
-mypy . && ruff check && ruff format --check && pytest 
+mypy . && pylint src/ tests/ && ruff check && ruff format --check && pytest 

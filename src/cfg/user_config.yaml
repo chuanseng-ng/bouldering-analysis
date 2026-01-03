@@ -1,0 +1,24 @@
+# Bouldering Analysis Application Configuration
+# This file contains application-wide configuration settings
+
+# Model Configuration
+model_defaults:
+  # Default confidence threshold for hold detection
+  # Detections below this threshold will be filtered out
+  hold_detection_confidence_threshold: 0.25
+
+# Model Paths
+model_paths:
+  # Path to the base YOLOv8 model
+  base_yolov8: 'yolov8n.pt'
+  
+  # Directory for storing fine-tuned models
+  fine_tuned_models: 'models/hold_detection/'
+
+# Data Paths
+data_paths:
+  # Path to hold detection training data
+  hold_dataset: 'data/sample_hold/'
+  
+  # Path for uploaded images
+  uploads: 'data/uploads/'

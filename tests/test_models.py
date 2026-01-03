@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """
 Unit tests for src/models.py
 """
@@ -141,7 +142,9 @@ class TestAnalysis:
             assert "test.jpg" in repr_str
             assert "V2" in repr_str
 
-    def test_analysis_relationships(self, test_app, sample_analysis_data):
+    def test_analysis_relationships(
+        self, test_app, sample_analysis_data, sample_detected_hold_data
+    ):
         """Test Analysis relationships with other models."""
         with test_app.app_context():
             analysis = Analysis(**sample_analysis_data)
@@ -154,17 +157,13 @@ class TestAnalysis:
                 comments="Test feedback",
             )
 
-            # Create detected holds
+            # Create detected holds using fixture data
             hold_type = db.session.query(HoldType).filter_by(name="crimp").first()
             assert hold_type is not None
             detected_hold = DetectedHold(
                 analysis_id=analysis.id,
                 hold_type_id=hold_type.id,
-                confidence=0.9,
-                bbox_x1=10.0,
-                bbox_y1=10.0,
-                bbox_x2=50.0,
-                bbox_y2=50.0,
+                **sample_detected_hold_data,
             )
 
             db.session.add_all([analysis, feedback, detected_hold])
@@ -253,18 +252,14 @@ class TestDetectedHold:
             db.session.add(analysis)
             db.session.flush()
 
-            # Get hold type
+            # Get hold type and create detected hold using fixture data
             hold_type = db.session.query(HoldType).filter_by(name="crimp").first()
             assert hold_type is not None
 
             detected_hold = DetectedHold(
                 analysis_id=analysis.id,
                 hold_type_id=hold_type.id,
-                confidence=sample_detected_hold_data["confidence"],
-                bbox_x1=sample_detected_hold_data["bbox_x1"],
-                bbox_y1=sample_detected_hold_data["bbox_y1"],
-                bbox_x2=sample_detected_hold_data["bbox_x2"],
-                bbox_y2=sample_detected_hold_data["bbox_y2"],
+                **sample_detected_hold_data,
             )
 
             db.session.add(detected_hold)
@@ -277,11 +272,11 @@ class TestDetectedHold:
             assert retrieved is not None
             assert retrieved.analysis_id == analysis.id
             assert retrieved.hold_type_id == hold_type.id
-            assert retrieved.confidence == 0.9
-            assert retrieved.bbox_x1 == 10.0
-            assert retrieved.bbox_y1 == 10.0
-            assert retrieved.bbox_x2 == 50.0
-            assert retrieved.bbox_y2 == 50.0
+            assert retrieved.confidence == sample_detected_hold_data["confidence"]
+            assert retrieved.bbox_x1 == sample_detected_hold_data["bbox_x1"]
+            assert retrieved.bbox_y1 == sample_detected_hold_data["bbox_y1"]
+            assert retrieved.bbox_x2 == sample_detected_hold_data["bbox_x2"]
+            assert retrieved.bbox_y2 == sample_detected_hold_data["bbox_y2"]
 
     def test_detected_hold_to_dict(
         self, test_app, sample_analysis_data, sample_detected_hold_data
@@ -293,18 +288,14 @@ class TestDetectedHold:
             db.session.add(analysis)
             db.session.flush()
 
-            # Get hold type
+            # Get hold type and create detected hold using fixture data
             hold_type = db.session.query(HoldType).filter_by(name="crimp").first()
             assert hold_type is not None
 
             detected_hold = DetectedHold(
                 analysis_id=analysis.id,
                 hold_type_id=hold_type.id,
-                confidence=sample_detected_hold_data["confidence"],
-                bbox_x1=sample_detected_hold_data["bbox_x1"],
-                bbox_y1=sample_detected_hold_data["bbox_y1"],
-                bbox_x2=sample_detected_hold_data["bbox_x2"],
-                bbox_y2=sample_detected_hold_data["bbox_y2"],
+                **sample_detected_hold_data,
             )
 
             db.session.add(detected_hold)
@@ -315,8 +306,13 @@ class TestDetectedHold:
             assert result["id"] is not None
             assert result["analysis_id"] == analysis.id
             assert result["hold_type_id"] == hold_type.id
-            assert result["confidence"] == 0.9
-            assert result["bbox"] == {"x1": 10.0, "y1": 10.0, "x2": 50.0, "y2": 50.0}
+            assert result["confidence"] == sample_detected_hold_data["confidence"]
+            assert result["bbox"] == {
+                "x1": sample_detected_hold_data["bbox_x1"],
+                "y1": sample_detected_hold_data["bbox_y1"],
+                "x2": sample_detected_hold_data["bbox_x2"],
+                "y2": sample_detected_hold_data["bbox_y2"],
+            }
             assert "created_at" in result
 
     def test_detected_hold_repr(
@@ -329,18 +325,14 @@ class TestDetectedHold:
             db.session.add(analysis)
             db.session.flush()
 
-            # Get hold type
+            # Get hold type and create detected hold using fixture data
             hold_type = db.session.query(HoldType).filter_by(name="crimp").first()
             assert hold_type is not None
 
             detected_hold = DetectedHold(
                 analysis_id=analysis.id,
                 hold_type_id=hold_type.id,
-                confidence=sample_detected_hold_data["confidence"],
-                bbox_x1=sample_detected_hold_data["bbox_x1"],
-                bbox_y1=sample_detected_hold_data["bbox_y1"],
-                bbox_x2=sample_detected_hold_data["bbox_x2"],
-                bbox_y2=sample_detected_hold_data["bbox_y2"],
+                **sample_detected_hold_data,
             )
             repr_str = repr(detected_hold)
 
