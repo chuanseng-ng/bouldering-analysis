@@ -105,9 +105,9 @@ from src.models import (  # noqa: E402 # pylint: disable=E0401
 hold_detection_model: Optional[YOLO] = None
 try:
     hold_detection_model = YOLO("yolov8n.pt")
-    print("YOLOv8 model loaded successfully")
+    logger.info("YOLOv8 model loaded successfully")
 except (ImportError, RuntimeError) as e:  # pragma: no cover
-    print(f"Error loading YOLOv8 model: {e}")  # pragma: no cover
+    logger.exception("Error loading YOLOv8 model")  # pragma: no cover
 
 # Hold type mapping (this should be populated from the database)
 HOLD_TYPES = {
@@ -260,6 +260,7 @@ def submit_feedback():
         logger.exception("Error submitting feedback: %s", str(e))
         db.session.rollback()
         app.logger.exception("Error submitting feedback")
+
         return jsonify({"error": "Error submitting feedback"}), 500
 
 
@@ -294,7 +295,7 @@ def get_stats():
         return jsonify(stats)
 
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Error getting stats: %s", str(e))
+        logger.exception("Error getting stats")
         return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
 
 
@@ -306,7 +307,7 @@ def check_db_connection():
         db.session.execute(text("SELECT 1"))
         return True
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Database connection check failed: %s", str(e))
+        logger.warning("Database connection check failed: %s", str(e))
         return False
 
 
