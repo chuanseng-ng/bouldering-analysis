@@ -219,7 +219,6 @@ def analyze_route():
         except (IOError, RuntimeError) as e:
             app.logger.exception("Error processing image")
             return jsonify({"error": f"Error processing image: {str(e)}"}), 500
-            return jsonify(result)  # pragma: no cover
     else:
         return (
             jsonify(
