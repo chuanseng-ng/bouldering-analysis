@@ -26,10 +26,6 @@ jobs:
         pip install mypy
         pip install types-PyYAML
         pip install -r requirements.txt
-    - name: Analysing the code with ruff
+    - name: Perform quality-assurance checks
       run: |
-        ruff check
-        ruff format --check
-    - name: Analysing the code with mypy
-      run: |
-        mypy src/ tests/
+       ./run_qa.csh 
