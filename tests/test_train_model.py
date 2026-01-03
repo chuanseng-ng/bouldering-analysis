@@ -109,9 +109,7 @@ class TestValidateDataset:
         with pytest.raises(TrainingError, match="No image files found"):
             validate_dataset(data_yaml)
 
-    def test_validate_dataset_class_count_mismatch(
-        self, tmp_path, sample_yolo_dataset
-    ):  # pylint: disable=unused-argument
+    def test_validate_dataset_class_count_mismatch(self, tmp_path, sample_yolo_dataset):  # pylint: disable=unused-argument
         """Test validation fails when class count doesn't match names."""
         import yaml  # pylint: disable=import-outside-toplevel
 
