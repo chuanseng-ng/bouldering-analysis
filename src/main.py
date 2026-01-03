@@ -106,7 +106,7 @@ hold_detection_model: Optional[YOLO] = None
 try:
     hold_detection_model = YOLO("yolov8n.pt")
     logger.info("YOLOv8 model loaded successfully")
-except (ImportError, RuntimeError) as e:  # pragma: no cover
+except (ImportError, RuntimeError):  # pragma: no cover
     logger.exception("Error loading YOLOv8 model")  # pragma: no cover
 
 # Hold type mapping (this should be populated from the database)
