@@ -122,7 +122,7 @@ HOLD_TYPES = {
 }
 
 
-def allowed_file(filename: str):
+def allowed_file(filename: str) -> bool:
     """Check if file extension is allowed"""
     return (
         "." in filename
@@ -257,9 +257,8 @@ def submit_feedback():
         )
 
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Error submitting feedback: %s", str(e))
+        app.logger.exception("Error submitting feedback: %s", str(e))
         db.session.rollback()
-        app.logger.exception("Error submitting feedback")
 
         return jsonify({"error": "Error submitting feedback"}), 500
 
