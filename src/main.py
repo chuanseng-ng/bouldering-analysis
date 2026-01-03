@@ -14,7 +14,7 @@ import os
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
@@ -53,7 +53,7 @@ if enable_proxy_fix:
     app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
         app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
     )
-    logging.warning(
+    logger.warning(
         "ProxyFix enabled: trusting %d x_for, %d x_proto, %d x_host, %d x_port",
         x_for,
         x_proto,
@@ -333,7 +333,9 @@ def uploaded_file(filename: str) -> Any:
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
-def _process_box(box, hold_types_mapping):
+def _process_box(
+    box: Any, hold_types_mapping: Dict[int, str]
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Process a single detection box and return hold data."""
     # Get box coordinates
     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
