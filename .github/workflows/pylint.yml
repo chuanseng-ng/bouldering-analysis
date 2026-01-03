@@ -25,6 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyyaml
         pip install mypy
+        pip install types-PyYAML
         pip install -r requirements.txt
     - name: Analysing the code with ruff
       run: |
@@ -32,5 +33,4 @@ jobs:
         ruff format --check
     - name: Analysing the code with mypy
       run: |
-        mypy --install-types
         mypy src/ tests/
