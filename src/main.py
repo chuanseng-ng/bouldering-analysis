@@ -14,7 +14,7 @@ import os
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
@@ -53,7 +53,7 @@ if enable_proxy_fix:
     app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
         app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
     )
-    logging.warning(
+    logger.warning(
         "ProxyFix enabled: trusting %d x_for, %d x_proto, %d x_host, %d x_port",
         x_for,
         x_proto,
@@ -232,7 +232,7 @@ def load_active_hold_detection_model() -> tuple[Optional[YOLO], float]:
     return None, default_threshold
 
 
-def allowed_file(filename: str):
+def allowed_file(filename: str) -> bool:
     """Check if file extension is allowed"""
     return (
         "." in filename
@@ -263,7 +263,7 @@ def create_tables():
                 db.session.add(hold_type)
 
             db.session.commit()
-            print("Hold types initialized")
+            logger.info("Hold types initialized")
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -325,8 +325,9 @@ def analyze_route():
         # Process the image
         try:
             result = analyze_image(filepath, unique_filename)
-            return jsonify(result)  # pragma: no cover
+            return jsonify(result)
         except (IOError, RuntimeError) as e:
+            app.logger.exception("Error processing image")
             return jsonify({"error": f"Error processing image: {str(e)}"}), 500
     else:
         return (
@@ -366,9 +367,10 @@ def submit_feedback():
         )
 
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Error submitting feedback: %s", str(e))
+        app.logger.exception("Error submitting feedback: %s", str(e))
         db.session.rollback()
-        return jsonify({"error": f"Error submitting feedback: {str(e)}"}), 500
+
+        return jsonify({"error": "Error submitting feedback"}), 500
 
 
 @app.route("/stats", methods=["GET"])
@@ -402,7 +404,7 @@ def get_stats():
         return jsonify(stats)
 
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Error getting stats: %s", str(e))
+        logger.exception("Error getting stats")
         return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
 
 
@@ -414,7 +416,7 @@ def check_db_connection():
         db.session.execute(text("SELECT 1"))
         return True
     except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
-        logger.exception("Database connection check failed: %s", str(e))
+        logger.warning("Database connection check failed: %s", str(e))
         return False
 
 
@@ -440,7 +442,9 @@ def uploaded_file(filename: str) -> Any:
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
-def _process_box(box, hold_types_mapping):
+def _process_box(
+    box: Any, hold_types_mapping: Dict[int, str]
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Process a single detection box and return hold data."""
     # Get box coordinates
     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
@@ -536,12 +540,23 @@ def _create_database_records(
     analysis: Analysis, detected_holds_data: list[Dict[str, Any]]
 ) -> None:
     """Create database records for analysis and detected holds."""
+    # Pre-fetch all hold types to avoid N+1 queries
+    hold_type_names = {hd["hold_type"] for hd in detected_holds_data}
+    hold_types_by_name = (
+        {
+            ht.name: ht
+            for ht in db.session.query(HoldType)
+            .filter(HoldType.name.in_(hold_type_names))
+            .all()
+        }
+        if hold_type_names
+        else {}
+    )
+
     # Create DetectedHold records
     for hold_data in detected_holds_data:
         # Look up HoldType by name
-        hold_type = (
-            db.session.query(HoldType).filter_by(name=hold_data["hold_type"]).first()
-        )
+        hold_type = hold_types_by_name.get(hold_data["hold_type"])
 
         if hold_type:  # Only create if valid hold type exists
             detected_hold = DetectedHold(
@@ -656,9 +671,8 @@ def predict_grade(features: Dict[str, Any]) -> str:
     # avg_confidence = features["average_confidence"] # TODO: Incorporate confidence into grading
 
     # Base grade on hold count - adjusted to match test expectations
-    if hold_count <= 3:
-        base_grade = "V0"
-    elif hold_count <= 4:
+    # TODO: Revise to match reality - Temp placeholder logic
+    if hold_count <= 4:
         base_grade = "V0"
     elif hold_count <= 5:
         base_grade = "V1"
