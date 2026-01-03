@@ -1,0 +1,49 @@
+# YOLO Dataset Configuration for Bouldering Hold Detection
+# This file defines the dataset structure and classes for training YOLOv8 models
+
+# Dataset paths (relative to this file)
+# These paths point to directories containing images and labels
+train: train  # Training set directory
+val: val      # Validation set directory
+test: test    # Optional test set directory
+
+# Number of classes in the dataset
+nc: 5
+
+# Class names (must match the number of classes above)
+# Each detected hold will be assigned one of these classes
+names:
+  0: crimp      # Small edge holds requiring fingertip strength
+  1: jug        # Large, easy-to-grip holds
+  2: sloper     # Rounded holds requiring open-hand grip
+  3: pinch      # Holds gripped by pinching between thumb and fingers
+  4: pocket     # Holds with holes or indentations for fingers
+
+# Dataset Structure:
+# data/sample_hold/
+# ├── data.yaml         (this file)
+# ├── train/
+# │   ├── images/       (training images: .jpg, .png)
+# │   └── labels/       (YOLO format labels: .txt)
+# ├── val/
+# │   ├── images/       (validation images)
+# │   └── labels/       (YOLO format labels)
+# └── test/             (optional)
+#     ├── images/
+#     └── labels/
+
+# YOLO Label Format (one .txt file per image):
+# Each line represents one bounding box:
+# <class_id> <x_center> <y_center> <width> <height>
+# All values are normalized to [0, 1] relative to image dimensions
+# 
+# Example label file (image_001.txt):
+# 0 0.5 0.3 0.1 0.15    # crimp at center-left
+# 1 0.7 0.6 0.2 0.25    # jug at lower-right
+# 3 0.2 0.8 0.12 0.18   # pinch at bottom-left
+
+# Notes:
+# - Image and label files must have matching names (except extension)
+# - Images: image_001.jpg -> Labels: image_001.txt
+# - Empty label files are allowed for images with no holds
+# - Recommended train/val split: 80/20 or 90/10

@@ -99,27 +99,137 @@ from src.models import (  # noqa: E402 # pylint: disable=E0401
     Feedback,
     HoldType,
     DetectedHold,
+    ModelVersion,
 )
 
-# Load models
-hold_detection_model: Optional[YOLO] = None
-try:
-    hold_detection_model = YOLO("yolov8n.pt")
-    print("YOLOv8 model loaded successfully")
-except (ImportError, RuntimeError) as e:  # pragma: no cover
-    print(f"Error loading YOLOv8 model: {e}")  # pragma: no cover
+# Import config utilities
+# pylint: disable=import-outside-toplevel, wrong-import-position
+from src.config import (  # noqa: E402 # pylint: disable=E0401
+    get_model_path,
+    get_config_value,
+    ConfigurationError,
+)
 
-# Hold type mapping (this should be populated from the database)
-HOLD_TYPES = {
-    0: "crimp",
-    1: "jug",
-    2: "sloper",
-    3: "pinch",
-    4: "pocket",
-    5: "foot-hold",
-    6: "start-hold",
-    7: "top-out-hold",
-}
+# Import constants
+# pylint: disable=import-outside-toplevel, wrong-import-position
+from src.constants import HOLD_TYPES  # noqa: E402 # pylint: disable=E0401
+
+# Global variables for model and confidence threshold
+hold_detection_model: Optional[YOLO] = None
+confidence_threshold: float = 0.25  # Default value
+
+
+def load_active_hold_detection_model() -> tuple[Optional[YOLO], float]:
+    """
+    Load the active hold detection model from the ModelVersion table.
+
+    This function queries the database for the active hold detection model
+    and loads it from the specified path. If no active model is found,
+    it falls back to the base YOLOv8 model.
+
+    Returns:
+        tuple[Optional[YOLO], float]: A tuple containing:
+            - The loaded YOLO model (or None if loading fails)
+            - The confidence threshold to use for detections
+
+    Raises:
+        None: All exceptions are caught and logged. Returns (None, threshold)
+              on error to maintain backward compatibility.
+    """
+    # Default confidence threshold from config
+    default_threshold = 0.25
+    try:
+        default_threshold = get_config_value(
+            "model_defaults.hold_detection_confidence_threshold", 0.25
+        )
+    except (  # pylint: disable=broad-exception-caught
+        ConfigurationError,
+        Exception,
+    ) as e:
+        logger.warning(
+            "Failed to load confidence threshold from config: %s. Using default: %s",
+            str(e),
+            default_threshold,
+        )
+
+    # Try to query the database for an active model
+    active_model = None
+    try:
+        with app.app_context():
+            active_model = (
+                db.session.query(ModelVersion)
+                .filter_by(model_type="hold_detection", is_active=True)
+                .first()
+            )
+
+            if active_model:
+                logger.info(
+                    "Found active model: %s v%s at %s",
+                    active_model.model_type,
+                    active_model.version,
+                    active_model.model_path,
+                )
+
+                # Check if model file exists
+                model_file = active_model.model_path
+                if not os.path.isabs(model_file):
+                    # Resolve relative paths from project root
+                    from src.config import resolve_path
+
+                    model_file = str(resolve_path(model_file))
+
+                if not os.path.exists(model_file):
+                    logger.error(
+                        "Active model file not found: %s. Falling back to base model.",
+                        model_file,
+                    )
+                    active_model = None
+                else:
+                    # Try to load the model
+                    try:
+                        model = YOLO(model_file)
+                        logger.info(
+                            "Successfully loaded active model from %s", model_file
+                        )
+                        return model, default_threshold
+                    except (ImportError, RuntimeError, OSError) as e:
+                        logger.error(
+                            "Error loading active model from %s: %s. Falling back to base model.",
+                            model_file,
+                            str(e),
+                        )
+                        active_model = None
+
+    except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "Database error while querying for active model: %s. Falling back to base model.",
+            str(e),
+        )
+
+    # Fall back to base YOLOv8 model
+    if not active_model:
+        try:
+            base_model_path = get_model_path("base_yolov8")
+            logger.info("Loading base YOLOv8 model from %s", base_model_path)
+            model = YOLO(str(base_model_path))
+            logger.info("Successfully loaded base YOLOv8 model")
+            return model, default_threshold
+        except (  # pylint: disable=broad-exception-caught
+            ConfigurationError,
+            Exception,
+        ) as e:
+            logger.error("Failed to load base model from config: %s", str(e))
+            # Last resort: try loading from hardcoded path
+            try:
+                logger.info("Attempting to load base model from yolov8n.pt")
+                model = YOLO("yolov8n.pt")
+                logger.info("Successfully loaded base YOLOv8 model from yolov8n.pt")
+                return model, default_threshold
+            except (ImportError, RuntimeError, OSError) as ex:
+                logger.error("Error loading base YOLOv8 model: %s", str(ex))
+                return None, default_threshold
+
+    return None, default_threshold
 
 
 def allowed_file(filename: str):
@@ -361,9 +471,21 @@ def _process_box(box, hold_types_mapping):
 
 
 def _process_detection_results(
-    results: Any, hold_types_mapping: Any
+    results: Any, hold_types_mapping: Any, conf_threshold: float = 0.25
 ) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
-    """Process YOLO detection results and extract features."""
+    """
+    Process YOLO detection results and extract features.
+
+    Args:
+        results: YOLO detection results
+        hold_types_mapping: Mapping from class IDs to hold type names
+        conf_threshold: Minimum confidence threshold for detections (default: 0.25)
+
+    Returns:
+        tuple: A tuple containing:
+            - List of detected holds data (filtered by confidence)
+            - Dictionary of extracted features
+    """
     total_features: Dict[str, Any] = {
         "total_holds": 0,
         "hold_types": {},
@@ -376,6 +498,18 @@ def _process_detection_results(
         boxes = result.boxes
         if boxes is not None:
             for box in boxes:
+                # Get confidence before processing
+                box_confidence = float(box.conf[0].cpu().numpy())
+
+                # Apply confidence threshold filtering
+                if box_confidence < conf_threshold:
+                    logger.debug(
+                        "Skipping detection with confidence %.3f (threshold: %.3f)",
+                        box_confidence,
+                        conf_threshold,
+                    )
+                    continue
+
                 hold_data, features = _process_box(box, hold_types_mapping)
                 detected_holds_data.append(hold_data)
 
@@ -472,8 +606,10 @@ def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
     # Run detection
     results = hold_detection_model(img)
 
-    # Process results
-    detected_holds_data, features = _process_detection_results(results, HOLD_TYPES)
+    # Process results with confidence threshold filtering
+    detected_holds_data, features = _process_detection_results(
+        results, HOLD_TYPES, confidence_threshold
+    )
 
     # Predict grade
     predicted_grade = predict_grade(features)
@@ -553,6 +689,22 @@ def predict_grade(features: Dict[str, Any]) -> str:
     grade_value = min(grade_value + int(difficulty_multiplier), 10)  # Cap at V10
 
     return f"V{grade_value}"
+
+
+# Initialize the model when the module is loaded
+try:
+    logger.info("Initializing hold detection model...")
+    hold_detection_model, confidence_threshold = load_active_hold_detection_model()
+    if hold_detection_model:
+        logger.info(
+            "Hold detection model loaded successfully. Confidence threshold: %.2f",
+            confidence_threshold,
+        )
+    else:
+        logger.error("Failed to load hold detection model")
+except Exception as e:  # pylint: disable=broad-exception-caught
+    logger.exception("Error during model initialization: %s", str(e))
+    hold_detection_model = None
 
 
 if __name__ == "__main__":
