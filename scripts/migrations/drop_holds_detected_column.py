@@ -110,7 +110,7 @@ def column_exists(inspector, table_name: str, column_name: str) -> bool:
         columns = [col["name"] for col in inspector.get_columns(table_name)]
         return column_name in columns
     except Exception as e:
-        logger.error(f"Error checking if column exists: {e}")
+        logger.error("Error checking if column exists: %s", e, exc_info=True)
         return False
 
 
@@ -131,16 +131,16 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
 
     # Check if table exists
     if table_name not in inspector.get_table_names():
-        logger.error(f"Table '{table_name}' does not exist in the database")
+        logger.error("Table '%s' does not exist in the database", table_name)
         return False
 
     # Check if column exists
     if not column_exists(inspector, table_name, column_name):
-        logger.info(f"Column '{column_name}' does not exist in '{table_name}' table")
+        logger.info("Column '%s' does not exist in '%s' table", column_name, table_name)
         logger.info("Migration already applied or column never existed")
         return True
 
-    logger.info(f"Found '{column_name}' column in '{table_name}' table")
+    logger.info("Found '%s' column in '%s' table", column_name, table_name)
 
     try:
         with engine.begin() as connection:
@@ -201,7 +201,10 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
                             connection.execute(text(index_sql))
                         except Exception as e:
                             logger.warning(
-                                f"Could not recreate index {index['name']}: {e}"
+                                "Could not recreate index %s: %s",
+                                index["name"],
+                                e,
+                                exc_info=True,
                             )
 
                 # Drop old table
@@ -219,15 +222,15 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
                 connection.execute(sql)
 
         logger.info(
-            f"Successfully dropped '{column_name}' column from '{table_name}' table"
+            "Successfully dropped '%s' column from '%s' table", column_name, table_name
         )
         return True
 
     except SQLAlchemyError as e:
-        logger.error(f"Database error while dropping column: {e}")
+        logger.error("Database error while dropping column: %s", e, exc_info=True)
         return False
     except Exception as e:
-        logger.error(f"Unexpected error while dropping column: {e}")
+        logger.error("Unexpected error while dropping column: %s", e, exc_info=True)
         return False
 
 
@@ -251,16 +254,16 @@ def rollback_add_holds_detected_column(engine, db_type: str) -> bool:
 
     # Check if table exists
     if table_name not in inspector.get_table_names():
-        logger.error(f"Table '{table_name}' does not exist in the database")
+        logger.error("Table '%s' does not exist in the database", table_name)
         return False
 
     # Check if column already exists
     if column_exists(inspector, table_name, column_name):
-        logger.info(f"Column '{column_name}' already exists in '{table_name}' table")
+        logger.info("Column '%s' already exists in '%s' table", column_name, table_name)
         logger.info("Rollback already applied or no migration to rollback")
         return True
 
-    logger.info(f"Adding '{column_name}' column to '{table_name}' table")
+    logger.info("Adding '%s' column to '%s' table", column_name, table_name)
 
     try:
         with engine.begin() as connection:
@@ -276,7 +279,7 @@ def rollback_add_holds_detected_column(engine, db_type: str) -> bool:
             connection.execute(sql)
 
         logger.info(
-            f"Successfully added '{column_name}' column to '{table_name}' table"
+            "Successfully added '%s' column to '%s' table", column_name, table_name
         )
         logger.warning(
             "Column added but is EMPTY - restore from backup to recover data"
@@ -284,10 +287,10 @@ def rollback_add_holds_detected_column(engine, db_type: str) -> bool:
         return True
 
     except SQLAlchemyError as e:
-        logger.error(f"Database error while adding column: {e}")
+        logger.error("Database error while adding column: %s", e, exc_info=True)
         return False
     except Exception as e:
-        logger.error(f"Unexpected error while adding column: {e}")
+        logger.error("Unexpected error while adding column: %s", e, exc_info=True)
         return False
 
 
@@ -310,7 +313,7 @@ def verify_migration(engine) -> bool:
         column_exists_now = column_exists(inspector, table_name, column_name)
 
         if column_exists_now:
-            logger.error(f"Verification failed: '{column_name}' column still exists")
+            logger.error("Verification failed: '%s' column still exists", column_name)
             return False
 
         # Check that DetectedHold table exists
@@ -327,14 +330,14 @@ def verify_migration(engine) -> bool:
             result = session.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
             count = result.scalar()
             logger.info(
-                f"Verification successful: {count} records in {table_name} table"
+                "Verification successful: %s records in %s table", count, table_name
             )
             return True
         finally:
             session.close()
 
     except Exception as e:
-        logger.error(f"Verification error: {e}")
+        logger.error("Verification error: %s", e, exc_info=True)
         return False
 
 
@@ -383,15 +386,15 @@ def main():
             if ":" in user_pass:
                 safe_db_url = db_url.replace(user_pass.split(":")[1], "****")
 
-    logger.info(f"Database URL: {safe_db_url}")
-    logger.info(f"Database Type: {db_type}")
+    logger.info("Database URL: %s", safe_db_url)
+    logger.info("Database Type: %s", db_type)
 
     # Create engine
     try:
         engine = create_engine(db_url)
         logger.info("Database connection established")
     except Exception as e:
-        logger.error(f"Failed to connect to database: {e}")
+        logger.error("Failed to connect to database: %s", e, exc_info=True)
         sys.exit(1)
 
     # Verify-only mode
