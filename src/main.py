@@ -121,9 +121,37 @@ from src.config import (  # noqa: E402 # pylint: disable=E0401
     ConfigurationError,
 )
 
-# Import constants
-# pylint: disable=import-outside-toplevel, wrong-import-position
-from src.constants import HOLD_TYPES  # noqa: E402 # pylint: disable=E0401
+# Module-level cache for hold types
+_hold_types_cache: Optional[dict[int, str]] = None
+
+
+def get_hold_types() -> dict[int, str]:
+    """
+    Load hold types from the database with caching.
+
+    Returns:
+        dict[int, str]: Mapping of hold type IDs to names
+
+    Note:
+        This function must be called within an active Flask app context.
+    """
+    global _hold_types_cache
+
+    if _hold_types_cache is not None:
+        return _hold_types_cache
+
+    # Query database for hold types using current app context
+    hold_types = db.session.query(HoldType).all()
+    _hold_types_cache = {ht.id: ht.name for ht in hold_types}
+
+    return _hold_types_cache
+
+
+def clear_hold_types_cache() -> None:
+    """Clear the hold types cache (for test fixture support)."""
+    global _hold_types_cache
+    _hold_types_cache = None
+
 
 # Global variables for model and confidence threshold
 hold_detection_model: Optional[YOLO] = None
@@ -634,7 +662,7 @@ def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
 
     # Process results with confidence threshold filtering
     detected_holds_data, features = _process_detection_results(
-        results, HOLD_TYPES, confidence_threshold
+        results, get_hold_types(), confidence_threshold
     )
 
     # Predict grade
