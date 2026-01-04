@@ -7,6 +7,8 @@ import uuid
 import tempfile
 from unittest.mock import Mock, patch
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.main import (
     app,
     predict_grade,
@@ -685,8 +687,8 @@ class TestFeedbackRouteErrorHandling:  # pylint: disable=too-few-public-methods
     @patch("src.main.db")
     def test_feedback_route_database_error(self, mock_db, test_client):
         """Test feedback route with database error - covers lines 208-210."""
-        # Mock db.session.get to raise an exception
-        mock_db.session.get.side_effect = Exception("Database error")
+        # Mock db.session.get to raise a SQLAlchemyError
+        mock_db.session.get.side_effect = SQLAlchemyError("Database error")
         mock_db.session.rollback = Mock()
 
         response = test_client.post(
@@ -709,8 +711,8 @@ class TestStatsRouteErrorHandling:  # pylint: disable=too-few-public-methods
     @patch("src.main.db")
     def test_stats_route_database_error(self, mock_db, test_client):
         """Test stats route with database error - covers lines 243-244."""
-        # Mock db.session.query to raise an exception
-        mock_db.session.query.side_effect = Exception("Database error")
+        # Mock db.session.query to raise a SQLAlchemyError
+        mock_db.session.query.side_effect = SQLAlchemyError("Database error")
 
         response = test_client.get("/stats")
 
