@@ -10,6 +10,7 @@ Tests cover:
 """
 
 from unittest.mock import patch, MagicMock
+import pytest
 from src.manage_models import (
     activate_model,
     deactivate_model,
@@ -434,7 +435,7 @@ class TestSetupFlaskAppErrorPaths:
 
         try:
             _setup_flask_app()
-            assert False, "Should have raised RuntimeError"
+            pytest.fail("Should have raised RuntimeError")
         except RuntimeError as e:
             assert "Failed to import Flask dependencies" in str(e)
 
@@ -450,7 +451,7 @@ class TestSetupFlaskAppErrorPaths:
 
         try:
             _setup_flask_app()
-            assert False, "Should have raised RuntimeError"
+            pytest.fail("Should have raised RuntimeError")
         except RuntimeError as e:
             assert "Failed to initialize Flask app" in str(e)
 

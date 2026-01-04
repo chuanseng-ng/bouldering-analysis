@@ -568,8 +568,7 @@ class TestLoggingSetup:
 
         importlib.reload(src.train_model)
 
-        # Should not raise an exception - logging should continue to stdout
-        assert True
+        # Test passes if no exception is raised during module reload
 
 
 class TestValidateDatasetEdgeCases:

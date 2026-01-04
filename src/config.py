@@ -237,6 +237,32 @@ def clear_config_cache() -> None:
         logger.debug("Configuration cache cleared")
 
 
+def _get_path_from_section(section: str, path_key: str) -> Path:
+    """
+    Get a resolved absolute path from a specific configuration section.
+
+    Args:
+        section: The configuration section name (e.g., 'model_paths', 'data_paths').
+        path_key: The configuration key for the path within the section.
+
+    Returns:
+        Path: The resolved absolute path.
+
+    Raises:
+        ConfigurationError: If the section or path key is not found in configuration.
+    """
+    config = load_config()
+
+    if section not in config:
+        raise ConfigurationError(f"Missing '{section}' section in configuration")
+
+    if path_key not in config[section]:
+        raise ConfigurationError(f"Path '{path_key}' not found in '{section}' section")
+
+    path_str = config[section][path_key]
+    return resolve_path(path_str)
+
+
 def get_model_path(path_key: str) -> Path:
     """
     Get a resolved absolute path for a model-related path from configuration.
@@ -256,16 +282,15 @@ def get_model_path(path_key: str) -> Path:
         >>> print(base_model)
         /path/to/project/yolov8n.pt
     """
-    config = load_config()
-
-    if "model_paths" not in config:
-        raise ConfigurationError("Missing 'model_paths' section in configuration")
-
-    if path_key not in config["model_paths"]:
-        raise ConfigurationError(f"Model path '{path_key}' not found in configuration")
-
-    path_str = config["model_paths"][path_key]
-    return resolve_path(path_str)
+    try:
+        return _get_path_from_section("model_paths", path_key)
+    except ConfigurationError as exc:
+        # Re-raise with more specific message if it's about a missing path key
+        if "not found in" in str(exc):
+            raise ConfigurationError(
+                f"Model path '{path_key}' not found in configuration"
+            ) from exc
+        raise
 
 
 def get_data_path(path_key: str) -> Path:
@@ -287,13 +312,12 @@ def get_data_path(path_key: str) -> Path:
         >>> print(uploads_dir)
         /path/to/project/data/uploads/
     """
-    config = load_config()
-
-    if "data_paths" not in config:
-        raise ConfigurationError("Missing 'data_paths' section in configuration")
-
-    if path_key not in config["data_paths"]:
-        raise ConfigurationError(f"Data path '{path_key}' not found in configuration")
-
-    path_str = config["data_paths"][path_key]
-    return resolve_path(path_str)
+    try:
+        return _get_path_from_section("data_paths", path_key)
+    except ConfigurationError as exc:
+        # Re-raise with more specific message if it's about a missing path key
+        if "not found in" in str(exc):
+            raise ConfigurationError(
+                f"Data path '{path_key}' not found in configuration"
+            ) from exc
+        raise
