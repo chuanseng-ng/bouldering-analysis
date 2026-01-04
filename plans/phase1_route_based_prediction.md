@@ -558,7 +558,7 @@ def detect_wall_transitions(holds: list, wall_segments: list) -> dict:
 Transitions vary in difficulty based on the angle change magnitude:
 
 | Magnitude | Angle Change | Difficulty Impact | Example |
-|-----------|--------------|-------------------|---------|
+| --------- | ------------ | ----------------- | ------- |
 | **Minor** | 5°-15° | Low additional difficulty | Vertical → Slight overhang |
 | **Moderate** | 16°-30° | Noticeable difficulty spike | Slight → Moderate overhang |
 | **Major** | 31°-45° | Significant difficulty spike | Vertical → Steep overhang |
@@ -863,12 +863,12 @@ Final_Score = Base_Score × Transition_Multiplier × Variability_Multiplier
 
 **Multiplier Impact Examples:**
 
-| Base Score | Transitions | Variability | Final Score | Impact |
-|------------|-------------|-------------|-------------|--------|
-| 5.0 (V5)   | None (1.0x) | Low (1.0x)  | 5.0         | No change |
-| 5.0 (V5)   | 2 moderate (1.3x) | Low (1.0x) | 6.5 (V6-V7) | +1-2 grades |
-| 5.0 (V5)   | None (1.0x) | High (1.4x) | 7.0 (V7)    | +2 grades |
-| 5.0 (V5)   | 2 major (1.5x) | High (1.4x) | 10.5 (V10-V11) | +5-6 grades |
+| Base Score | Transitions       | Variability     | Final Score    | Impact      |
+|:----------:|:-----------:      |:-----------:    |:-----------:   |:------:     |
+| 5.0 (V5)   | None (1.0x)       | Low (1.0x)      | 5.0            | No change   |
+| 5.0 (V5)   | 2 moderate (1.3x) | Low (1.0x)      | 6.5 (V6-V7)    | +1-2 grades |
+| 5.0 (V5)   | None (1.0x)       | High (1.4x)     | 7.0 (V7)       | +2 grades   |
+| 5.0 (V5)   | 2 major (1.5x)    | High (1.4x)     | 10.5 (V10-V11) | +5-6 grades |
 | 8.0 (V8)   | 1 moderate (1.2x) | Moderate (1.2x) | 11.5 (V11-V12) | +3-4 grades |
 
 **Combined Multiplier Range:**

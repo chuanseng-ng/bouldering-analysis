@@ -420,7 +420,7 @@ grade_prediction:
 ## Version History
 
 | Version | Date | Changes | Author |
-|---------|------|---------|--------|
+| ------- | ---- | ------- | ------ |
 | 1.0 | 2026-01-04 | Split comprehensive plan into phased documents | System |
 | 0.9 | 2026-01-03 | Added Phase 1.5 persona personalization | System |
 | 0.8 | 2026-01-02 | Added complexity multipliers to Phase 1 | System |

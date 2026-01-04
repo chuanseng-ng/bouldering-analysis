@@ -1427,7 +1427,7 @@ personas:
 ### 8.1 Risk Matrix
 
 | Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
+| ---- | ---------- | ------ | ---------- |
 | Users misjudge their persona | High | Medium | Provide clear descriptions, examples, quiz |
 | Adjustments feel inaccurate | Medium | High | Calibrate with feedback, allow strength control |
 | Feature adds confusion | Medium | Medium | Clear UI/UX, show both grades, educational content |
