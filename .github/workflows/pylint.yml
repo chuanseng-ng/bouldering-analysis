@@ -28,4 +28,5 @@ jobs:
         pip install -r requirements.txt
     - name: Perform quality-assurance checks
       run: |
-       ./run_qa.csh 
+        chmod 775 run_qa.csh
+        ./run_qa.csh 
