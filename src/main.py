@@ -330,10 +330,9 @@ def index():
                 return render_template(  # pragma: no cover
                     "index.html", result=result, image_path=unique_filename
                 )
-            except (IOError, RuntimeError) as e:
-                return render_template(
-                    "index.html", error=f"Error processing image: {str(e)}"
-                )
+            except (IOError, RuntimeError):
+                app.logger.exception("Error processing image")
+                return render_template("index.html", error="Error processing image")
         else:
             return render_template(
                 "index.html",
@@ -365,9 +364,9 @@ def analyze_route():
         try:
             result = analyze_image(filepath, unique_filename)
             return jsonify(result)
-        except (IOError, RuntimeError) as e:
+        except (IOError, RuntimeError):
             app.logger.exception("Error processing image")
-            return jsonify({"error": f"Error processing image: {str(e)}"}), 500
+            return jsonify({"error": "Error processing image"}), 500
     else:
         return (
             jsonify(
@@ -405,7 +404,7 @@ def submit_feedback():
             {"message": "Feedback submitted successfully", "feedback_id": feedback.id}
         )
 
-    except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+    except SQLAlchemyError as e:
         app.logger.exception("Error submitting feedback: %s", str(e))
         db.session.rollback()
 
@@ -442,9 +441,9 @@ def get_stats():
 
         return jsonify(stats)
 
-    except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+    except SQLAlchemyError:
         logger.exception("Error getting stats")
-        return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
+        return jsonify({"error": "Error getting stats"}), 500
 
 
 def check_db_connection():
