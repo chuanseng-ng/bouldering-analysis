@@ -87,11 +87,12 @@ def get_database_type(db_url: str) -> str:
     """
     if db_url.startswith("sqlite"):
         return "sqlite"
-    elif db_url.startswith("postgresql"):
-        return "postgresql"
     else:
-        # Extract dialect from URL
-        return db_url.split(":")[0]
+        if db_url.startswith("postgresql"):
+            return "postgresql"
+        else:
+            # Extract dialect from URL
+            return db_url.split(":")[0]
 
 
 def column_exists(inspector, table_name: str, column_name: str) -> bool:
