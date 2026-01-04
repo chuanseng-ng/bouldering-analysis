@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -124,6 +125,47 @@ from src.config import (  # noqa: E402 # pylint: disable=E0401
 # Import constants
 # pylint: disable=import-outside-toplevel, wrong-import-position
 from src.constants import HOLD_TYPES  # noqa: E402 # pylint: disable=E0401
+
+# Module-level cache for hold types
+_hold_types_cache: Optional[dict[int, str]] = None
+_hold_types_cache_lock = threading.Lock()
+
+
+def get_hold_types() -> dict[int, str]:
+    """
+    Load hold types from the database with caching.
+
+    Returns:
+        dict[int, str]: Mapping of hold type IDs to names
+
+    Note:
+        This function must be called within an active Flask app context.
+    """
+    global _hold_types_cache  # pylint: disable=global-statement
+
+    # First check without lock (fast path)
+    if _hold_types_cache is not None:
+        return _hold_types_cache
+
+    # Acquire lock for initialization
+    with _hold_types_cache_lock:
+        # Double-check: another thread may have initialized while we waited
+        if _hold_types_cache is not None:
+            return _hold_types_cache  # type: ignore[unreachable]
+
+        # Query database for hold types using current app context
+        hold_types = db.session.query(HoldType).all()
+        _hold_types_cache = {ht.id: ht.name for ht in hold_types}
+
+        return _hold_types_cache
+
+
+def clear_hold_types_cache() -> None:
+    """Clear the hold types cache (for test fixture support)."""
+    global _hold_types_cache  # pylint: disable=global-statement
+    with _hold_types_cache_lock:
+        _hold_types_cache = None
+
 
 # Global variables for model and confidence threshold
 hold_detection_model: Optional[YOLO] = None
@@ -258,18 +300,7 @@ def create_tables():
 
         # Initialize hold types if they don't exist
         if db.session.query(HoldType).count() == 0:
-            hold_type_data = [
-                (0, "crimp", "Small, narrow hold requiring crimping fingers"),
-                (1, "jug", "Large, easy-to-hold jug"),
-                (2, "sloper", "Round, sloping hold that requires open-handed grip"),
-                (3, "pinch", "Hold that requires pinching between thumb and fingers"),
-                (4, "pocket", "Small hole that fingers fit into"),
-                (5, "foot-hold", "Hold specifically for feet"),
-                (6, "start-hold", "Starting hold for the route"),
-                (7, "top-out-hold", "Hold used to complete the route"),
-            ]
-
-            for hold_id, name, description in hold_type_data:
+            for hold_id, name, description in HOLD_TYPES:
                 hold_type = HoldType(id=hold_id, name=name, description=description)
                 db.session.add(hold_type)
 
@@ -302,10 +333,10 @@ def index():
                 return render_template(  # pragma: no cover
                     "index.html", result=result, image_path=unique_filename
                 )
-            except (IOError, RuntimeError) as e:
-                return render_template(
-                    "index.html", error=f"Error processing image: {str(e)}"
-                )
+            except (IOError, RuntimeError, SQLAlchemyError):
+                app.logger.exception("Error processing image")
+                db.session.rollback()
+                return render_template("index.html", error="Error processing image")
         else:
             return render_template(
                 "index.html",
@@ -337,9 +368,10 @@ def analyze_route():
         try:
             result = analyze_image(filepath, unique_filename)
             return jsonify(result)
-        except (IOError, RuntimeError) as e:
+        except (IOError, RuntimeError, SQLAlchemyError):
             app.logger.exception("Error processing image")
-            return jsonify({"error": f"Error processing image: {str(e)}"}), 500
+            db.session.rollback()
+            return jsonify({"error": "Error processing image"}), 500
     else:
         return (
             jsonify(
@@ -377,7 +409,7 @@ def submit_feedback():
             {"message": "Feedback submitted successfully", "feedback_id": feedback.id}
         )
 
-    except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+    except SQLAlchemyError as e:
         app.logger.exception("Error submitting feedback: %s", str(e))
         db.session.rollback()
 
@@ -414,9 +446,9 @@ def get_stats():
 
         return jsonify(stats)
 
-    except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+    except SQLAlchemyError:
         logger.exception("Error getting stats")
-        return jsonify({"error": f"Error getting stats: {str(e)}"}), 500
+        return jsonify({"error": "Error getting stats"}), 500
 
 
 def check_db_connection():
@@ -634,7 +666,7 @@ def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
 
     # Process results with confidence threshold filtering
     detected_holds_data, features = _process_detection_results(
-        results, HOLD_TYPES, confidence_threshold
+        results, get_hold_types(), confidence_threshold
     )
 
     # Predict grade

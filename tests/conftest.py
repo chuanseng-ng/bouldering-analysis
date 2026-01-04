@@ -7,9 +7,17 @@ import tempfile
 import pytest
 import yaml
 from PIL import Image
-from src.main import app as flask_app
+from src.main import app as flask_app, clear_hold_types_cache
 from src.models import db, HoldType, ModelVersion
 from src.constants import HOLD_TYPES
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Clear hold types cache before and after each test."""
+    clear_hold_types_cache()
+    yield
+    clear_hold_types_cache()
 
 
 @pytest.fixture
@@ -31,28 +39,19 @@ def test_app():
         db.create_all()
 
         # Initialize hold types
-        # Preserve descriptions from the original hard-coded data
-        hold_type_descriptions = {
-            "crimp": "Small, narrow hold requiring crimping fingers",
-            "jug": "Large, easy-to-hold jug",
-            "sloper": "Round, sloping hold that requires open-handed grip",
-            "pinch": "Hold that requires pinching between thumb and fingers",
-            "pocket": "Small hole that fingers fit into",
-            "foot-hold": "Hold specifically for feet",
-            "start-hold": "Starting hold for the route",
-            "top-out-hold": "Hold used to complete the route",
-        }
+        # Use shared HOLD_TYPES constant
+        hold_type_data = HOLD_TYPES
 
         # Only add hold types if they don't already exist
         existing_types = {ht.id for ht in db.session.query(HoldType).all()}
 
-        for hold_id, name in HOLD_TYPES.items():
+        for hold_id, name, description in hold_type_data:
             if hold_id not in existing_types:
                 # Use merge to avoid integrity errors
                 hold_type = HoldType()
                 hold_type.id = hold_id
                 hold_type.name = name
-                hold_type.description = hold_type_descriptions.get(name, "")
+                hold_type.description = description
                 db.session.merge(hold_type)
 
         db.session.commit()

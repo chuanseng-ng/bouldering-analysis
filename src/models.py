@@ -44,7 +44,6 @@ class Analysis(Base):
     image_path = db.Column(db.String(500), nullable=False)
     predicted_grade = db.Column(db.String(10), nullable=False)
     confidence_score = db.Column(db.Float, nullable=True)
-    holds_detected = db.Column(db.JSON, nullable=True)  # Store hold detection results
     features_extracted = db.Column(db.JSON, nullable=True)  # Store extracted features
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(
@@ -79,7 +78,6 @@ class Analysis(Base):
             "image_path": self.image_path,
             "predicted_grade": self.predicted_grade,
             "confidence_score": self.confidence_score,
-            "holds_detected": self.holds_detected,
             "features_extracted": self.features_extracted,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
