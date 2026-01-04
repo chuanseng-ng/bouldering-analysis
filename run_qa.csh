@@ -80,7 +80,7 @@ else
 fi
 
 # Also check if pylint had errors (exit code)
-if [ $pylint_errors -ne 0 ]; then
+if [ $pylint_exit_code -ne 0 ] && [ $pylint_errors -ne 0 ]; then
     errors=1
     # Only add if not already there
     if [[ ! " ${failing_checkers[@]} " =~ " pylint " ]]; then
