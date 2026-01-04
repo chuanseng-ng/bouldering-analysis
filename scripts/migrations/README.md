@@ -42,7 +42,7 @@ python scripts/migrations/drop_holds_detected_column.py --rollback
 ### Prerequisites
 
 1. **Always backup your database first!**
-2. 
+
    ```bash
    # SQLite
    cp bouldering_analysis.db bouldering_analysis.db.backup
@@ -51,9 +51,9 @@ python scripts/migrations/drop_holds_detected_column.py --rollback
    pg_dump -U username -d database_name > backup.sql
    ```
 
-3. Stop the application before running migrations
+2. Stop the application before running migrations
 
-4. Ensure you have the necessary database permissions
+3. Ensure you have the necessary database permissions
 
 ### General Process
 
