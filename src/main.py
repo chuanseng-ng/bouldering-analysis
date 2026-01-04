@@ -21,7 +21,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory,
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from PIL import Image
-from ultralytics import YOLO  # type: ignore[import]
+from ultralytics import YOLO
 from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
