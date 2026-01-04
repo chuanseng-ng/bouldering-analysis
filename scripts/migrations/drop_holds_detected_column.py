@@ -29,13 +29,17 @@ import logging
 import argparse
 from pathlib import Path
 
+from sqlalchemy import (
+    create_engine,
+    inspect,
+    text,
+)
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import sessionmaker
+
 # Add the project root to the Python path to allow imports
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-
-from sqlalchemy import create_engine, inspect, text  # noqa: E402
-from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 # Ensure logs directory exists before configuring FileHandler
 project_root.joinpath("logs").mkdir(parents=True, exist_ok=True)
@@ -87,12 +91,10 @@ def get_database_type(db_url: str) -> str:
     """
     if db_url.startswith("sqlite"):
         return "sqlite"
-    else:
-        if db_url.startswith("postgresql"):
-            return "postgresql"
-        else:
-            # Extract dialect from URL
-            return db_url.split(":")[0]
+    if db_url.startswith("postgresql"):
+        return "postgresql"
+    # Extract dialect from URL
+    return db_url.split(":")[0]
 
 
 def column_exists(inspector, table_name: str, column_name: str) -> bool:
@@ -110,11 +112,12 @@ def column_exists(inspector, table_name: str, column_name: str) -> bool:
     try:
         columns = [col["name"] for col in inspector.get_columns(table_name)]
         return column_name in columns
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Error checking if column exists: %s", e, exc_info=True)
         return False
 
 
+# pylint: disable=too-many-locals,too-many-statements
 def drop_holds_detected_column(engine, db_type: str) -> bool:
     """
     Drop the holds_detected column from the analyses table.
@@ -210,6 +213,7 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
                             index_sql = f"CREATE {unique} INDEX {index['name']} ON {table_name} ({cols})"
                             try:
                                 connection.execute(text(index_sql))
+                            # pylint: disable=broad-exception-caught
                             except Exception as e:
                                 logger.warning(
                                     "Could not recreate index %s: %s",
@@ -249,7 +253,7 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
     except SQLAlchemyError as e:
         logger.error("Database error while dropping column: %s", e, exc_info=True)
         return False
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Unexpected error while dropping column: %s", e, exc_info=True)
         return False
 
@@ -309,7 +313,7 @@ def rollback_add_holds_detected_column(engine, db_type: str) -> bool:
     except SQLAlchemyError as e:
         logger.error("Database error while adding column: %s", e, exc_info=True)
         return False
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Unexpected error while adding column: %s", e, exc_info=True)
         return False
 
@@ -344,8 +348,8 @@ def verify_migration(engine) -> bool:
             return False
 
         # Check that the analyses table is still accessible
-        Session = sessionmaker(bind=engine)
-        session = Session()
+        session_class = sessionmaker(bind=engine)
+        session = session_class()
         try:
             result = session.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
             count = result.scalar()
@@ -356,12 +360,12 @@ def verify_migration(engine) -> bool:
         finally:
             session.close()
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Verification error: %s", e, exc_info=True)
         return False
 
 
-def main():
+def main():  # pylint: disable=too-many-branches,too-many-statements
     """Main migration execution function."""
     parser = argparse.ArgumentParser(
         description="Drop the deprecated holds_detected column from analyses table"
@@ -414,7 +418,7 @@ def main():
     try:
         engine = create_engine(db_url)
         logger.info("Database connection established")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.error("Failed to connect to database: %s", e, exc_info=True)
         sys.exit(1)
 

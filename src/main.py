@@ -141,7 +141,7 @@ def get_hold_types() -> dict[int, str]:
     Note:
         This function must be called within an active Flask app context.
     """
-    global _hold_types_cache
+    global _hold_types_cache  # pylint: disable=global-statement
 
     # First check without lock (fast path)
     if _hold_types_cache is not None:
@@ -162,7 +162,7 @@ def get_hold_types() -> dict[int, str]:
 
 def clear_hold_types_cache() -> None:
     """Clear the hold types cache (for test fixture support)."""
-    global _hold_types_cache
+    global _hold_types_cache  # pylint: disable=global-statement
     with _hold_types_cache_lock:
         _hold_types_cache = None
 
