@@ -10,11 +10,13 @@ It provides endpoints for:
 The application uses YOLOv8 for hold detection and a simplified algorithm for route grading.
 """
 
+from __future__ import annotations
+
 import os
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
@@ -26,50 +28,59 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder="templates")
 
-# Configure proxy behavior: when the app is deployed behind a reverse proxy
-# that forwards `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` or
-# `X-Forwarded-Port`, enable `ProxyFix` so `url_for(..., _external=True)` and
-# `request.scheme/host` produce correct external URLs. This is enabled by
-# default but may be disabled by setting `ENABLE_PROXY_FIX=false` in the
-# environment for local development or tests.
-# Enable ProxyFix only when explicitly opted-in via environment variables.
-# Default is disabled to avoid accidentally trusting proxy headers.
-enable_proxy_fix = os.environ.get("ENABLE_PROXY_FIX", "").lower() in {
-    "true",
-    "1",
-    "yes",
-}
-if enable_proxy_fix:
-    # Allow configuring how many proxies to trust for each header.
-    try:
-        x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
-        x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
-        x_host = int(os.environ.get("PROXY_FIX_X_HOST", "1"))
-        x_port = int(os.environ.get("PROXY_FIX_X_PORT", "1"))
-    except ValueError:
-        # Fallback to 1 if values are invalid
-        x_for = x_proto = x_host = x_port = 1
 
-    app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
-        app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
-    )
-    logger.warning(
-        "ProxyFix enabled: trusting %d x_for, %d x_proto, %d x_host, %d x_port",
-        x_for,
-        x_proto,
-        x_host,
-        x_port,
-    )
+def configure_proxy_fix() -> None:
+    """
+    Configure proxy behavior for the Flask application.
+
+    When the app is deployed behind a reverse proxy that forwards
+    `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` or
+    `X-Forwarded-Port`, enable `ProxyFix` so `url_for(..., _external=True)` and
+    `request.scheme/host` produce correct external URLs.
+
+    Enable ProxyFix only when explicitly opted-in via environment variables.
+    Default is disabled to avoid accidentally trusting proxy headers.
+    """
+    enable_proxy_fix = os.environ.get("ENABLE_PROXY_FIX", "").lower() in {
+        "true",
+        "1",
+        "yes",
+    }
+    if enable_proxy_fix:
+        # Allow configuring how many proxies to trust for each header.
+        try:
+            x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
+            x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
+            x_host = int(os.environ.get("PROXY_FIX_X_HOST", "1"))
+            x_port = int(os.environ.get("PROXY_FIX_X_PORT", "1"))
+        except ValueError:
+            # Fallback to 1 if values are invalid
+            x_for = x_proto = x_host = x_port = 1  # pylint: disable=invalid-name
+
+        app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
+            app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
+        )
+        logger.warning(
+            "ProxyFix enabled: trusting %d x_for, %d x_proto, %d x_host, %d x_port",
+            x_for,
+            x_proto,
+            x_host,
+            x_port,
+        )
+
+
+# Configure proxy fix at module level for normal operation
+configure_proxy_fix()
 
 # Optional: allow configuring SERVER_NAME and preferred URL scheme from the
 # environment for production deployments where ProxyFix is not available.
 server_name = os.environ.get("SERVER_NAME")
 if server_name:
-    app.config["SERVER_NAME"] = server_name
+    app.config["SERVER_NAME"] = server_name  # pragma: no cover
 
 preferred_scheme = os.environ.get("PREFERRED_URL_SCHEME")
 if preferred_scheme:
-    app.config["PREFERRED_URL_SCHEME"] = preferred_scheme
+    app.config["PREFERRED_URL_SCHEME"] = preferred_scheme  # pragma: no cover
 
 # Configuration
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
@@ -99,27 +110,137 @@ from src.models import (  # noqa: E402 # pylint: disable=E0401
     Feedback,
     HoldType,
     DetectedHold,
+    ModelVersion,
 )
 
-# Load models
-hold_detection_model: Optional[YOLO] = None
-try:
-    hold_detection_model = YOLO("yolov8n.pt")
-    logger.info("YOLOv8 model loaded successfully")
-except (ImportError, RuntimeError):  # pragma: no cover
-    logger.exception("Error loading YOLOv8 model")  # pragma: no cover
+# Import config utilities
+# pylint: disable=import-outside-toplevel, wrong-import-position
+from src.config import (  # noqa: E402 # pylint: disable=E0401
+    get_model_path,
+    get_config_value,
+    ConfigurationError,
+)
 
-# Hold type mapping (this should be populated from the database)
-HOLD_TYPES = {
-    0: "crimp",
-    1: "jug",
-    2: "sloper",
-    3: "pinch",
-    4: "pocket",
-    5: "foot-hold",
-    6: "start-hold",
-    7: "top-out-hold",
-}
+# Import constants
+# pylint: disable=import-outside-toplevel, wrong-import-position
+from src.constants import HOLD_TYPES  # noqa: E402 # pylint: disable=E0401
+
+# Global variables for model and confidence threshold
+hold_detection_model: Optional[YOLO] = None
+confidence_threshold: float = 0.25  # Default value
+
+
+def load_active_hold_detection_model() -> tuple[Optional[YOLO], float]:
+    """
+    Load the active hold detection model from the ModelVersion table.
+
+    This function queries the database for the active hold detection model
+    and loads it from the specified path. If no active model is found,
+    it falls back to the base YOLOv8 model.
+
+    Returns:
+        tuple[Optional[YOLO], float]: A tuple containing:
+            - The loaded YOLO model (or None if loading fails)
+            - The confidence threshold to use for detections
+
+    Raises:
+        None: All exceptions are caught and logged. Returns (None, threshold)
+              on error to maintain backward compatibility.
+    """
+    # Default confidence threshold from config
+    default_threshold = 0.25
+    try:
+        default_threshold = get_config_value(
+            "model_defaults.hold_detection_confidence_threshold", 0.25
+        )
+    except (  # pylint: disable=broad-exception-caught
+        ConfigurationError,
+        Exception,
+    ) as e:
+        logger.warning(
+            "Failed to load confidence threshold from config: %s. Using default: %s",
+            str(e),
+            default_threshold,
+        )
+
+    # Try to query the database for an active model
+    active_model = None
+    try:
+        with app.app_context():
+            active_model = (
+                db.session.query(ModelVersion)
+                .filter_by(model_type="hold_detection", is_active=True)
+                .first()
+            )
+
+            if active_model:
+                logger.info(
+                    "Found active model: %s v%s at %s",
+                    active_model.model_type,
+                    active_model.version,
+                    active_model.model_path,
+                )
+
+                # Check if model file exists
+                model_file = active_model.model_path
+                if not os.path.isabs(model_file):
+                    # Resolve relative paths from project root
+                    from src.config import resolve_path
+
+                    model_file = str(resolve_path(model_file))
+
+                if not os.path.exists(model_file):
+                    logger.error(
+                        "Active model file not found: %s. Falling back to base model.",
+                        model_file,
+                    )
+                    active_model = None
+                else:
+                    # Try to load the model
+                    try:
+                        model = YOLO(model_file)
+                        logger.info(
+                            "Successfully loaded active model from %s", model_file
+                        )
+                        return model, default_threshold
+                    except (ImportError, RuntimeError, OSError) as e:
+                        logger.error(
+                            "Error loading active model from %s: %s. Falling back to base model.",
+                            model_file,
+                            str(e),
+                        )
+                        active_model = None
+
+    except (SQLAlchemyError, Exception) as e:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "Database error while querying for active model: %s. Falling back to base model.",
+            str(e),
+        )
+
+    # Fall back to base YOLOv8 model
+    if not active_model:
+        try:
+            base_model_path = get_model_path("base_yolov8")
+            logger.info("Loading base YOLOv8 model from %s", base_model_path)
+            model = YOLO(str(base_model_path))
+            logger.info("Successfully loaded base YOLOv8 model")
+            return model, default_threshold
+        except (  # pylint: disable=broad-exception-caught
+            ConfigurationError,
+            Exception,
+        ) as e:
+            logger.error("Failed to load base model from config: %s", str(e))
+            # Last resort: try loading from hardcoded path
+            try:
+                logger.info("Attempting to load base model from yolov8n.pt")
+                model = YOLO("yolov8n.pt")
+                logger.info("Successfully loaded base YOLOv8 model from yolov8n.pt")
+                return model, default_threshold
+            except (ImportError, RuntimeError, OSError) as ex:
+                logger.error("Error loading base YOLOv8 model: %s", str(ex))
+                return None, default_threshold
+
+    return None, default_threshold  # pragma: no cover
 
 
 def allowed_file(filename: str) -> bool:
@@ -279,7 +400,7 @@ def get_stats():
             .group_by(Analysis.predicted_grade)
             .all()
         )
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "total_analyses": total_analyses,
             "total_feedback": total_feedback,
             "accurate_predictions": accurate_predictions,
@@ -317,7 +438,7 @@ def health_check():
     db_ok = check_db_connection()
     overall_ok = model_ok and db_ok
 
-    status: Dict[str, Any] = {
+    status: dict[str, Any] = {
         "status": "healthy" if overall_ok else "unhealthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "model_loaded": model_ok,
@@ -333,8 +454,8 @@ def uploaded_file(filename: str) -> Any:
 
 
 def _process_box(
-    box: Any, hold_types_mapping: Dict[int, str]
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    box: Any, hold_types_mapping: dict[int, str]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Process a single detection box and return hold data."""
     # Get box coordinates
     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
@@ -345,7 +466,7 @@ def _process_box(
     hold_type = hold_types_mapping.get(class_id, "unknown")
 
     # Store data for DetectedHold creation
-    hold_data: Dict[str, Any] = {
+    hold_data: dict[str, Any] = {
         "hold_type": hold_type,
         "confidence": float(confidence),
         "bbox_x1": float(x1),
@@ -355,7 +476,7 @@ def _process_box(
     }
 
     # Update features
-    features: Dict[str, Any] = {
+    features: dict[str, Any] = {
         "total_holds": 1,
         "hold_types": {hold_type: 1},
         "average_confidence": float(confidence),
@@ -365,10 +486,22 @@ def _process_box(
 
 
 def _process_detection_results(
-    results: Any, hold_types_mapping: Any
-) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
-    """Process YOLO detection results and extract features."""
-    total_features: Dict[str, Any] = {
+    results: Any, hold_types_mapping: Any, conf_threshold: float = 0.25
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """
+    Process YOLO detection results and extract features.
+
+    Args:
+        results: YOLO detection results
+        hold_types_mapping: Mapping from class IDs to hold type names
+        conf_threshold: Minimum confidence threshold for detections (default: 0.25)
+
+    Returns:
+        tuple: A tuple containing:
+            - List of detected holds data (filtered by confidence)
+            - Dictionary of extracted features
+    """
+    total_features: dict[str, Any] = {
         "total_holds": 0,
         "hold_types": {},
         "average_confidence": 0,
@@ -380,6 +513,18 @@ def _process_detection_results(
         boxes = result.boxes
         if boxes is not None:
             for box in boxes:
+                # Get confidence before processing
+                box_confidence = float(box.conf[0].cpu().numpy())
+
+                # Apply confidence threshold filtering
+                if box_confidence < conf_threshold:
+                    logger.debug(
+                        "Skipping detection with confidence %.3f (threshold: %.3f)",
+                        box_confidence,
+                        conf_threshold,
+                    )
+                    continue
+
                 hold_data, features = _process_box(box, hold_types_mapping)
                 detected_holds_data.append(hold_data)
 
@@ -403,7 +548,7 @@ def _process_detection_results(
 
 
 def _create_database_records(
-    analysis: Analysis, detected_holds_data: list[Dict[str, Any]]
+    analysis: Analysis, detected_holds_data: list[dict[str, Any]]
 ) -> None:
     """Create database records for analysis and detected holds."""
     # Pre-fetch all hold types to avoid N+1 queries
@@ -441,7 +586,7 @@ def _create_database_records(
 
 def _format_holds_for_response(
     detected_holds_query: list[DetectedHold],
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Format detected holds for API response."""
     # Pre-fetch all hold types to avoid N+1 queries
     hold_type_ids = {dh.hold_type_id for dh in detected_holds_query}
@@ -475,7 +620,7 @@ def _format_holds_for_response(
     return result
 
 
-def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
+def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
     """Analyze a bouldering route image"""
     if not hold_detection_model:
         raise RuntimeError("Hold detection model not loaded")
@@ -487,8 +632,10 @@ def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
     # Run detection
     results = hold_detection_model(img)
 
-    # Process results
-    detected_holds_data, features = _process_detection_results(results, HOLD_TYPES)
+    # Process results with confidence threshold filtering
+    detected_holds_data, features = _process_detection_results(
+        results, HOLD_TYPES, confidence_threshold
+    )
 
     # Predict grade
     predicted_grade = predict_grade(features)
@@ -525,17 +672,17 @@ def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
     }
 
 
-def predict_grade(features: Dict[str, Any]) -> str:
+def predict_grade(features: dict[str, Any]) -> str:
     """Predict V-grade based on extracted features (simplified)"""
     # This is a simplified grading algorithm
     # In production, this would use a trained machine learning model
 
     hold_count = features["total_holds"]
     hold_types = features["hold_types"]
-    # avg_confidence = features["average_confidence"] # TODO: Incorporate confidence into grading
+    # avg_confidence = features["average_confidence"] # Future: Incorporate confidence into grading
 
     # Base grade on hold count - adjusted to match test expectations
-    # TODO: Revise to match reality - Temp placeholder logic
+    # NOTE: Simplified placeholder logic - needs refinement for production
     if hold_count <= 4:
         base_grade = "V0"
     elif hold_count <= 5:
@@ -567,6 +714,22 @@ def predict_grade(features: Dict[str, Any]) -> str:
     grade_value = min(grade_value + int(difficulty_multiplier), 10)  # Cap at V10
 
     return f"V{grade_value}"
+
+
+# Initialize the model when the module is loaded
+try:
+    logger.info("Initializing hold detection model...")
+    hold_detection_model, confidence_threshold = load_active_hold_detection_model()
+    if hold_detection_model:
+        logger.info(
+            "Hold detection model loaded successfully. Confidence threshold: %.2f",
+            confidence_threshold,
+        )
+    else:
+        logger.error("Failed to load hold detection model")
+except Exception as e:  # pylint: disable=broad-exception-caught
+    logger.exception("Error during model initialization: %s", str(e))
+    hold_detection_model = None  # pylint: disable=invalid-name
 
 
 if __name__ == "__main__":

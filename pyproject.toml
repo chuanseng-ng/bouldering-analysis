@@ -13,3 +13,10 @@ exclude_also = [
     'if API_URL:',
     'if api_key:',
 ]
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "*/__init__.py",
+    "src/setup.py",
+]

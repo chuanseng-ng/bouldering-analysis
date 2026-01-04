@@ -50,6 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+pytest-coverage.txt
 
 # Translations
 *.mo
@@ -193,10 +194,10 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-#Ignore vscode AI rules
+# Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
 
-# Ignore coverage reports
-pytest-coverage.txt
-coverage.xml
-.coverage
+# Ignore script outputs
+*.jpg
+*.pt
+*_metadata.yaml
