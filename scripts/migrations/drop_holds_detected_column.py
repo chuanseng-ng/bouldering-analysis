@@ -234,7 +234,7 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
             else:
                 # PostgreSQL and most other databases support ALTER TABLE DROP COLUMN
                 logger.info(
-                    f"{db_type.upper()} detected - using ALTER TABLE DROP COLUMN"
+                    "'%s' detected - using ALTER TABLE DROP COLUMN", db_type.upper()
                 )
                 sql = text(
                     f"ALTER TABLE {table_name} DROP COLUMN IF EXISTS {column_name}"
