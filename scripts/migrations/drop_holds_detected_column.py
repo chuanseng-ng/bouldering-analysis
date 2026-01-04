@@ -161,55 +161,74 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
                 # Start transaction
                 logger.info("Creating temporary table without holds_detected column")
 
-                # Create temporary table with all columns except holds_detected
-                # Note: We're doing this the simple way by copying data
-                connection.execute(
-                    text(f"ALTER TABLE {table_name} RENAME TO {table_name}_old")
-                )
+                # Capture current foreign key state
+                fk_result = connection.execute(text("PRAGMA foreign_keys"))
+                fk_state = fk_result.scalar()
+                logger.info("Current foreign key state: %s", fk_state)
 
-                # Create new table (let SQLAlchemy handle schema creation is complex)
-                # Instead, we'll use raw SQL based on what we know about the table
-                create_table_sql = f"""
-                CREATE TABLE {table_name} (
-                    id VARCHAR(36) PRIMARY KEY,
-                    image_filename VARCHAR(255) NOT NULL,
-                    image_path VARCHAR(500) NOT NULL,
-                    predicted_grade VARCHAR(10) NOT NULL,
-                    confidence_score FLOAT,
-                    features_extracted JSON,
-                    created_at TIMESTAMP,
-                    updated_at TIMESTAMP
-                )
-                """
-                connection.execute(text(create_table_sql))
+                # Disable foreign keys for table recreation
+                connection.execute(text("PRAGMA foreign_keys=OFF"))
+                logger.info("Foreign keys disabled for table recreation")
 
-                # Copy data from old table
-                logger.info("Copying data from old table to new table")
-                copy_sql = f"""
-                INSERT INTO {table_name} ({column_names_str})
-                SELECT {column_names_str} FROM {table_name}_old
-                """
-                connection.execute(text(copy_sql))
+                try:
+                    # Create temporary table with all columns except holds_detected
+                    # Note: We're doing this the simple way by copying data
+                    connection.execute(
+                        text(f"ALTER TABLE {table_name} RENAME TO {table_name}_old")
+                    )
 
-                # Recreate indexes
-                for index in indexes:
-                    if index["name"] and index["column_names"]:
-                        cols = ", ".join(index["column_names"])
-                        unique = "UNIQUE" if index["unique"] else ""
-                        index_sql = f"CREATE {unique} INDEX {index['name']} ON {table_name} ({cols})"
-                        try:
-                            connection.execute(text(index_sql))
-                        except Exception as e:
-                            logger.warning(
-                                "Could not recreate index %s: %s",
-                                index["name"],
-                                e,
-                                exc_info=True,
-                            )
+                    # Create new table (let SQLAlchemy handle schema creation is complex)
+                    # Instead, we'll use raw SQL based on what we know about the table
+                    create_table_sql = f"""
+                    CREATE TABLE {table_name} (
+                        id VARCHAR(36) PRIMARY KEY,
+                        image_filename VARCHAR(255) NOT NULL,
+                        image_path VARCHAR(500) NOT NULL,
+                        predicted_grade VARCHAR(10) NOT NULL,
+                        confidence_score FLOAT,
+                        features_extracted JSON,
+                        created_at TIMESTAMP,
+                        updated_at TIMESTAMP
+                    )
+                    """
+                    connection.execute(text(create_table_sql))
 
-                # Drop old table
-                logger.info("Dropping old table")
-                connection.execute(text(f"DROP TABLE {table_name}_old"))
+                    # Copy data from old table
+                    logger.info("Copying data from old table to new table")
+                    copy_sql = f"""
+                    INSERT INTO {table_name} ({column_names_str})
+                    SELECT {column_names_str} FROM {table_name}_old
+                    """
+                    connection.execute(text(copy_sql))
+
+                    # Recreate indexes
+                    for index in indexes:
+                        if index["name"] and index["column_names"]:
+                            cols = ", ".join(index["column_names"])
+                            unique = "UNIQUE" if index["unique"] else ""
+                            index_sql = f"CREATE {unique} INDEX {index['name']} ON {table_name} ({cols})"
+                            try:
+                                connection.execute(text(index_sql))
+                            except Exception as e:
+                                logger.warning(
+                                    "Could not recreate index %s: %s",
+                                    index["name"],
+                                    e,
+                                    exc_info=True,
+                                )
+
+                    # Drop old table
+                    logger.info("Dropping old table")
+                    connection.execute(text(f"DROP TABLE {table_name}_old"))
+
+                finally:
+                    # Always restore foreign key state
+                    if fk_state:
+                        connection.execute(text("PRAGMA foreign_keys=ON"))
+                        logger.info("Foreign keys restored to ON")
+                    else:
+                        connection.execute(text("PRAGMA foreign_keys=OFF"))
+                        logger.info("Foreign keys restored to OFF")
 
             else:
                 # PostgreSQL and most other databases support ALTER TABLE DROP COLUMN
