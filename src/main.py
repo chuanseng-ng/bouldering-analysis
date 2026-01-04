@@ -151,7 +151,7 @@ def get_hold_types() -> dict[int, str]:
     with _hold_types_cache_lock:
         # Double-check: another thread may have initialized while we waited
         if _hold_types_cache is not None:
-            return _hold_types_cache
+            return _hold_types_cache  # type: ignore[unreachable]
 
         # Query database for hold types using current app context
         hold_types = db.session.query(HoldType).all()
