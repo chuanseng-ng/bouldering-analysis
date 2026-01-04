@@ -26,40 +26,49 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder="templates")
 
-# Configure proxy behavior: when the app is deployed behind a reverse proxy
-# that forwards `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` or
-# `X-Forwarded-Port`, enable `ProxyFix` so `url_for(..., _external=True)` and
-# `request.scheme/host` produce correct external URLs. This is enabled by
-# default but may be disabled by setting `ENABLE_PROXY_FIX=false` in the
-# environment for local development or tests.
-# Enable ProxyFix only when explicitly opted-in via environment variables.
-# Default is disabled to avoid accidentally trusting proxy headers.
-enable_proxy_fix = os.environ.get("ENABLE_PROXY_FIX", "").lower() in {
-    "true",
-    "1",
-    "yes",
-}
-if enable_proxy_fix:
-    # Allow configuring how many proxies to trust for each header.
-    try:
-        x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
-        x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
-        x_host = int(os.environ.get("PROXY_FIX_X_HOST", "1"))
-        x_port = int(os.environ.get("PROXY_FIX_X_PORT", "1"))
-    except ValueError:
-        # Fallback to 1 if values are invalid
-        x_for = x_proto = x_host = x_port = 1  # pylint: disable=invalid-name
 
-    app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
-        app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
-    )
-    logger.warning(
-        "ProxyFix enabled: trusting %d x_for, %d x_proto, %d x_host, %d x_port",
-        x_for,
-        x_proto,
-        x_host,
-        x_port,
-    )
+def configure_proxy_fix() -> None:
+    """
+    Configure proxy behavior for the Flask application.
+
+    When the app is deployed behind a reverse proxy that forwards
+    `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` or
+    `X-Forwarded-Port`, enable `ProxyFix` so `url_for(..., _external=True)` and
+    `request.scheme/host` produce correct external URLs.
+
+    Enable ProxyFix only when explicitly opted-in via environment variables.
+    Default is disabled to avoid accidentally trusting proxy headers.
+    """
+    enable_proxy_fix = os.environ.get("ENABLE_PROXY_FIX", "").lower() in {
+        "true",
+        "1",
+        "yes",
+    }
+    if enable_proxy_fix:
+        # Allow configuring how many proxies to trust for each header.
+        try:
+            x_for = int(os.environ.get("PROXY_FIX_X_FOR", "1"))
+            x_proto = int(os.environ.get("PROXY_FIX_X_PROTO", "1"))
+            x_host = int(os.environ.get("PROXY_FIX_X_HOST", "1"))
+            x_port = int(os.environ.get("PROXY_FIX_X_PORT", "1"))
+        except ValueError:
+            # Fallback to 1 if values are invalid
+            x_for = x_proto = x_host = x_port = 1  # pylint: disable=invalid-name
+
+        app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
+            app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_port=x_port
+        )
+        logger.warning(
+            "ProxyFix enabled: trusting %d x_for, %d x_proto, %d x_host, %d x_port",
+            x_for,
+            x_proto,
+            x_host,
+            x_port,
+        )
+
+
+# Configure proxy fix at module level for normal operation
+configure_proxy_fix()
 
 # Optional: allow configuring SERVER_NAME and preferred URL scheme from the
 # environment for production deployments where ProxyFix is not available.

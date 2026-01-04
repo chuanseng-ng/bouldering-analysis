@@ -208,6 +208,15 @@ def activate_model(model_type: str, version: str) -> Tuple[bool, str]:
                 logger.error("Failed to rollback transaction: %s", str(rollback_error))
 
         return False, error_msg
+    finally:
+        # Dispose of database engine to close connections
+        if app:
+            try:
+                from src.models import db  # pylint: disable=import-outside-toplevel
+
+                db.engine.dispose()
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass  # Ignore errors during cleanup
 
 
 def deactivate_model(model_type: str, version: str) -> Tuple[bool, str]:
@@ -288,6 +297,15 @@ def deactivate_model(model_type: str, version: str) -> Tuple[bool, str]:
                 logger.error("Failed to rollback transaction: %s", str(rollback_error))
 
         return False, error_msg
+    finally:
+        # Dispose of database engine to close connections
+        if app:
+            try:
+                from src.models import db  # pylint: disable=import-outside-toplevel
+
+                db.engine.dispose()
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass  # Ignore errors during cleanup
 
 
 def get_active_model(model_type: str) -> Optional[Any]:
@@ -307,6 +325,7 @@ def get_active_model(model_type: str) -> Optional[Any]:
         ... else:
         ...     print("No active model found")
     """
+    app = None
     try:
         # Set up Flask app and database
         app = _setup_flask_app()
@@ -328,6 +347,15 @@ def get_active_model(model_type: str) -> Optional[Any]:
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.exception("Error getting active model: %s", str(e))
         return None
+    finally:
+        # Dispose of database engine to close connections
+        if app:
+            try:
+                from src.models import db  # pylint: disable=import-outside-toplevel
+
+                db.engine.dispose()
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass  # Ignore errors during cleanup
 
 
 def list_models(  # pylint: disable=too-many-locals
@@ -352,6 +380,7 @@ def list_models(  # pylint: disable=too-many-locals
         >>> # List only hold detection models
         >>> print(list_models("hold_detection"))
     """
+    app = None
     try:
         # Set up Flask app and database
         app = _setup_flask_app()
@@ -427,6 +456,15 @@ def list_models(  # pylint: disable=too-many-locals
         error_msg = f"Error listing models: {str(e)}"
         logger.exception(error_msg)
         return error_msg
+    finally:
+        # Dispose of database engine to close connections
+        if app:
+            try:
+                from src.models import db  # pylint: disable=import-outside-toplevel
+
+                db.engine.dispose()
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass  # Ignore errors during cleanup
 
 
 def get_models_data(model_type: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -446,6 +484,7 @@ def get_models_data(model_type: Optional[str] = None) -> List[Dict[str, Any]]:
         >>> for model in models:
         ...     print(f"{model['version']}: {model['is_active']}")
     """
+    app = None
     try:
         # Set up Flask app and database
         app = _setup_flask_app()
@@ -489,6 +528,15 @@ def get_models_data(model_type: Optional[str] = None) -> List[Dict[str, Any]]:
     except Exception as e:  # pylint: disable=broad-exception-caught
         logger.exception("Error getting models data: %s", str(e))
         return []
+    finally:
+        # Dispose of database engine to close connections
+        if app:
+            try:
+                from src.models import db  # pylint: disable=import-outside-toplevel
+
+                db.engine.dispose()
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass  # Ignore errors during cleanup
 
 
 def main():

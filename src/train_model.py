@@ -381,6 +381,7 @@ def save_model_version(
     """
     logger.info("Saving model version: %s", model_name)
 
+    app = None
     try:
         # Setup model storage directory
         model_storage_dir = get_project_root() / "models" / "hold_detection"
@@ -460,6 +461,13 @@ def save_model_version(
 
     except Exception as e:
         raise TrainingError(f"Failed to save model version: {str(e)}") from e
+    finally:
+        # Dispose of database engine to close connections
+        if app:
+            try:
+                db.engine.dispose()
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass  # Ignore errors during cleanup
 
 
 def create_flask_app() -> Flask:

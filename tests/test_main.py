@@ -741,9 +741,7 @@ class TestLoadActiveHoldDetectionModel:
             mock_yolo.assert_called_once_with(active_model_version.model_path)
 
     @patch("src.main.get_config_value")
-    def test_load_model_with_custom_threshold(
-        self, mock_config, test_app
-    ):  # pylint: disable=unused-argument
+    def test_load_model_with_custom_threshold(self, mock_config, test_app):  # pylint: disable=unused-argument
         """Test that custom confidence threshold is loaded from config."""
         mock_config.return_value = 0.35
 
@@ -751,18 +749,14 @@ class TestLoadActiveHoldDetectionModel:
         from src.main import load_active_hold_detection_model
 
         with test_app.app_context():
-            model, threshold = (
-                load_active_hold_detection_model()
-            )  # pylint: disable=unused-variable
+            model, threshold = load_active_hold_detection_model()  # pylint: disable=unused-variable
             _ = model  # May be None
 
             assert threshold == 0.35
 
     @patch("src.main.YOLO")
     @patch("src.main.get_model_path")
-    def test_fallback_to_base_model(
-        self, mock_get_path, mock_yolo, test_app, tmp_path
-    ):  # pylint: disable=unused-argument
+    def test_fallback_to_base_model(self, mock_get_path, mock_yolo, test_app, tmp_path):  # pylint: disable=unused-argument
         """Test fallback to base model when no active model exists."""
         # Setup base model path
         base_model = tmp_path / "yolov8n.pt"
@@ -811,9 +805,7 @@ class TestLoadActiveHoldDetectionModel:
         from src.main import load_active_hold_detection_model
 
         with test_app.app_context():
-            model, threshold = (
-                load_active_hold_detection_model()
-            )  # pylint: disable=unused-variable
+            model, threshold = load_active_hold_detection_model()  # pylint: disable=unused-variable
             _ = model  # May be None
 
             # Should fallback to base model
@@ -834,9 +826,9 @@ class TestProcessDetectionResultsWithThreshold:
         high_conf_box.xyxy = [Mock()]
         high_conf_box.xyxy[0].cpu.return_value.numpy.return_value = [10, 10, 50, 50]
         high_conf_box.conf = [Mock()]
-        high_conf_box.conf[0].cpu.return_value.numpy.return_value = (
-            0.8  # Above threshold
-        )
+        high_conf_box.conf[
+            0
+        ].cpu.return_value.numpy.return_value = 0.8  # Above threshold
         high_conf_box.cls = [Mock()]
         high_conf_box.cls[0].cpu.return_value.numpy.return_value = 0
 
@@ -845,9 +837,9 @@ class TestProcessDetectionResultsWithThreshold:
         low_conf_box.xyxy = [Mock()]
         low_conf_box.xyxy[0].cpu.return_value.numpy.return_value = [60, 60, 100, 100]
         low_conf_box.conf = [Mock()]
-        low_conf_box.conf[0].cpu.return_value.numpy.return_value = (
-            0.15  # Below threshold
-        )
+        low_conf_box.conf[
+            0
+        ].cpu.return_value.numpy.return_value = 0.15  # Below threshold
         low_conf_box.cls = [Mock()]
         low_conf_box.cls[0].cpu.return_value.numpy.return_value = 1
 
@@ -954,9 +946,9 @@ class TestAnalyzeEndpointIntegration:
             mock_box.xyxy = [Mock()]
             mock_box.xyxy[0].cpu.return_value.numpy.return_value = [10, 20, 50, 60]
             mock_box.conf = [Mock()]
-            mock_box.conf[0].cpu.return_value.numpy.return_value = (
-                0.3  # Below threshold
-            )
+            mock_box.conf[
+                0
+            ].cpu.return_value.numpy.return_value = 0.3  # Below threshold
             mock_box.cls = [Mock()]
             mock_box.cls[0].cpu.return_value.numpy.return_value = 0
 
@@ -1027,9 +1019,9 @@ class TestAnalysisResultsStorage:
             low_box.xyxy = [Mock()]
             low_box.xyxy[0].cpu.return_value.numpy.return_value = [60, 60, 100, 100]
             low_box.conf = [Mock()]
-            low_box.conf[0].cpu.return_value.numpy.return_value = (
-                0.15  # Below default 0.25
-            )
+            low_box.conf[
+                0
+            ].cpu.return_value.numpy.return_value = 0.15  # Below default 0.25
             low_box.cls = [Mock()]
             low_box.cls[0].cpu.return_value.numpy.return_value = 1
 

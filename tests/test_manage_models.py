@@ -23,9 +23,7 @@ from src.models import db, ModelVersion
 class TestActivateModel:
     """Test cases for activate_model function."""
 
-    def test_activate_model_success(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_activate_model_success(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test successful model activation."""
         with test_app.app_context():
             # Create another inactive model
@@ -93,18 +91,14 @@ class TestActivateModel:
             assert v1.is_active is False
             assert v2.is_active is True
 
-    def test_activate_model_not_found(
-        self, test_app
-    ):  # pylint: disable=unused-argument
+    def test_activate_model_not_found(self, test_app):  # pylint: disable=unused-argument
         """Test activating a non-existent model."""
         success, message = activate_model("hold_detection", "v99.0")
 
         assert success is False
         assert "Model not found" in message
 
-    def test_activate_model_file_not_found(
-        self, test_app, tmp_path
-    ):  # pylint: disable=unused-argument
+    def test_activate_model_file_not_found(self, test_app, tmp_path):  # pylint: disable=unused-argument
         """Test activating a model when the file doesn't exist."""
         with test_app.app_context():
             # Create model with non-existent file
@@ -124,9 +118,7 @@ class TestActivateModel:
         assert success is False
         assert "Model file not found" in message
 
-    def test_activate_already_active_model(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_activate_already_active_model(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test activating a model that's already active."""
         success, message = activate_model("hold_detection", "v1.0")
 
@@ -134,9 +126,7 @@ class TestActivateModel:
         assert "already active" in message
 
     @patch("src.manage_models._setup_flask_app")
-    def test_activate_model_database_error(
-        self, mock_setup
-    ):  # pylint: disable=unused-argument
+    def test_activate_model_database_error(self, mock_setup):  # pylint: disable=unused-argument
         """Test error handling when database operation fails."""
         mock_app = MagicMock()
         mock_setup.return_value = mock_app
@@ -155,9 +145,7 @@ class TestActivateModel:
 class TestDeactivateModel:
     """Test cases for deactivate_model function."""
 
-    def test_deactivate_model_success(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_deactivate_model_success(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test successful model deactivation."""
         success, message = deactivate_model("hold_detection", "v1.0")
 
@@ -174,18 +162,14 @@ class TestDeactivateModel:
             assert model is not None
             assert model.is_active is False
 
-    def test_deactivate_inactive_model(
-        self, test_app, inactive_model_version
-    ):  # pylint: disable=unused-argument
+    def test_deactivate_inactive_model(self, test_app, inactive_model_version):  # pylint: disable=unused-argument
         """Test deactivating a model that's already inactive."""
         success, message = deactivate_model("hold_detection", "v2.0")
 
         assert success is True
         assert "already inactive" in message
 
-    def test_deactivate_model_not_found(
-        self, test_app
-    ):  # pylint: disable=unused-argument
+    def test_deactivate_model_not_found(self, test_app):  # pylint: disable=unused-argument
         """Test deactivating a non-existent model."""
         success, message = deactivate_model("hold_detection", "v99.0")
 
@@ -193,9 +177,7 @@ class TestDeactivateModel:
         assert "Model not found" in message
 
     @patch("src.manage_models._setup_flask_app")
-    def test_deactivate_model_database_error(
-        self, mock_setup
-    ):  # pylint: disable=unused-argument
+    def test_deactivate_model_database_error(self, mock_setup):  # pylint: disable=unused-argument
         """Test error handling when database operation fails."""
         mock_app = MagicMock()
         mock_setup.return_value = mock_app
@@ -213,9 +195,7 @@ class TestDeactivateModel:
 class TestGetActiveModel:
     """Test cases for get_active_model function."""
 
-    def test_get_active_model_exists(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_get_active_model_exists(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test retrieving an active model."""
         model = get_active_model("hold_detection")
 
@@ -224,9 +204,7 @@ class TestGetActiveModel:
         assert model.version == "v1.0"
         assert model.is_active is True
 
-    def test_get_active_model_none(
-        self, test_app, inactive_model_version
-    ):  # pylint: disable=unused-argument
+    def test_get_active_model_none(self, test_app, inactive_model_version):  # pylint: disable=unused-argument
         """Test retrieving active model when none exists."""
         # Deactivate the model first
         with test_app.app_context():
@@ -243,18 +221,14 @@ class TestGetActiveModel:
 
         assert result is None
 
-    def test_get_active_model_different_type(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_get_active_model_different_type(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test retrieving active model for a different type."""
         model = get_active_model("route_grading")
 
         assert model is None
 
     @patch("src.manage_models._setup_flask_app")
-    def test_get_active_model_database_error(
-        self, mock_setup
-    ):  # pylint: disable=unused-argument
+    def test_get_active_model_database_error(self, mock_setup):  # pylint: disable=unused-argument
         """Test error handling when database query fails."""
         mock_app = MagicMock()
         mock_setup.return_value = mock_app
@@ -301,9 +275,7 @@ class TestListModels:
         assert isinstance(result, str)
         assert "No models found" in result
 
-    def test_list_models_no_models_for_type(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_list_models_no_models_for_type(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test listing models for a type that doesn't exist."""
         result = list_models(model_type="route_grading")
 
@@ -311,9 +283,7 @@ class TestListModels:
         assert "No models found" in result
 
     @patch("src.manage_models._setup_flask_app")
-    def test_list_models_database_error(
-        self, mock_setup
-    ):  # pylint: disable=unused-argument
+    def test_list_models_database_error(self, mock_setup):  # pylint: disable=unused-argument
         """Test error handling when database query fails."""
         mock_app = MagicMock()
         mock_setup.return_value = mock_app
@@ -350,9 +320,7 @@ class TestGetModelsData:
             assert "is_active" in model
             assert "file_exists" in model
 
-    def test_get_models_data_filtered(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_get_models_data_filtered(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test getting models filtered by type."""
         models = get_models_data(model_type="hold_detection")
 
@@ -368,9 +336,7 @@ class TestGetModelsData:
         assert len(models) == 0
 
     @patch("src.manage_models._setup_flask_app")
-    def test_get_models_data_database_error(
-        self, mock_setup
-    ):  # pylint: disable=unused-argument
+    def test_get_models_data_database_error(self, mock_setup):  # pylint: disable=unused-argument
         """Test error handling when database query fails."""
         mock_app = MagicMock()
         mock_setup.return_value = mock_app
@@ -388,18 +354,14 @@ class TestGetModelsData:
 class TestModelActivationValidation:
     """Test cases for model file validation during activation."""
 
-    def test_activate_validates_model_file_exists(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_activate_validates_model_file_exists(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test that activation validates model file existence."""
         # active_model_version has a real temp file, so this should succeed
         success, _ = activate_model("hold_detection", "v1.0")
 
         assert success is True
 
-    def test_activate_rejects_missing_file(
-        self, test_app, tmp_path
-    ):  # pylint: disable=unused-argument
+    def test_activate_rejects_missing_file(self, test_app, tmp_path):  # pylint: disable=unused-argument
         """Test that activation rejects models with missing files."""
         with test_app.app_context():
             # Create model with path that doesn't exist
@@ -496,9 +458,7 @@ class TestSetupFlaskAppErrorPaths:
 class TestActivateModelRollbackError:
     """Test rollback error handling in activate_model - covers lines 202-204."""
 
-    def test_activate_model_rollback_on_error(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_activate_model_rollback_on_error(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test that rollback is called on commit error - covers lines 202-204."""
         from sqlalchemy.exc import (  # pylint: disable=import-outside-toplevel
             SQLAlchemyError,
@@ -541,9 +501,7 @@ class TestActivateModelRollbackError:
 class TestDeactivateModelRollbackError:
     """Test rollback error handling in deactivate_model - covers lines 282-288."""
 
-    def test_deactivate_model_rollback_on_error(
-        self, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_deactivate_model_rollback_on_error(self, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test that rollback is called on commit error - covers lines 282-284."""
         from sqlalchemy.exc import (  # pylint: disable=import-outside-toplevel
             SQLAlchemyError,
@@ -629,9 +587,7 @@ class TestCLIMain:
 
     @patch("sys.argv", ["manage_models.py", "list"])
     @patch("sys.exit")
-    def test_main_list_command(
-        self, mock_exit, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_main_list_command(self, mock_exit, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test main() with list command - covers lines 559-562."""
         from src.manage_models import main  # pylint: disable=import-outside-toplevel
 
@@ -689,9 +645,7 @@ class TestCLIMain:
         ],
     )
     @patch("sys.exit")
-    def test_main_activate_command_failure(
-        self, mock_exit, test_app
-    ):  # pylint: disable=unused-argument
+    def test_main_activate_command_failure(self, mock_exit, test_app):  # pylint: disable=unused-argument
         """Test main() with activate command that fails - covers lines 564-567."""
         from src.manage_models import main  # pylint: disable=import-outside-toplevel
 
@@ -712,9 +666,7 @@ class TestCLIMain:
         ],
     )
     @patch("sys.exit")
-    def test_main_deactivate_command(
-        self, mock_exit, test_app, active_model_version
-    ):  # pylint: disable=unused-argument
+    def test_main_deactivate_command(self, mock_exit, test_app, active_model_version):  # pylint: disable=unused-argument
         """Test main() with deactivate command - covers lines 569-572."""
         from src.manage_models import main  # pylint: disable=import-outside-toplevel
 
