@@ -53,7 +53,7 @@ else
 fi
 
 echo "Running pylint..."
-pylint_output=$(pylint src/ tests/ 2>&1)
+pylint_output=$(pylint src/ tests/ scripts/ 2>&1)
 pylint_exit_code=$?
 pylint_errors=0
 echo "$pylint_output"
