@@ -389,10 +389,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Create logs directory if it doesn't exist
-    logs_dir = project_root / "logs"
-    logs_dir.mkdir(exist_ok=True)
-
     logger.info("=" * 80)
     logger.info("MIGRATION: Drop holds_detected column from analyses table")
     logger.info("=" * 80)
