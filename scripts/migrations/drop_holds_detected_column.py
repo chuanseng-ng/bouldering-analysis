@@ -381,6 +381,11 @@ def main():
         action="store_true",
         help="Check what would be done without making changes",
     )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip interactive confirmation prompts",
+    )
 
     args = parser.parse_args()
 
@@ -463,10 +468,16 @@ def main():
         )
 
         # Prompt for confirmation
-        response = input("Are you sure you want to rollback? (yes/no): ")
-        if response.lower() != "yes":
-            logger.info("Rollback cancelled by user")
-            sys.exit(0)
+        if not args.yes:
+            if not sys.stdin.isatty():
+                logger.error(
+                    "Non-interactive environment detected. Use --yes flag to proceed without confirmation."
+                )
+                sys.exit(1)
+            response = input("Are you sure you want to rollback? (yes/no): ")
+            if response.lower() != "yes":
+                logger.info("Rollback cancelled by user")
+                sys.exit(0)
 
         success = rollback_add_holds_detected_column(engine, db_type)
 
@@ -483,10 +494,16 @@ def main():
 
     # Prompt for confirmation in production
     if os.environ.get("FLASK_ENV") == "production":
-        response = input("Continue with migration? (yes/no): ")
-        if response.lower() != "yes":
-            logger.info("Migration cancelled by user")
-            sys.exit(0)
+        if not args.yes:
+            if not sys.stdin.isatty():
+                logger.error(
+                    "Non-interactive environment detected. Use --yes flag to proceed without confirmation."
+                )
+                sys.exit(1)
+            response = input("Continue with migration? (yes/no): ")
+            if response.lower() != "yes":
+                logger.info("Migration cancelled by user")
+                sys.exit(0)
 
     # Execute migration
     success = drop_holds_detected_column(engine, db_type)
