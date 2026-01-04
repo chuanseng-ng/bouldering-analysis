@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -121,8 +122,13 @@ from src.config import (  # noqa: E402 # pylint: disable=E0401
     ConfigurationError,
 )
 
+# Import constants
+# pylint: disable=import-outside-toplevel, wrong-import-position
+from src.constants import HOLD_TYPES  # noqa: E402 # pylint: disable=E0401
+
 # Module-level cache for hold types
 _hold_types_cache: Optional[dict[int, str]] = None
+_hold_types_cache_lock = threading.Lock()
 
 
 def get_hold_types() -> dict[int, str]:
@@ -137,20 +143,28 @@ def get_hold_types() -> dict[int, str]:
     """
     global _hold_types_cache
 
+    # First check without lock (fast path)
     if _hold_types_cache is not None:
         return _hold_types_cache
 
-    # Query database for hold types using current app context
-    hold_types = db.session.query(HoldType).all()
-    _hold_types_cache = {ht.id: ht.name for ht in hold_types}
+    # Acquire lock for initialization
+    with _hold_types_cache_lock:
+        # Double-check: another thread may have initialized while we waited
+        if _hold_types_cache is not None:
+            return _hold_types_cache
 
-    return _hold_types_cache
+        # Query database for hold types using current app context
+        hold_types = db.session.query(HoldType).all()
+        _hold_types_cache = {ht.id: ht.name for ht in hold_types}
+
+        return _hold_types_cache
 
 
 def clear_hold_types_cache() -> None:
     """Clear the hold types cache (for test fixture support)."""
     global _hold_types_cache
-    _hold_types_cache = None
+    with _hold_types_cache_lock:
+        _hold_types_cache = None
 
 
 # Global variables for model and confidence threshold
@@ -286,18 +300,7 @@ def create_tables():
 
         # Initialize hold types if they don't exist
         if db.session.query(HoldType).count() == 0:
-            hold_type_data = [
-                (0, "crimp", "Small, narrow hold requiring crimping fingers"),
-                (1, "jug", "Large, easy-to-hold jug"),
-                (2, "sloper", "Round, sloping hold that requires open-handed grip"),
-                (3, "pinch", "Hold that requires pinching between thumb and fingers"),
-                (4, "pocket", "Small hole that fingers fit into"),
-                (5, "foot-hold", "Hold specifically for feet"),
-                (6, "start-hold", "Starting hold for the route"),
-                (7, "top-out-hold", "Hold used to complete the route"),
-            ]
-
-            for hold_id, name, description in hold_type_data:
+            for hold_id, name, description in HOLD_TYPES:
                 hold_type = HoldType(id=hold_id, name=name, description=description)
                 db.session.add(hold_type)
 

@@ -9,6 +9,7 @@ import yaml
 from PIL import Image
 from src.main import app as flask_app, clear_hold_types_cache
 from src.models import db, HoldType, ModelVersion
+from src.constants import HOLD_TYPES
 
 
 @pytest.fixture(autouse=True)
@@ -38,17 +39,8 @@ def test_app():
         db.create_all()
 
         # Initialize hold types
-        # Define hold types mapping locally (matching what's in create_tables)
-        hold_type_data = [
-            (0, "crimp", "Small, narrow hold requiring crimping fingers"),
-            (1, "jug", "Large, easy-to-hold jug"),
-            (2, "sloper", "Round, sloping hold that requires open-handed grip"),
-            (3, "pinch", "Hold that requires pinching between thumb and fingers"),
-            (4, "pocket", "Small hole that fingers fit into"),
-            (5, "foot-hold", "Hold specifically for feet"),
-            (6, "start-hold", "Starting hold for the route"),
-            (7, "top-out-hold", "Hold used to complete the route"),
-        ]
+        # Use shared HOLD_TYPES constant
+        hold_type_data = HOLD_TYPES
 
         # Only add hold types if they don't already exist
         existing_types = {ht.id for ht in db.session.query(HoldType).all()}
@@ -142,7 +134,9 @@ def sample_model_version_data():
 
 
 @pytest.fixture
-def active_model_version(test_app, sample_model_version_data, tmp_path):  # pylint: disable=redefined-outer-name,unused-argument
+def active_model_version(
+    test_app, sample_model_version_data, tmp_path
+):  # pylint: disable=redefined-outer-name,unused-argument
     """Create an active ModelVersion entry in the test database with a mock model file."""
     with test_app.app_context():
         # Create a temporary model file
@@ -287,7 +281,9 @@ def sample_yolo_dataset(tmp_path):
 
 
 @pytest.fixture
-def create_analysis_with_hold_type(test_app, sample_analysis_data):  # pylint: disable=redefined-outer-name
+def create_analysis_with_hold_type(
+    test_app, sample_analysis_data
+):  # pylint: disable=redefined-outer-name
     """Helper fixture to create an analysis and return hold type."""
 
     def _create(hold_type_name="crimp"):
