@@ -37,6 +37,9 @@ from sqlalchemy import create_engine, inspect, text  # noqa: E402
 from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
+# Ensure logs directory exists before configuring FileHandler
+project_root.joinpath("logs").mkdir(parents=True, exist_ok=True)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
