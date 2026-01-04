@@ -30,6 +30,7 @@ Database migrations are necessary when the application's data model changes. Thi
 **What changed:**
 
 The `Analysis` model previously stored hold detection results in a `holds_detected` JSON column. This approach had several limitations:
+
 - Difficult to query and filter individual holds
 - No foreign key relationships for data integrity
 - Limited ability to aggregate statistics about holds
@@ -54,7 +55,7 @@ Hold detection results are now stored in a dedicated `DetectedHold` relationship
 Before running this migration, ensure:
 
 1. **You have a database backup**
-2. 
+
    ```bash
    # For SQLite
    cp bouldering_analysis.db bouldering_analysis.db.backup
@@ -63,7 +64,7 @@ Before running this migration, ensure:
    pg_dump -U username -d database_name > backup.sql
    ```
 
-3. **The DetectedHold table exists and contains data**
+2. **The DetectedHold table exists and contains data**
 
    The migration assumes that hold data has already been migrated from the JSON column to the `DetectedHold` table. Verify this by checking:
 
@@ -82,7 +83,7 @@ Before running this migration, ensure:
            print("WARNING: No holds found in DetectedHold table!")
    ```
 
-4. **The application is not running**
+3. **The application is not running**
 
    Stop your Flask application before running the migration to avoid database lock issues.
 
