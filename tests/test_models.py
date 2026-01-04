@@ -123,6 +123,8 @@ class TestAnalysis:
 
             result = analysis.to_dict()
 
+            # Verify exactly 8 fields are returned (no holds_detected column)
+            assert len(result) == 8
             assert result["id"] is not None
             assert result["image_filename"] == "test.jpg"
             assert result["predicted_grade"] == "V2"
@@ -133,6 +135,7 @@ class TestAnalysis:
             )
             assert "created_at" in result
             assert "updated_at" in result
+            assert "image_path" in result
 
     def test_analysis_repr(self, test_app, sample_analysis_data):
         """Test the __repr__ method of Analysis."""
