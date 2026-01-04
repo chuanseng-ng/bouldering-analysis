@@ -333,8 +333,9 @@ def index():
                 return render_template(  # pragma: no cover
                     "index.html", result=result, image_path=unique_filename
                 )
-            except (IOError, RuntimeError):
+            except (IOError, RuntimeError, SQLAlchemyError):
                 app.logger.exception("Error processing image")
+                db.session.rollback()
                 return render_template("index.html", error="Error processing image")
         else:
             return render_template(
@@ -367,8 +368,9 @@ def analyze_route():
         try:
             result = analyze_image(filepath, unique_filename)
             return jsonify(result)
-        except (IOError, RuntimeError):
+        except (IOError, RuntimeError, SQLAlchemyError):
             app.logger.exception("Error processing image")
+            db.session.rollback()
             return jsonify({"error": "Error processing image"}), 500
     else:
         return (
