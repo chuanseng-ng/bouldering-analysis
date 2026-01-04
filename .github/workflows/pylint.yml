@@ -1,4 +1,4 @@
-name: Python linting
+name: Python QA
 permissions:
   contents: read
 
