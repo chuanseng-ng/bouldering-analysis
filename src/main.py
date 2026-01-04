@@ -10,16 +10,18 @@ It provides endpoints for:
 The application uses YOLOv8 for hold detection and a simplified algorithm for route grading.
 """
 
+from __future__ import annotations
+
 import os
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 from PIL import Image
-from ultralytics import YOLO
+from ultralytics import YOLO  # type: ignore[import]
 from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
@@ -398,7 +400,7 @@ def get_stats():
             .group_by(Analysis.predicted_grade)
             .all()
         )
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "total_analyses": total_analyses,
             "total_feedback": total_feedback,
             "accurate_predictions": accurate_predictions,
@@ -436,7 +438,7 @@ def health_check():
     db_ok = check_db_connection()
     overall_ok = model_ok and db_ok
 
-    status: Dict[str, Any] = {
+    status: dict[str, Any] = {
         "status": "healthy" if overall_ok else "unhealthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "model_loaded": model_ok,
@@ -452,8 +454,8 @@ def uploaded_file(filename: str) -> Any:
 
 
 def _process_box(
-    box: Any, hold_types_mapping: Dict[int, str]
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    box: Any, hold_types_mapping: dict[int, str]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Process a single detection box and return hold data."""
     # Get box coordinates
     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
@@ -464,7 +466,7 @@ def _process_box(
     hold_type = hold_types_mapping.get(class_id, "unknown")
 
     # Store data for DetectedHold creation
-    hold_data: Dict[str, Any] = {
+    hold_data: dict[str, Any] = {
         "hold_type": hold_type,
         "confidence": float(confidence),
         "bbox_x1": float(x1),
@@ -474,7 +476,7 @@ def _process_box(
     }
 
     # Update features
-    features: Dict[str, Any] = {
+    features: dict[str, Any] = {
         "total_holds": 1,
         "hold_types": {hold_type: 1},
         "average_confidence": float(confidence),
@@ -485,7 +487,7 @@ def _process_box(
 
 def _process_detection_results(
     results: Any, hold_types_mapping: Any, conf_threshold: float = 0.25
-) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """
     Process YOLO detection results and extract features.
 
@@ -499,7 +501,7 @@ def _process_detection_results(
             - List of detected holds data (filtered by confidence)
             - Dictionary of extracted features
     """
-    total_features: Dict[str, Any] = {
+    total_features: dict[str, Any] = {
         "total_holds": 0,
         "hold_types": {},
         "average_confidence": 0,
@@ -546,7 +548,7 @@ def _process_detection_results(
 
 
 def _create_database_records(
-    analysis: Analysis, detected_holds_data: list[Dict[str, Any]]
+    analysis: Analysis, detected_holds_data: list[dict[str, Any]]
 ) -> None:
     """Create database records for analysis and detected holds."""
     # Pre-fetch all hold types to avoid N+1 queries
@@ -584,7 +586,7 @@ def _create_database_records(
 
 def _format_holds_for_response(
     detected_holds_query: list[DetectedHold],
-) -> list[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Format detected holds for API response."""
     # Pre-fetch all hold types to avoid N+1 queries
     hold_type_ids = {dh.hold_type_id for dh in detected_holds_query}
@@ -618,7 +620,7 @@ def _format_holds_for_response(
     return result
 
 
-def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
+def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
     """Analyze a bouldering route image"""
     if not hold_detection_model:
         raise RuntimeError("Hold detection model not loaded")
@@ -670,7 +672,7 @@ def analyze_image(image_path: str, image_filename: str) -> Dict[str, Any]:
     }
 
 
-def predict_grade(features: Dict[str, Any]) -> str:
+def predict_grade(features: dict[str, Any]) -> str:
     """Predict V-grade based on extracted features (simplified)"""
     # This is a simplified grading algorithm
     # In production, this would use a trained machine learning model

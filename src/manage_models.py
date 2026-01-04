@@ -29,12 +29,14 @@ Functions can also be imported and used programmatically:
     models_info = list_models()
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Any
 
 from src.config import resolve_path
 
@@ -89,7 +91,7 @@ def _setup_flask_app():
         raise RuntimeError(f"Failed to initialize Flask app: {e}") from e
 
 
-def activate_model(model_type: str, version: str) -> Tuple[bool, str]:
+def activate_model(model_type: str, version: str) -> tuple[bool, str]:
     """
     Activate a specific model version.
 
@@ -103,7 +105,7 @@ def activate_model(model_type: str, version: str) -> Tuple[bool, str]:
         version: Version string of the model to activate
 
     Returns:
-        Tuple[bool, str]: (success, message) where success is True if the
+        tuple[bool, str]: (success, message) where success is True if the
                          operation succeeded, and message contains details
 
     Examples:
@@ -219,7 +221,7 @@ def activate_model(model_type: str, version: str) -> Tuple[bool, str]:
                 pass  # Ignore errors during cleanup
 
 
-def deactivate_model(model_type: str, version: str) -> Tuple[bool, str]:
+def deactivate_model(model_type: str, version: str) -> tuple[bool, str]:
     """
     Deactivate a specific model version.
 
@@ -230,7 +232,7 @@ def deactivate_model(model_type: str, version: str) -> Tuple[bool, str]:
         version: Version string of the model to deactivate
 
     Returns:
-        Tuple[bool, str]: (success, message) where success is True if the
+        tuple[bool, str]: (success, message) where success is True if the
                          operation succeeded, and message contains details
 
     Examples:
@@ -467,7 +469,7 @@ def list_models(  # pylint: disable=too-many-locals
                 pass  # Ignore errors during cleanup
 
 
-def get_models_data(model_type: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_models_data(model_type: Optional[str] = None) -> list[dict[str, Any]]:
     """
     Get model version data as a list of dictionaries.
 

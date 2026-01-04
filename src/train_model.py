@@ -30,12 +30,14 @@ Usage Examples:
             --base-weights models/hold_detection/v1.0.pt
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any, Optional
 from datetime import datetime, timezone
 
 import yaml
@@ -45,7 +47,7 @@ from flask import Flask
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
-from src.config import (
+from src.config import (  # noqa: E402
     get_project_root,
     resolve_path,
     get_config_value,
@@ -53,7 +55,7 @@ from src.config import (
     get_data_path,
     ConfigurationError,
 )
-from src.models import db, ModelVersion
+from src.models import db, ModelVersion  # noqa: E402
 
 # pylint: enable=wrong-import-position
 
@@ -64,7 +66,7 @@ log_file_path = Path("logs/training.log")
 log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
 # Set up handlers with fallback for FileHandler failures
-handlers: List[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
 try:
     handlers.append(logging.FileHandler(str(log_file_path), mode="a"))
 except (OSError, IOError) as e:
@@ -86,7 +88,7 @@ class TrainingError(Exception):
 
 def validate_dataset(
     data_yaml_path: Path,
-) -> Dict[str, Any]:  # pylint: disable=too-many-locals,too-many-branches
+) -> dict[str, Any]:  # pylint: disable=too-many-locals,too-many-branches
     """
     Validate the YOLO dataset configuration file and directory structure.
 
@@ -214,7 +216,7 @@ def validate_base_weights(base_weights_path: Path) -> None:
     logger.info("Base weights validated: %s", base_weights_path)
 
 
-def setup_training_directories(model_name: str) -> Dict[str, Path]:
+def setup_training_directories(model_name: str) -> dict[str, Path]:
     """
     Create necessary directories for training and model storage.
 
@@ -250,7 +252,7 @@ def train_yolov8(
     img_size: int = 640,
     learning_rate: float = 0.01,
     device: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Train a YOLOv8 model on the specified dataset.
 
@@ -359,8 +361,8 @@ def train_yolov8(
 def save_model_version(
     model_name: str,
     trained_model_path: Path,
-    metrics: Dict[str, float],
-    training_config: Dict[str, Any],
+    metrics: dict[str, float],
+    training_config: dict[str, Any],
     activate: bool = False,
 ) -> ModelVersion:
     """

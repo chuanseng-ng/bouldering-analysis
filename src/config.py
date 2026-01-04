@@ -6,15 +6,17 @@ from YAML files. It handles path resolution relative to the project root
 and includes comprehensive error handling.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 import logging
 import threading
 
 logger = logging.getLogger(__name__)
 
 # Cache for configuration to avoid repeated file reads
-_config_cache: Optional[Dict[str, Any]] = None
+_config_cache: Optional[dict[str, Any]] = None
 
 # Lock for thread-safe access to the configuration cache
 _config_lock = threading.Lock()
@@ -69,7 +71,7 @@ def resolve_path(path_str: str, relative_to: Optional[Path] = None) -> Path:
 
 def load_config(
     config_path: str = "src/cfg/user_config.yaml", force_reload: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Load configuration from a YAML file with caching.
 
@@ -153,7 +155,7 @@ def load_config(
             ) from exc
 
 
-def _validate_config(config: Dict[str, Any]) -> None:
+def _validate_config(config: dict[str, Any]) -> None:
     """
     Validate the structure of the configuration dictionary.
 

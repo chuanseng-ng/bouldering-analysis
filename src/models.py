@@ -5,6 +5,8 @@ It includes models for storing analysis results, user feedback, hold types,
 detected holds, model versions, and user sessions.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 import uuid
 from typing import Any
