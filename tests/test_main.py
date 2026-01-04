@@ -370,9 +370,11 @@ class TestAnalyzeImage:
             except RuntimeError as e:
                 assert "Hold detection model not loaded" in str(e)
 
+    @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    @patch("src.main.HOLD_TYPES", {0: "crimp", 1: "jug"})
-    def test_analyze_image_success(self, mock_model, test_app, sample_image_path):
+    def test_analyze_image_success(
+        self, mock_model, mock_get_hold_types, test_app, sample_image_path
+    ):
         """Test successful image analysis - covers lines 403-441."""
         with test_app.app_context():
             # Mock YOLO results
@@ -886,10 +888,10 @@ class TestProcessDetectionResultsWithThreshold:
 class TestAnalyzeEndpointIntegration:
     """Integration tests for POST /analyze endpoint with Week 3-4 features."""
 
+    @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    @patch("src.main.HOLD_TYPES", {0: "crimp", 1: "jug"})
     def test_analyze_endpoint_success(
-        self, mock_model, test_client, test_app, sample_image_path
+        self, mock_model, mock_get_hold_types, test_client, test_app, sample_image_path
     ):
         """Test successful analysis via POST /analyze endpoint."""
         with test_app.app_context():
@@ -932,11 +934,11 @@ class TestAnalyzeEndpointIntegration:
             )
             assert len(detected_holds) > 0
 
-    @patch("src.main.hold_detection_model")
+    @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.confidence_threshold", 0.5)
-    @patch("src.main.HOLD_TYPES", {0: "crimp"})
+    @patch("src.main.hold_detection_model")
     def test_analyze_applies_confidence_threshold(
-        self, mock_model, test_client, test_app, sample_image_path
+        self, mock_model, mock_get_hold_types, test_client, test_app, sample_image_path
     ):
         """Test that confidence threshold is applied during analysis."""
         with test_app.app_context():
@@ -995,10 +997,10 @@ class TestAnalyzeEndpointIntegration:
 class TestAnalysisResultsStorage:
     """Test cases for analysis results storage with filtered holds - Week 3-4 feature."""
 
+    @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    @patch("src.main.HOLD_TYPES", {0: "crimp", 1: "jug"})
     def test_filtered_holds_stored_correctly(
-        self, mock_model, test_app, sample_image_path
+        self, mock_model, mock_get_hold_types, test_app, sample_image_path
     ):
         """Test that only holds passing confidence threshold are stored."""
         from src.main import analyze_image  # pylint: disable=import-outside-toplevel
@@ -1041,10 +1043,10 @@ class TestAnalysisResultsStorage:
             assert len(holds) == 1
             assert holds[0].confidence >= 0.25
 
+    @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    @patch("src.main.HOLD_TYPES", {0: "crimp"})
     def test_analysis_features_reflect_filtered_holds(
-        self, mock_model, test_app, sample_image_path
+        self, mock_model, mock_get_hold_types, test_app, sample_image_path
     ):
         """Test that features reflect filtered holds, not all detections."""
         from src.main import analyze_image  # pylint: disable=import-outside-toplevel
