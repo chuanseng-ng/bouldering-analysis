@@ -275,6 +275,7 @@ Without footholds or with very small/sparse footholds, climbers must:
 #### Climbing Biomechanics by Wall Angle
 
 **Slabs (70°-89°):**
+
 - **Foothold importance: HIGHEST (60-70% of difficulty)**
 - Climbers push with legs, weight over feet
 - Balance and footwork are primary skills
@@ -282,6 +283,7 @@ Without footholds or with very small/sparse footholds, climbers must:
 - Handholds often used for balance, not pulling
 
 **Vertical (90°):**
+
 - **Foothold importance: HIGH (40-50% of difficulty)**
 - Balanced load between hands and feet
 - Good footwork reduces arm strain
@@ -289,6 +291,7 @@ Without footholds or with very small/sparse footholds, climbers must:
 - Standard baseline for difficulty assessment
 
 **Slight Overhang (91°-105°):**
+
 - **Foothold importance: MODERATE (35-45% of difficulty)**
 - Upper body load increases
 - Footholds still important for body positioning
@@ -296,6 +299,7 @@ Without footholds or with very small/sparse footholds, climbers must:
 - Foot placement affects hip positioning
 
 **Moderate Overhang (106°-120°):**
+
 - **Foothold importance: MODERATE-LOW (25-35% of difficulty)**
 - Upper body dominant
 - Footholds used for body positioning, not weight support
@@ -303,6 +307,7 @@ Without footholds or with very small/sparse footholds, climbers must:
 - Large footholds help, small footholds less impactful
 
 **Steep Overhang (121°-135°):**
+
 - **Foothold importance: LOW (20-30% of difficulty)**
 - Upper body and core dominant
 - Footholds mainly for body positioning
