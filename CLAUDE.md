@@ -1,6 +1,9 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
+**Version**: 2026.01
 **Last Updated**: 2026-01-05
+**Last Reviewed**: 2026-01-05
+**Review Cadence**: Quarterly (every 3 months)
 **Repository**: bouldering-analysis
 **Purpose**: Guide AI assistants working with this computer vision-based bouldering route grading application
 
@@ -49,21 +52,21 @@ This is a Flask-based web application that uses YOLOv8 computer vision to analyz
 
 ```text
 bouldering-analysis/
-├── src/                          # Main application code (~3,773 lines)
+├── src/                          # Main application code (~2,921 lines)
 │   ├── cfg/                      # Configuration files
 │   │   └── user_config.yaml      # App settings (model paths, thresholds)
 │   ├── templates/                # HTML templates
 │   │   └── index.html            # Web UI
-│   ├── main.py                   # Flask app + routes (26,805 lines)
-│   ├── config.py                 # Configuration loader with caching
-│   ├── models.py                 # SQLAlchemy ORM models
+│   ├── main.py                   # Flask app + routes (775 lines)
+│   ├── config.py                 # Configuration loader with caching (323 lines)
+│   ├── models.py                 # SQLAlchemy ORM models (265 lines)
 │   ├── constants.py              # Shared constants (HOLD_TYPES)
-│   ├── train_model.py            # YOLOv8 fine-tuning pipeline
-│   ├── manage_models.py          # Model version management CLI
+│   ├── train_model.py            # YOLOv8 fine-tuning pipeline (752 lines)
+│   ├── manage_models.py          # Model version management CLI (630 lines)
 │   ├── setup.py                  # Database + directory initialization
 │   └── setup_dev.py              # Dev environment setup script
 │
-├── tests/                        # Test suite (~3,400+ lines)
+├── tests/                        # Test suite (~4,567 lines)
 │   ├── conftest.py               # pytest fixtures and configuration
 │   ├── test_main.py              # Flask app + route tests
 │   ├── test_config.py            # Configuration tests
@@ -103,12 +106,13 @@ bouldering-analysis/
 
 | File | Purpose | Lines | Key Info |
 | ------ | --------- | ------- | ---------- |
-| `src/main.py` | Flask app + routes | ~26,805 | Main entry point, all API endpoints |
-| `src/models.py` | Database models | ~20,718 | 6 SQLAlchemy models (Analysis, Feedback, HoldType, etc.) |
-| `src/config.py` | Config management | ~10,142 | Thread-safe YAML config loading |
-| `src/train_model.py` | ML training pipeline | ~25,783 | YOLOv8 fine-tuning, versioning |
+| `src/main.py` | Flask app + routes | 775 | Main entry point, all API endpoints |
+| `src/models.py` | Database models | 265 | 6 SQLAlchemy models (Analysis, Feedback, HoldType, etc.) |
+| `src/config.py` | Config management | 323 | Thread-safe YAML config loading |
+| `src/train_model.py` | ML training pipeline | 752 | YOLOv8 fine-tuning, versioning |
+| `src/manage_models.py` | Model version mgmt | 630 | CLI for model activation/deactivation |
 | `tests/conftest.py` | pytest fixtures | - | 20+ fixtures for isolated testing |
-| `run_qa.csh` | QA automation | 102 | Runs mypy, ruff, pytest, pylint |
+| `run_qa.csh` | QA automation | 101 | Runs mypy, ruff, pytest, pylint |
 
 ---
 
