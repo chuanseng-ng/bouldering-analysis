@@ -70,9 +70,11 @@ The four factors contribute to a base difficulty score through weighted averagin
 
 ### Objective
 
-Evaluate the technical difficulty of holds based on type and physical size.
+Evaluate the technical difficulty of holds based on type and physical size, **including both handholds and footholds as critical difficulty factors**.
 
-### Hold Difficulty Classification
+**CRITICAL DESIGN PRINCIPLE**: Footholds are as important as handholds for route difficulty. Their absence, size, and availability significantly impact balance, body positioning, and overall climbing technique required.
+
+### Handhold Difficulty Classification
 
 #### Tier 1 - Very Hard (Base Score: 10)
 
@@ -87,17 +89,16 @@ Evaluate the technical difficulty of holds based on type and physical size.
 
 #### Tier 3 - Moderate (Base Score: 4)
 
-- **Foot-holds**: Used for feet, moderate difficulty when used as handholds
+- **Start-holds**: Typically good holds to begin route
+- **Top-out-holds**: Final holds, usually accessible
 
 #### Tier 4 - Easy (Base Score: 1)
 
 - **Jugs**: Large, easy-to-grip holds
-- **Start-holds**: Typically good holds to begin route
-- **Top-out-holds**: Final holds, usually accessible
 
 ### Size Calculation
 
-For each detected hold, calculate physical size:
+For each detected hold (both handholds and footholds), calculate physical size:
 
 ```text
 hold_width = bbox_x2 - bbox_x1
@@ -105,7 +106,7 @@ hold_height = bbox_y2 - bbox_y1
 hold_area = hold_width * hold_height
 ```
 
-### Size-Based Adjustments
+### Handhold Size-Based Adjustments
 
 Apply size modifiers based on hold type:
 
@@ -127,7 +128,7 @@ Apply size modifiers based on hold type:
 - Small jugs (area < 2000px²): +1 difficulty (not truly a jug)
 - Large jugs: 0 bonus (remains easy)
 
-### Hold Type Distribution Analysis
+### Handhold Type Distribution Analysis
 
 Calculate the **proportion** of hard holds vs easy holds:
 
@@ -137,23 +138,293 @@ hard_hold_ratio = (count_crimps + count_pockets + count_slopers) / total_handhol
 
 Where `total_handholds` excludes foot-holds, start-holds, and top-out-holds.
 
-### Hold Difficulty Score Formula
+### Handhold Difficulty Score Formula
 
 ```text
-Hold_Difficulty_Score = Σ(hold_base_score × size_modifier) × (1 + hard_hold_ratio × 0.5)
+Handhold_Difficulty_Score = Σ(hold_base_score × size_modifier) × (1 + hard_hold_ratio × 0.5)
 ```
 
 The hard_hold_ratio multiplier creates a non-linear effect: routes with many hard holds are disproportionately harder.
 
-### Normalization
+### Handhold Normalization
 
 Normalize by dividing by total handhold count:
 
 ```text
-Normalized_Hold_Score = Hold_Difficulty_Score / total_handholds
+Normalized_Handhold_Score = Handhold_Difficulty_Score / total_handholds
 ```
 
 This creates a per-hold difficulty average ranging approximately 1-13.
+
+---
+
+### Foothold Difficulty Analysis
+
+**CRITICAL IMPORTANCE**: Footholds are a primary difficulty determinant. The availability, size, and spacing of footholds fundamentally affects balance, body positioning, and whether normal climbing technique is even possible.
+
+#### Foothold Difficulty Classification
+
+Footholds are scored based on size and availability:
+
+**Tier 1 - No Footholds Detected (Campusing)**
+
+- **Base Score: 12** (EXTREME difficulty)
+- **Condition**: Zero footholds detected on route
+- **Impact**: Forces campusing (no feet), drastically increases difficulty for normal climbers
+- **Grade Impact**: Typically adds +2 to +4 V-grades for non-elite climbers
+- **Rationale**: Most climbers rely heavily on feet for support and balance
+
+**Tier 2 - Very Small Footholds (Base Score: 9)**
+
+- **Size**: area < 800px²
+- **Difficulty**: Requires precise footwork, toe precision, balance
+- **Common on**: Technical face climbs, advanced routes
+
+**Tier 3 - Small Footholds (Base Score: 6)**
+
+- **Size**: area 800-1500px²
+- **Difficulty**: Moderate footwork precision required
+- **Common on**: Intermediate to advanced routes
+
+**Tier 4 - Medium Footholds (Base Score: 3)**
+
+- **Size**: area 1500-3000px²
+- **Difficulty**: Standard footwork, good support
+- **Common on**: Most gym routes, beginner to intermediate
+
+**Tier 5 - Large Footholds (Base Score: 1)**
+
+- **Size**: area > 3000px²
+- **Difficulty**: Easy to stand on, excellent support
+- **Common on**: Beginner routes, jugs for feet
+
+#### Foothold Size-Based Scoring
+
+```python
+def calculate_foothold_difficulty(footholds: list) -> float:
+    """
+    Calculate foothold difficulty score.
+    
+    CRITICAL: No footholds = campusing = extreme difficulty
+    """
+    if len(footholds) == 0:
+        # NO FOOTHOLDS = CAMPUSING
+        return 12.0  # Maximum difficulty
+    
+    total_score = 0
+    for fh in footholds:
+        area = fh.area
+        if area < 800:
+            score = 9
+        elif area < 1500:
+            score = 6
+        elif area < 3000:
+            score = 3
+        else:
+            score = 1
+        total_score += score
+    
+    # Normalize by foothold count
+    avg_foothold_difficulty = total_score / len(footholds)
+    
+    # Apply foothold scarcity penalty
+    # Few footholds = limited balance options = harder
+    if len(footholds) <= 2:
+        scarcity_multiplier = 1.5  # Very few footholds
+    elif len(footholds) <= 4:
+        scarcity_multiplier = 1.25  # Few footholds
+    elif len(footholds) <= 6:
+        scarcity_multiplier = 1.1  # Limited footholds
+    else:
+        scarcity_multiplier = 1.0  # Adequate footholds
+    
+    return avg_foothold_difficulty * scarcity_multiplier
+```
+
+**Foothold Scarcity Impact:**
+
+- 0 footholds → Score: 12.0 (campusing, extreme)
+- 1-2 footholds → 1.5x multiplier (very limited balance options)
+- 3-4 footholds → 1.25x multiplier (limited options, technical sequences)
+- 5-6 footholds → 1.1x multiplier (some options, still constrained)
+- 7+ footholds → 1.0x multiplier (adequate options for balance)
+
+**Design Rationale:**
+
+Footholds enable:
+
+- Weight transfer to legs (more efficient than arms)
+- Balance and stability during moves
+- Rest positions between difficult moves
+- Hip positioning for reach optimization
+- Dynamic movement generation from legs
+
+Without footholds or with very small/sparse footholds, climbers must:
+
+- Support more weight on arms (rapid fatigue)
+- Maintain constant core tension
+- Execute precise, powerful moves without feet
+- Manage significantly higher physical demands
+
+---
+
+### Wall-Angle-Dependent Foothold Weighting
+
+**CRITICAL DESIGN PRINCIPLE**: Foothold importance varies dramatically by wall angle.
+
+#### Climbing Biomechanics by Wall Angle
+
+**Slabs (70°-89°):**
+- **Foothold importance: HIGHEST (60-70% of difficulty)**
+- Climbers push with legs, weight over feet
+- Balance and footwork are primary skills
+- Small footholds drastically increase difficulty
+- Handholds often used for balance, not pulling
+
+**Vertical (90°):**
+- **Foothold importance: HIGH (40-50% of difficulty)**
+- Balanced load between hands and feet
+- Good footwork reduces arm strain
+- Footholds essential for efficient climbing
+- Standard baseline for difficulty assessment
+
+**Slight Overhang (91°-105°):**
+- **Foothold importance: MODERATE (35-45% of difficulty)**
+- Upper body load increases
+- Footholds still important for body positioning
+- Core tension becomes more critical
+- Foot placement affects hip positioning
+
+**Moderate Overhang (106°-120°):**
+- **Foothold importance: MODERATE-LOW (25-35% of difficulty)**
+- Upper body dominant
+- Footholds used for body positioning, not weight support
+- Core tension and pulling strength primary
+- Large footholds help, small footholds less impactful
+
+**Steep Overhang (121°-135°):**
+- **Foothold importance: LOW (20-30% of difficulty)**
+- Upper body and core dominant
+- Footholds mainly for body positioning
+- Route difficulty driven by handholds and power
+- Campus-style climbing more common
+
+#### Foothold Weight Function
+
+Define wall-angle-dependent weights for combining handhold and foothold scores:
+
+```python
+def get_foothold_weight(wall_angle_category: str) -> tuple[float, float]:
+    """
+    Return (handhold_weight, foothold_weight) for wall angle.
+    
+    Weights sum to 1.0, reflecting relative importance.
+    
+    Returns:
+        tuple: (handhold_weight, foothold_weight)
+    """
+    weights = {
+        'slab': (0.35, 0.65),              # 65% foothold importance
+        'vertical': (0.55, 0.45),          # 45% foothold importance
+        'slight_overhang': (0.60, 0.40),   # 40% foothold importance
+        'moderate_overhang': (0.70, 0.30), # 30% foothold importance
+        'steep_overhang': (0.75, 0.25)     # 25% foothold importance
+    }
+    
+    return weights.get(wall_angle_category, (0.55, 0.45))  # Default: vertical
+```
+
+**Weight Rationale:**
+
+| Wall Angle | Handhold % | Foothold % | Climbing Style |
+| :--------: | :--------: | :--------: | :------------: |
+| Slab | 35% | **65%** | Footwork-dominant, balance-critical |
+| Vertical | 55% | **45%** | Balanced, standard climbing |
+| Slight Overhang | 60% | **40%** | Upper body increases |
+| Moderate Overhang | 70% | **30%** | Power-focused, feet assist |
+| Steep Overhang | 75% | **25%** | Upper body dominant, feet position |
+
+---
+
+### Combined Hold Difficulty Score
+
+Integrate handhold and foothold difficulty with wall-angle-dependent weighting:
+
+```python
+def calculate_combined_hold_difficulty(
+    handholds: list,
+    footholds: list,
+    wall_angle_category: str
+) -> float:
+    """
+    Calculate combined hold difficulty considering both hands and feet.
+    
+    Uses wall-angle-dependent weighting to reflect climbing biomechanics.
+    """
+    # Calculate individual scores
+    handhold_score = calculate_handhold_difficulty(handholds)  # 1-13 range
+    foothold_score = calculate_foothold_difficulty(footholds)  # 1-12 range
+    
+    # Get wall-angle-dependent weights
+    hand_weight, foot_weight = get_foothold_weight(wall_angle_category)
+    
+    # Combine with weights
+    combined_score = (handhold_score * hand_weight) + (foothold_score * foot_weight)
+    
+    # Combined score range: approximately 1-13
+    return combined_score
+```
+
+**Example Calculations:**
+
+**Example 1: V5 Slab with Small Footholds**
+
+- Handholds: 8 medium jugs/crimps → Handhold score: 5.5
+- Footholds: 5 small footholds (1200px² avg) → Foothold score: 7.5
+- Wall angle: Slab
+- Weights: 35% hands, 65% feet
+- Combined: (5.5 × 0.35) + (7.5 × 0.65) = 1.93 + 4.88 = **6.81**
+- **Impact**: Small footholds dominate difficulty on slab
+
+**Example 2: V7 Vertical Route with No Footholds (Campus)**
+
+- Handholds: 6 crimps/pockets → Handhold score: 9.0
+- Footholds: 0 detected → Foothold score: 12.0 (campusing)
+- Wall angle: Vertical
+- Weights: 55% hands, 45% feet
+- Combined: (9.0 × 0.55) + (12.0 × 0.45) = 4.95 + 5.40 = **10.35**
+- **Impact**: Campusing adds massive difficulty
+
+**Example 3: V6 Overhang with Large Footholds**
+
+- Handholds: 8 slopers/pinches → Handhold score: 8.0
+- Footholds: 8 large footholds (3500px² avg) → Foothold score: 1.0
+- Wall angle: Moderate overhang
+- Weights: 70% hands, 30% feet
+- Combined: (8.0 × 0.70) + (1.0 × 0.30) = 5.60 + 0.30 = **5.90**
+- **Impact**: Good footholds don't help much on steep terrain
+
+**Example 4: V4 Vertical Route with Good Footholds**
+
+- Handholds: 12 mixed holds → Handhold score: 6.0
+- Footholds: 10 medium footholds (2000px² avg) → Foothold score: 3.0
+- Wall angle: Vertical
+- Weights: 55% hands, 45% feet
+- Combined: (6.0 × 0.55) + (3.0 × 0.45) = 3.30 + 1.35 = **4.65**
+- **Impact**: Good footholds reduce overall difficulty
+
+### Summary of Factor 1 Updates
+
+**Key Changes:**
+
+1. ✅ **Footholds elevated to primary difficulty factor** (not tier 3 afterthought)
+2. ✅ **Campusing penalty implemented** (no footholds = score 12.0)
+3. ✅ **Foothold size scoring defined** (very small to large)
+4. ✅ **Foothold scarcity multipliers added** (few footholds = harder)
+5. ✅ **Wall-angle-dependent weighting** (65% on slabs, 25% on overhangs)
+6. ✅ **Combined scoring formula** integrates hands and feet appropriately
+
+**Result**: Factor 1 now properly reflects that footholds are as important as handholds, with importance varying by wall angle per climbing biomechanics.
 
 ---
 
@@ -161,9 +432,11 @@ This creates a per-hold difficulty average ranging approximately 1-13.
 
 ### Objective
 
-Assess route difficulty based on the number of available holds, with context-aware interpretation.
+Assess route difficulty based on the number of available holds, **considering both handhold and foothold availability with wall-angle-dependent weighting**.
 
-### Core Principle
+**CRITICAL DESIGN PRINCIPLE**: Hold count must account for both handholds and footholds. Sparse footholds severely limit balance options and movement choices, increasing difficulty.
+
+### Core Principle - Handhold Count
 
 **Inverse relationship with difficulty, but non-linear:**
 
@@ -173,19 +446,32 @@ Assess route difficulty based on the number of available holds, with context-awa
 - Many holds (13-16): Moderate-easy (V1-V3) - multiple path options
 - Very many holds (17+): Easy (V0-V2) - abundant options, likely easier sequences
 
+### Core Principle - Foothold Count
+
+**CRITICAL: Foothold availability affects balance options and movement freedom:**
+
+- **No footholds (0)**: EXTREME difficulty - campusing required, very limited to elite climbers
+- **Very few footholds (1-2)**: Severe constraint - very limited balance options, technical sequences
+- **Few footholds (3-4)**: Significant constraint - limited balance options, precise foot placement required
+- **Moderate footholds (5-7)**: Some constraint - adequate but not abundant options
+- **Many footholds (8+)**: Adequate options - multiple balance positions available
+
+**Key Insight**: Unlike handholds where fewer can indicate powerful problems, fewer footholds almost always increases difficulty due to balance limitations.
+
 ### Exceptions & Context
 
 **Hold count must be interpreted with hold types:**
 
-- 5 jugs is easier than 15 crimps
+- 5 jugs is easier than 15 crimps (for handholds)
+- 3 large footholds easier than 8 tiny footholds
 - This interaction is captured by combining with Factor 1
 
-### Hold Density Score Formula
+### Handhold Density Score Formula
 
 Use a **logarithmic decay function** to model the non-linear relationship:
 
 ```text
-Hold_Density_Score = 12 - (log₂(total_handholds) × 2.5)
+Handhold_Density_Score = 12 - (log₂(total_handholds) × 2.5)
 ```
 
 This maps:
@@ -201,51 +487,252 @@ Clamp the result between 0 and 12.
 
 ---
 
+### Foothold Density Score Formula
+
+Model foothold scarcity with emphasis on the severe difficulty increase from missing or very sparse footholds:
+
+```python
+def calculate_foothold_density_score(foothold_count: int) -> float:
+    """
+    Calculate difficulty score based on foothold count.
+    
+    CRITICAL: No footholds = campusing = extreme difficulty
+    Sparse footholds = limited balance options = high difficulty
+    
+    Returns score in range [0, 12]
+    """
+    if foothold_count == 0:
+        # NO FOOTHOLDS = CAMPUSING
+        return 12.0  # Maximum difficulty
+    elif foothold_count == 1:
+        return 11.0  # Single foothold, extremely limited
+    elif foothold_count == 2:
+        return 9.5   # Two footholds, very limited balance
+    elif foothold_count <= 4:
+        return 8.0   # Few footholds, limited options
+    elif foothold_count <= 6:
+        return 6.0   # Moderate footholds, some constraint
+    elif foothold_count <= 8:
+        return 4.0   # Adequate footholds
+    elif foothold_count <= 12:
+        return 2.5   # Many footholds, good options
+    else:
+        return 1.0   # Abundant footholds, many options
+```
+
+**Foothold Density Mapping:**
+
+| Foothold Count | Density Score | Difficulty Impact | Climbing Constraint |
+| :------------: | :-----------: | :---------------: | :-----------------: |
+| 0 | 12.0 | EXTREME | Campusing, elite only |
+| 1 | 11.0 | Very High | Single balance point |
+| 2 | 9.5 | High | Very limited movement |
+| 3-4 | 8.0 | Moderate-High | Limited options, technical |
+| 5-6 | 6.0 | Moderate | Some constraint |
+| 7-8 | 4.0 | Low-Moderate | Adequate options |
+| 9-12 | 2.5 | Low | Good options |
+| 13+ | 1.0 | Very Low | Abundant options |
+
+**Design Rationale:**
+
+Foothold scarcity has a **steeper penalty curve** than handhold scarcity because:
+
+1. **Balance Dependency**: Climbers need feet for balance more than hands
+2. **Weight Distribution**: Legs can support more weight efficiently than arms
+3. **Rest Positions**: Feet enable rest positions to recover from hard moves
+4. **Movement Options**: More footholds = more beta options = easier route reading
+5. **Fatigue Management**: Without footholds, arms fatigue rapidly
+
+---
+
+### Wall-Angle-Dependent Hold Density Weighting
+
+**CRITICAL DESIGN PRINCIPLE**: Foothold density importance varies by wall angle, matching the biomechanics principle from Factor 1.
+
+```python
+def calculate_combined_hold_density(
+    handhold_count: int,
+    foothold_count: int,
+    wall_angle_category: str
+) -> float:
+    """
+    Calculate combined hold density score with wall-angle-dependent weighting.
+    
+    Uses same weighting as Factor 1 for consistency.
+    """
+    # Calculate individual density scores
+    handhold_density_score = 12 - (math.log2(max(handhold_count, 1)) * 2.5)
+    handhold_density_score = max(0, min(12, handhold_density_score))
+    
+    foothold_density_score = calculate_foothold_density_score(foothold_count)
+    
+    # Get wall-angle-dependent weights (same as Factor 1)
+    hand_weight, foot_weight = get_foothold_weight(wall_angle_category)
+    
+    # Combine with weights
+    combined_density_score = (
+        handhold_density_score * hand_weight +
+        foothold_density_score * foot_weight
+    )
+    
+    return combined_density_score
+```
+
+**Weight Application:**
+
+| Wall Angle | Handhold Weight | Foothold Weight | Rationale |
+| :--------: | :-------------: | :-------------: | :-------: |
+| Slab | 35% | **65%** | Foothold availability critical for balance |
+| Vertical | 55% | **45%** | Balanced importance |
+| Slight Overhang | 60% | **40%** | Handholds more important |
+| Moderate Overhang | 70% | **30%** | Upper body dominant |
+| Steep Overhang | 75% | **25%** | Handholds far more critical |
+
+---
+
+### Example Calculations
+
+**Example 1: Slab with Sparse Footholds**
+
+- Handholds: 10 holds → Handhold density: 3.7
+- Footholds: 3 holds → Foothold density: 8.0
+- Wall angle: Slab (35% hand, 65% foot)
+- Combined: (3.7 × 0.35) + (8.0 × 0.65) = 1.30 + 5.20 = **6.50**
+- **Impact**: Sparse footholds dominate difficulty on slab
+
+**Example 2: Vertical Route with No Footholds (Campus Problem)**
+
+- Handholds: 6 holds → Handhold density: 6.5
+- Footholds: 0 holds → Foothold density: 12.0
+- Wall angle: Vertical (55% hand, 45% foot)
+- Combined: (6.5 × 0.55) + (12.0 × 0.45) = 3.58 + 5.40 = **8.98**
+- **Impact**: Campusing adds massive difficulty through density score
+
+**Example 3: Steep Overhang with Few Handholds but Good Footholds**
+
+- Handholds: 4 holds → Handhold density: 7.5
+- Footholds: 8 holds → Foothold density: 4.0
+- Wall angle: Steep Overhang (75% hand, 25% foot)
+- Combined: (7.5 × 0.75) + (4.0 × 0.25) = 5.63 + 1.00 = **6.63**
+- **Impact**: Handhold scarcity dominates on overhang, footholds help less
+
+**Example 4: Beginner Vertical Route with Many Holds**
+
+- Handholds: 18 holds → Handhold density: 1.4
+- Footholds: 14 holds → Foothold density: 1.0
+- Wall angle: Vertical (55% hand, 45% foot)
+- Combined: (1.4 × 0.55) + (1.0 × 0.45) = 0.77 + 0.45 = **1.22**
+- **Impact**: Abundant holds of both types = easy route
+
+**Example 5: Technical Slab with Adequate Holds**
+
+- Handholds: 12 holds → Handhold density: 3.4
+- Footholds: 10 holds → Foothold density: 2.5
+- Wall angle: Slab (35% hand, 65% foot)
+- Combined: (3.4 × 0.35) + (2.5 × 0.65) = 1.19 + 1.63 = **2.82**
+- **Impact**: Good foothold availability reduces difficulty on slab
+
+---
+
+### Summary of Factor 2 Updates
+
+**Key Changes:**
+
+1. ✅ **Foothold density scoring added** with steeper penalty curve
+2. ✅ **Campusing penalty reinforced** (0 footholds = 12.0 score)
+3. ✅ **Foothold scarcity levels defined** (1-2 = extreme, 3-4 = high, etc.)
+4. ✅ **Wall-angle-dependent weighting** applied to density (consistent with Factor 1)
+5. ✅ **Combined density formula** integrates handhold and foothold availability
+6. ✅ **Example calculations** demonstrate real-world scenarios
+
+**Result**: Factor 2 now properly accounts for foothold availability as a critical difficulty factor, with appropriate wall-angle-dependent importance.
+
+---
+
 ## Factor 3: Hold Distance Analysis
 
 ### Objective
 
-Measure route difficulty based on hold spacing, capturing both average difficulty and crux moves.
+Measure route difficulty based on hold spacing for **both handholds and footholds**, capturing reach difficulty, high-step challenges, and crux moves.
+
+**CRITICAL DESIGN PRINCIPLE**: Foothold spacing matters as much as handhold spacing. Large vertical foothold gaps force high-steps, requiring flexibility and balance. Sparse footholds with wide spacing dramatically increase difficulty.
 
 ### Spatial Analysis Required
 
-#### Step 1: Sort Holds Vertically
+#### Step 1: Separate and Sort Holds
 
-Since bouldering routes typically ascend, sort detected holds by y-coordinate (bottom to top):
+Separate handholds and footholds, then sort each by vertical position:
 
-```text
-sorted_holds = sort(holds, key=bbox_y1, ascending=True)
+```python
+def separate_and_sort_holds(all_holds: list) -> tuple[list, list]:
+    """
+    Separate holds into handholds and footholds, sort vertically.
+    
+    Returns:
+        tuple: (sorted_handholds, sorted_footholds)
+    """
+    handholds = [h for h in all_holds if h.hold_type not in ['foot-hold']]
+    footholds = [h for h in all_holds if h.hold_type == 'foot-hold']
+    
+    # Sort by y-coordinate (bottom to top)
+    handholds_sorted = sorted(handholds, key=lambda h: h.bbox_y1)
+    footholds_sorted = sorted(footholds, key=lambda h: h.bbox_y1)
+    
+    return handholds_sorted, footholds_sorted
 ```
 
 #### Step 2: Calculate Sequential Distances
 
-For each consecutive pair of holds, calculate Euclidean distance:
+For each consecutive pair of holds (separately for hands and feet), calculate Euclidean distance:
 
-```text
-distance = √[(x₂ - x₁)² + (y₂ - y₁)²]
+```python
+def calculate_hold_distances(holds: list) -> dict:
+    """
+    Calculate distance metrics for a list of holds.
+    
+    Returns:
+        dict with avg_distance, max_distance, distance_variance
+    """
+    if len(holds) < 2:
+        return {
+            'avg_distance': 0,
+            'max_distance': 0,
+            'distance_variance': 0,
+            'distances': []
+        }
+    
+    distances = []
+    for i in range(len(holds) - 1):
+        h1, h2 = holds[i], holds[i + 1]
+        
+        # Calculate center points
+        x1 = (h1.bbox_x1 + h1.bbox_x2) / 2
+        y1 = (h1.bbox_y1 + h1.bbox_y2) / 2
+        x2 = (h2.bbox_x1 + h2.bbox_x2) / 2
+        y2 = (h2.bbox_y1 + h2.bbox_y2) / 2
+        
+        # Euclidean distance
+        distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        distances.append(distance)
+    
+    return {
+        'avg_distance': statistics.mean(distances),
+        'max_distance': max(distances),
+        'distance_variance': statistics.stdev(distances) if len(distances) > 1 else 0,
+        'distances': distances
+    }
 ```
 
-Where center points are:
+---
 
-```text
-x_center = (bbox_x1 + bbox_x2) / 2
-y_center = (bbox_y1 + bbox_y2) / 2
-```
+### Handhold Distance Analysis
 
-#### Step 3: Extract Distance Metrics
-
-Calculate:
-
-1. **Average distance**: Mean of all sequential distances
-2. **Maximum distance**: Largest gap between consecutive holds (captures crux)
-3. **Distance variance**: Standard deviation (measures consistency)
-
-### Distance Interpretation (pixels at standard image resolution)
+#### Distance Interpretation (pixels at standard image resolution)
 
 **Average Distance Ranges:**
 
 - Close spacing (< 150px): Easy moves, static climbing → V0-V2
-- Moderate spacing (150-300px): Standard reaches → V2-V5  
+- Moderate spacing (150-300px): Standard reaches → V2-V5
 - Wide spacing (300-500px): Long reaches, dynamic moves → V5-V9
 - Very wide spacing (> 500px): Powerful dynos required → V9-V12
 
@@ -256,13 +743,14 @@ Calculate:
 - 400-600px: Hard crux → +2 grade bonus
 - > 600px: Extreme crux → +3 grade bonus
 
-### Normalization for Image Resolution
+#### Normalization for Image Resolution
 
 Since images may vary in resolution, normalize distances:
 
-```text
-image_height = max(bbox_y2) for all holds
-normalized_distance = raw_distance / image_height
+```python
+def normalize_distance(raw_distance: float, image_height: float) -> float:
+    """Normalize distance by image height for resolution independence."""
+    return raw_distance / image_height
 ```
 
 Use normalized ratios:
@@ -272,15 +760,248 @@ Use normalized ratios:
 - Wide: 0.30-0.50
 - Very wide: > 0.50
 
-### Distance Score Formula
+#### Handhold Distance Score Formula
 
-```text
-Avg_Distance_Component = (normalized_avg_distance / 0.15) × 3
-Max_Distance_Component = crux_bonus (0-3 based on max distance)
-Distance_Score = Avg_Distance_Component + Max_Distance_Component
+```python
+def calculate_handhold_distance_score(
+    handhold_metrics: dict,
+    image_height: float
+) -> float:
+    """
+    Calculate difficulty score from handhold spacing.
+    
+    Returns score in range [0, 12]
+    """
+    if len(handhold_metrics['distances']) == 0:
+        return 0
+    
+    # Normalize distances
+    normalized_avg = handhold_metrics['avg_distance'] / image_height
+    normalized_max = handhold_metrics['max_distance'] / image_height
+    
+    # Average distance component (0-9 range)
+    avg_component = (normalized_avg / 0.15) * 3
+    avg_component = min(avg_component, 9)
+    
+    # Maximum distance component (crux bonus: 0-3)
+    if normalized_max < 0.18:  # ~200px at 1080p
+        max_component = 0
+    elif normalized_max < 0.37:  # ~400px at 1080p
+        max_component = 1
+    elif normalized_max < 0.55:  # ~600px at 1080p
+        max_component = 2
+    else:
+        max_component = 3
+    
+    total_score = avg_component + max_component
+    return min(total_score, 12)
 ```
 
-Clamp Distance_Score between 0 and 12.
+---
+
+### Foothold Distance Analysis
+
+**CRITICAL IMPORTANCE**: Foothold spacing determines high-step difficulty and balance transitions.
+
+#### Foothold Spacing Biomechanics
+
+**Vertical Foothold Gaps:**
+
+Large vertical gaps between footholds force high-steps:
+
+- Requires hip flexibility
+- Demands precise balance during transition
+- Increases core tension requirements
+- Can be as limiting as wide handhold spacing
+
+**Horizontal Foothold Gaps:**
+
+Wide horizontal spacing between footholds:
+
+- Forces wide stances or single-foot balance
+- Limits hip positioning options
+- Affects reach optimization
+- Increases balance difficulty
+
+#### Foothold Distance Interpretation
+
+**Critical Distinction**: Foothold analysis focuses more on **vertical spacing** (high-steps) since climbers ascend routes:
+
+**Average Vertical Spacing:**
+
+- Close spacing (< 120px / < 0.11 normalized): Easy stepping, natural stride → Low difficulty
+- Moderate spacing (120-200px / 0.11-0.18): Standard steps → Moderate difficulty
+- Wide spacing (200-300px / 0.18-0.28): High-steps required → High difficulty
+- Very wide spacing (> 300px / > 0.28): Extreme high-steps, flexibility critical → Very high difficulty
+
+**Impact on Climbing:**
+
+- Close foothold spacing: Climber can choose optimal foot positions
+- Moderate spacing: Some constraint, but manageable
+- Wide spacing: Forces specific high-step moves, requires flexibility
+- Very wide spacing: May require dynamic foot placements or skipping footholds
+
+#### Foothold Distance Score Formula
+
+```python
+def calculate_foothold_distance_score(
+    foothold_metrics: dict,
+    image_height: float
+) -> float:
+    """
+    Calculate difficulty score from foothold spacing.
+    
+    Emphasis on vertical spacing (high-steps).
+    No footholds = campusing = maximum score.
+    
+    Returns score in range [0, 12]
+    """
+    if len(foothold_metrics['distances']) == 0:
+        # NO FOOTHOLDS = CAMPUSING
+        return 12.0
+    
+    # Normalize distances
+    normalized_avg = foothold_metrics['avg_distance'] / image_height
+    normalized_max = foothold_metrics['max_distance'] / image_height
+    
+    # Average spacing component (0-9 range)
+    # Steeper curve than handholds - foothold spacing more impactful
+    if normalized_avg < 0.11:  # < 120px
+        avg_component = 1.0
+    elif normalized_avg < 0.18:  # 120-200px
+        avg_component = 3.0
+    elif normalized_avg < 0.28:  # 200-300px
+        avg_component = 6.0
+    else:  # > 300px
+        avg_component = 9.0
+    
+    # Maximum spacing component (high-step crux: 0-3)
+    if normalized_max < 0.18:  # < 200px
+        max_component = 0
+    elif normalized_max < 0.28:  # 200-300px
+        max_component = 1
+    elif normalized_max < 0.37:  # 300-400px
+        max_component = 2
+    else:  # > 400px
+        max_component = 3
+    
+    total_score = avg_component + max_component
+    return min(total_score, 12)
+```
+
+**Design Rationale:**
+
+Foothold distance scoring uses a **steeper curve** than handholds because:
+
+1. **High-steps are highly constraining** - cannot be avoided like handhold reaches
+2. **Flexibility limitations** - many climbers struggle with extreme high-steps
+3. **Balance difficulty** - longer transitions between feet = more instability
+4. **Compound effect** - wide foothold spacing + sparse footholds = extreme difficulty
+
+---
+
+### Wall-Angle-Dependent Distance Weighting
+
+**CRITICAL DESIGN PRINCIPLE**: Foothold spacing importance varies by wall angle.
+
+```python
+def calculate_combined_distance_score(
+    handhold_distance_score: float,
+    foothold_distance_score: float,
+    wall_angle_category: str
+) -> float:
+    """
+    Calculate combined distance score with wall-angle-dependent weighting.
+    
+    Uses same weighting as Factors 1 and 2 for consistency.
+    """
+    # Get wall-angle-dependent weights
+    hand_weight, foot_weight = get_foothold_weight(wall_angle_category)
+    
+    # Combine with weights
+    combined_score = (
+        handhold_distance_score * hand_weight +
+        foothold_distance_score * foot_weight
+    )
+    
+    return combined_score
+```
+
+**Weight Application:**
+
+| Wall Angle | Handhold Weight | Foothold Weight | Distance Impact |
+| :--------: | :-------------: | :-------------: | :-------------: |
+| Slab | 35% | **65%** | High-steps dominate difficulty |
+| Vertical | 55% | **45%** | Balanced reach importance |
+| Slight Overhang | 60% | **40%** | Hand reaches more critical |
+| Moderate Overhang | 70% | **30%** | Power moves dominate |
+| Steep Overhang | 75% | **25%** | Dynamic hand moves critical |
+
+---
+
+### Example Calculations
+
+**Example 1: Slab with Large High-Steps**
+
+- Handhold avg: 200px (norm: 0.18) → Score: 3.6
+- Handhold max: 350px (norm: 0.32) → Crux bonus: 1
+- Handhold total: 4.6
+- Foothold avg: 280px (norm: 0.26) → Score: 6.0
+- Foothold max: 380px (norm: 0.35) → Crux bonus: 2
+- Foothold total: 8.0
+- Wall angle: Slab (35% hand, 65% foot)
+- Combined: (4.6 × 0.35) + (8.0 × 0.65) = 1.61 + 5.20 = **6.81**
+- **Impact**: High-steps dominate difficulty on slab
+
+**Example 2: Vertical Campus Problem (No Footholds)**
+
+- Handhold avg: 280px (norm: 0.26) → Score: 5.2
+- Handhold max: 450px (norm: 0.42) → Crux bonus: 2
+- Handhold total: 7.2
+- Foothold: None → Score: 12.0
+- Wall angle: Vertical (55% hand, 45% foot)
+- Combined: (7.2 × 0.55) + (12.0 × 0.45) = 3.96 + 5.40 = **9.36**
+- **Impact**: Campusing adds extreme difficulty through distance factor
+
+**Example 3: Overhang with Wide Hand Reaches, Close Footholds**
+
+- Handhold avg: 420px (norm: 0.39) → Score: 7.8
+- Handhold max: 580px (norm: 0.54) → Crux bonus: 2
+- Handhold total: 9.8
+- Foothold avg: 150px (norm: 0.14) → Score: 1.0
+- Foothold max: 220px (norm: 0.20) → Crux bonus: 0
+- Foothold total: 1.0
+- Wall angle: Moderate Overhang (70% hand, 30% foot)
+- Combined: (9.8 × 0.70) + (1.0 × 0.30) = 6.86 + 0.30 = **7.16**
+- **Impact**: Wide handhold spacing dominates on overhang
+
+**Example 4: Beginner Vertical Route with Close Holds**
+
+- Handhold avg: 180px (norm: 0.17) → Score: 3.4
+- Handhold max: 250px (norm: 0.23) → Crux bonus: 1
+- Handhold total: 4.4
+- Foothold avg: 160px (norm: 0.15) → Score: 3.0
+- Foothold max: 200px (norm: 0.18) → Crux bonus: 0
+- Foothold total: 3.0
+- Wall angle: Vertical (55% hand, 45% foot)
+- Combined: (4.4 × 0.55) + (3.0 × 0.45) = 2.42 + 1.35 = **3.77**
+- **Impact**: Close spacing for both hands and feet = easier route
+
+---
+
+### Summary of Factor 3 Updates
+
+**Key Changes:**
+
+1. ✅ **Foothold distance analysis added** with focus on vertical spacing (high-steps)
+2. ✅ **Separate distance calculations** for handholds and footholds
+3. ✅ **Campusing penalty reinforced** (no footholds = 12.0 distance score)
+4. ✅ **High-step difficulty emphasized** with steeper scoring curve for footholds
+5. ✅ **Wall-angle-dependent weighting** applied (consistent with Factors 1 & 2)
+6. ✅ **Combined distance formula** integrates handhold reaches and foothold spacing
+7. ✅ **Example calculations** demonstrate realistic scenarios
+
+**Result**: Factor 3 now properly accounts for foothold spacing as a critical difficulty factor, especially for high-step moves and balance transitions, with appropriate wall-angle-dependent importance.
 
 ---
 
@@ -350,7 +1071,7 @@ Wall angle fundamentally changes how climbers interact with holds:
 Define standard categories with angle ranges:
 
 | Category | Angle Range | Description | Typical Location |
-|----------|-------------|-------------|------------------|
+| :------: | :---------: | :---------: | :--------------: |
 | **Slab** | 70°-89° | Inclined away from climber | Beginner walls, outdoor slabs |
 | **Vertical** | 90° | Perpendicular to ground | Standard gym walls |
 | **Slight Overhang** | 91°-105° | Gentle overhang | Intermediate gym sections |
@@ -836,18 +1557,20 @@ Combine the four factor scores using empirically-derived weights:
 
 ```text
 Base_Score = (
-    Hold_Difficulty_Score × 0.35 +
-    Hold_Density_Score × 0.25 +
-    Distance_Score × 0.20 +
+    Combined_Hold_Difficulty_Score × 0.35 +
+    Combined_Hold_Density_Score × 0.25 +
+    Combined_Distance_Score × 0.20 +
     Wall_Incline_Score × 0.20
 )
 ```
 
+**CRITICAL UPDATE**: All "Combined" scores now integrate both handhold and foothold components with wall-angle-dependent weighting as defined in Factors 1, 2, and 3.
+
 **Rationale for weights:**
 
-- **35% Hold Difficulty**: Primary determinant - a route of all crimps is fundamentally harder
-- **25% Hold Density**: Significant impact - fewer holds means fewer options
-- **20% Distance**: Important for distinguishing grades - wide spacing requires power/technique
+- **35% Combined Hold Difficulty**: Primary determinant - includes both handhold quality and foothold availability/size (weighted by wall angle)
+- **25% Combined Hold Density**: Significant impact - accounts for both handhold and foothold availability (weighted by wall angle)
+- **20% Combined Distance**: Important for distinguishing grades - includes both handhold reaches and foothold spacing/high-steps (weighted by wall angle)
 - **20% Wall Incline**: Critical modifier - overhang vs slab can change grade by 2-3 levels
 
 **Stage 2: Apply Complexity Multipliers**
@@ -934,60 +1657,73 @@ Low confidence detections should reduce predicted grade (conservative approach).
 ┌───────────────────────────────────────────────────────┐
 │  Preprocessing                                        │
 │  - Filter by confidence                               │
-│  - Categorize holds                                   │
-│  - Calculate dimensions                               │
+│  - SEPARATE handholds and footholds (NOT discard)    │
+│  - Calculate dimensions for both                      │
 │  - Parse wall incline/segments                        │
 │  - Calculate hold type entropy                        │
 └───────────────┬───────────────────────────────────────┘
                 │
-                ├────────┬──────────┬──────────┬──────────┐
-                ▼        ▼          ▼          ▼          │
-        ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  │
-        │Hold    │  │Hold    │  │Distance│  │Wall    │  │
-        │Type &  │  │Count   │  │Analysis│  │Incline │  │
-        │Size    │  │Analysis│  │        │  │Analysis│  │
-        │Score 1 │  │Score 2 │  │Score 3 │  │Score 4 │  │
-        └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘  │
-            │           │            │           │        │
-            └───────────┴────────────┴───────────┴────────┘
-                                │
-                                ▼
-                    ┌──────────────────────┐
-                    │ Weighted Combination │
-                    │ Base Score = Σ(Si×Wi)│
-                    └──────────┬───────────┘
-                               │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
-    ┌──────────────┐                    ┌──────────────┐
-    │ Wall Angle   │                    │ Hold Type    │
-    │ Transitions  │                    │ Variability  │
-    │ Multiplier   │                    │ Multiplier   │
-    │ (1.0-1.5x)   │                    │ (1.0-1.5x)   │
-    └──────┬───────┘                    └──────┬───────┘
-           │                                   │
-           └────────────┬──────────────────────┘
-                        ▼
-              ┌──────────────────┐
-              │ Apply Multipliers│
-              │ Final Score =    │
-              │ Base × M1 × M2   │
-              └────────┬─────────┘
-                       ▼
-              ┌──────────────────┐
-              │ Confidence       │
-              │ Adjustment       │
-              └────────┬─────────┘
-                       ▼
-              ┌──────────────────┐
-              │ Grade Mapping    │
-              │ Score → V-Grade  │
-              └────────┬─────────┘
-                       ▼
-              ┌──────────────────┐
-              │ Output: V-Grade  │
-              │ (V0 - V12)       │
-              └──────────────────┘
+                ├────────────────┬──────────────────┬──────────────────┬──────────────────┐
+                ▼                ▼                  ▼                  ▼                  │
+        ┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐              │
+        │Factor 1:   │   │Factor 2:   │   │Factor 3:   │   │Factor 4:   │              │
+        │Combined    │   │Combined    │   │Combined    │   │Wall Incline│              │
+        │Hold Diff.  │   │Hold Density│   │Distance    │   │Analysis    │              │
+        │            │   │            │   │            │   │            │              │
+        │ Handhold ──┼─┐ │ Handhold ──┼─┐ │ Handhold ──┼─┐ │            │              │
+        │ Difficulty │ │ │ Density    │ │ │ Distance   │ │ │            │              │
+        │            │ │ │            │ │ │            │ │ │            │              │
+        │ +          │ │ │ +          │ │ │ +          │ │ │            │              │
+        │            │ │ │            │ │ │            │ │ │            │              │
+        │ Foothold ──┼─┤ │ Foothold ──┼─┤ │ Foothold ──┼─┤ │            │              │
+        │ Difficulty │ │ │ Density    │ │ │ Distance   │ │ │            │              │
+        │            │ │ │            │ │ │            │ │ │            │              │
+        │ Wall-angle │ │ │ Wall-angle │ │ │ Wall-angle │ │ │            │              │
+        │ weighted   │ │ │ weighted   │ │ │ weighted   │ │ │            │              │
+        └─────┬──────┘ │ └─────┬──────┘ │ └─────┬──────┘ │ └─────┬──────┘              │
+              └────────┘       └────────┘       └────────┘       │                     │
+                  │                 │                 │           │                     │
+                  └─────────────────┴─────────────────┴───────────┴─────────────────────┘
+                                              │
+                                              ▼
+                                  ┌──────────────────────┐
+                                  │ Weighted Combination │
+                                  │ Base Score = Σ(Si×Wi)│
+                                  │ All factors include  │
+                                  │ foothold integration │
+                                  └──────────┬───────────┘
+                                             │
+                          ┌──────────────────┴──────────────────┐
+                          ▼                                     ▼
+                  ┌──────────────┐                    ┌──────────────┐
+                  │ Wall Angle   │                    │ Hold Type    │
+                  │ Transitions  │                    │ Variability  │
+                  │ Multiplier   │                    │ Multiplier   │
+                  │ (1.0-1.5x)   │                    │ (1.0-1.5x)   │
+                  └──────┬───────┘                    └──────┬───────┘
+                         │                                   │
+                         └────────────┬──────────────────────┘
+                                      ▼
+                            ┌──────────────────┐
+                            │ Apply Multipliers│
+                            │ Final Score =    │
+                            │ Base × M1 × M2   │
+                            └────────┬─────────┘
+                                     ▼
+                            ┌──────────────────┐
+                            │ Confidence       │
+                            │ Adjustment       │
+                            └────────┬─────────┘
+                                     ▼
+                            ┌──────────────────┐
+                            │ Grade Mapping    │
+                            │ Score → V-Grade  │
+                            └────────┬─────────┘
+                                     ▼
+                            ┌──────────────────┐
+                            │ Output: V-Grade  │
+                            │ (V0 - V12)       │
+                            └──────────────────┘
 ```
 
 ### Pseudocode Structure
@@ -1002,6 +1738,8 @@ def predict_grade_v2(
     """
     Predict climbing grade using sophisticated multi-factor analysis with complexity multipliers.
     
+    CRITICAL: Fully integrates foothold analysis throughout all factors.
+    
     Args:
         features: Dictionary with hold counts and types
         detected_holds: List of DetectedHold objects with bbox coordinates
@@ -1012,30 +1750,58 @@ def predict_grade_v2(
     Returns:
         tuple: (predicted_grade, confidence_score, score_breakdown)
     """
-    # Preprocessing
-    handholds = filter_handholds(detected_holds)
-    confidence_avg = calculate_average_confidence(handholds)
+    # Preprocessing - SEPARATE handholds and footholds (DO NOT DISCARD footholds)
+    handholds, footholds = separate_holds(detected_holds)
+    
+    confidence_avg = calculate_average_confidence(detected_holds)
     hold_type_counts = count_hold_types(handholds)
     
-    # Stage 1: Calculate Base Score from 4 Factors
+    # Get wall angle category for weighting
+    wall_angle_cat = get_wall_angle_category(wall_segments or wall_incline)
     
-    # Factor 1: Hold Type & Size Analysis
-    hold_difficulty_score = analyze_hold_difficulty(handholds)
+    # Stage 1: Calculate Base Score from 4 Factors (with foothold integration)
     
-    # Factor 2: Hold Count Analysis
-    hold_density_score = analyze_hold_density(len(handholds))
+    # Factor 1: Combined Hold Type & Size Analysis
+    # Includes both handhold difficulty and foothold difficulty
+    # with wall-angle-dependent weighting
+    handhold_difficulty = analyze_handhold_difficulty(handholds)
+    foothold_difficulty = analyze_foothold_difficulty(footholds)
+    combined_hold_difficulty_score = combine_with_wall_weights(
+        handhold_difficulty,
+        foothold_difficulty,
+        wall_angle_cat
+    )
     
-    # Factor 3: Distance Analysis
-    distance_score = analyze_hold_distances(handholds)
+    # Factor 2: Combined Hold Count Analysis
+    # Includes both handhold density and foothold density
+    # with wall-angle-dependent weighting
+    handhold_density = analyze_handhold_density(len(handholds))
+    foothold_density = analyze_foothold_density(len(footholds))
+    combined_hold_density_score = combine_with_wall_weights(
+        handhold_density,
+        foothold_density,
+        wall_angle_cat
+    )
     
-    # Factor 4: Wall Incline Analysis
+    # Factor 3: Combined Distance Analysis
+    # Includes both handhold distances and foothold distances (high-steps)
+    # with wall-angle-dependent weighting
+    handhold_distance = analyze_handhold_distances(handholds)
+    foothold_distance = analyze_foothold_distances(footholds)
+    combined_distance_score = combine_with_wall_weights(
+        handhold_distance,
+        foothold_distance,
+        wall_angle_cat
+    )
+    
+    # Factor 4: Wall Incline Analysis (unchanged)
     wall_incline_score = analyze_wall_incline(wall_segments or wall_incline)
     
     # Combine scores into base score
     base_score = (
-        hold_difficulty_score * 0.35 +
-        hold_density_score * 0.25 +
-        distance_score * 0.20 +
+        combined_hold_difficulty_score * 0.35 +
+        combined_hold_density_score * 0.25 +
+        combined_distance_score * 0.20 +
         wall_incline_score * 0.20
     )
     
@@ -1043,13 +1809,15 @@ def predict_grade_v2(
     
     # Multiplier 1: Wall Angle Transitions
     if wall_segments and len(wall_segments) > 1:
-        transition_data = detect_wall_transitions(handholds, wall_segments)
+        # Use all holds (handholds + footholds) for transition detection
+        all_holds_sorted = sort_holds_vertically(handholds + footholds)
+        transition_data = detect_wall_transitions(all_holds_sorted, wall_segments)
         transition_multiplier = calculate_transition_multiplier(transition_data)
     else:
         transition_data = {'transition_count': 0}
         transition_multiplier = 1.0
     
-    # Multiplier 2: Hold Type Variability
+    # Multiplier 2: Hold Type Variability (handholds only)
     hold_entropy = calculate_hold_type_entropy(hold_type_counts)
     unique_types = count_unique_hold_types(hold_type_counts)
     variability_multiplier = calculate_variability_multiplier(hold_entropy, unique_types)
@@ -1068,11 +1836,23 @@ def predict_grade_v2(
     # Prepare detailed breakdown for debugging/explainability
     score_breakdown = {
         'base_factors': {
-            'hold_difficulty': hold_difficulty_score,
-            'hold_density': hold_density_score,
-            'distance': distance_score,
+            'combined_hold_difficulty': combined_hold_difficulty_score,
+            'handhold_difficulty': handhold_difficulty,
+            'foothold_difficulty': foothold_difficulty,
+            'combined_hold_density': combined_hold_density_score,
+            'handhold_density': handhold_density,
+            'foothold_density': foothold_density,
+            'combined_distance': combined_distance_score,
+            'handhold_distance': handhold_distance,
+            'foothold_distance': foothold_distance,
             'wall_incline': wall_incline_score
         },
+        'hold_counts': {
+            'handholds': len(handholds),
+            'footholds': len(footholds),
+            'total': len(detected_holds)
+        },
+        'wall_angle_weights': get_foothold_weight(wall_angle_cat),
         'base_score': base_score,
         'multipliers': {
             'wall_transitions': transition_multiplier,
@@ -1089,7 +1869,14 @@ def predict_grade_v2(
     return predicted_grade, confidence_avg, score_breakdown
 ```
 
----
+**Key Pseudocode Updates:**
+
+1. ✅ **`separate_holds()`** replaces filtering - footholds are preserved
+2. ✅ **All three main factors** now calculate separate handhold and foothold components
+3. ✅ **`combine_with_wall_weights()`** applies wall-angle-dependent weighting consistently
+4. ✅ **Foothold metrics tracked** separately in score_breakdown
+5. ✅ **Wall angle weights** included in output for transparency
+6. ✅ **Hold counts** show handhold/foothold breakdown
 
 ## Data Requirements
 
@@ -1198,23 +1985,41 @@ Add to [`features_extracted`](../src/models.py:47) JSON field:
 ```json
 {
   "total_holds": 12,
+  "handhold_count": 8,
+  "foothold_count": 4,
   "hold_types": {...},
   "average_confidence": 0.85,
   "wall_incline": "moderate_overhang",
   "wall_angle_degrees": 110.0,
+  "wall_angle_weights": {
+    "handhold_weight": 0.70,
+    "foothold_weight": 0.30
+  },
   "wall_segments": [
     {"y_start": 0, "y_end": 500, "angle": 90, "category": "vertical"},
     {"y_start": 500, "y_end": 1080, "angle": 115, "category": "moderate_overhang"}
   ],
-  "hold_dimensions": [
-    {"hold_id": 1, "width": 45, "height": 30, "area": 1350},
-    ...
+  "handhold_dimensions": [
+    {"hold_id": 1, "width": 45, "height": 30, "area": 1350, "type": "crimp"},
+    {"hold_id": 2, "width": 60, "height": 40, "area": 2400, "type": "jug"}
   ],
-  "distance_metrics": {
+  "foothold_dimensions": [
+    {"hold_id": 3, "width": 35, "height": 25, "area": 875, "type": "foot-hold"},
+    {"hold_id": 4, "width": 40, "height": 30, "area": 1200, "type": "foot-hold"}
+  ],
+  "handhold_distance_metrics": {
     "average_distance": 245.5,
     "max_distance": 520.0,
     "normalized_avg": 0.22,
-    "normalized_max": 0.47
+    "normalized_max": 0.47,
+    "distance_variance": 85.3
+  },
+  "foothold_distance_metrics": {
+    "average_distance": 210.0,
+    "max_distance": 350.0,
+    "normalized_avg": 0.19,
+    "normalized_max": 0.32,
+    "distance_variance": 65.2
   },
   "image_dimensions": {
     "width": 1920,
@@ -1242,10 +2047,21 @@ Add to [`features_extracted`](../src/models.py:47) JSON field:
   },
   "score_breakdown": {
     "base_factors": {
-      "hold_difficulty": 7.2,
-      "hold_density": 4.1,
-      "distance": 5.8,
+      "combined_hold_difficulty": 7.2,
+      "handhold_difficulty": 8.5,
+      "foothold_difficulty": 4.2,
+      "combined_hold_density": 4.1,
+      "handhold_density": 5.0,
+      "foothold_density": 2.5,
+      "combined_distance": 5.8,
+      "handhold_distance": 6.5,
+      "foothold_distance": 4.0,
       "wall_incline": 9.6
+    },
+    "hold_counts": {
+      "handholds": 8,
+      "footholds": 4,
+      "total": 12
     },
     "base_score": 7.1,
     "multipliers": {
@@ -1259,6 +2075,16 @@ Add to [`features_extracted`](../src/models.py:47) JSON field:
   }
 }
 ```
+
+**Key Data Updates:**
+
+1. ✅ **Separate hold counts** for handholds and footholds
+2. ✅ **Wall angle weights** showing foothold importance for this route
+3. ✅ **Separate dimension arrays** for handholds and footholds with types
+4. ✅ **Separate distance metrics** for handhold reaches and foothold spacing
+5. ✅ **Separate difficulty/density/distance scores** in breakdown
+6. ✅ **Combined scores** showing weighted integration
+7. ✅ **Hold count breakdown** showing hand/foot/total
 
 This detailed breakdown enables:
 
@@ -1442,6 +2268,133 @@ This detailed breakdown enables:
 
 ---
 
+### Edge Case 16: No Footholds Detected (Campusing)
+
+**Problem**: Route has zero footholds detected - forces campusing
+
+**Solution**:
+
+- **CRITICAL**: Apply maximum difficulty penalty (score 12.0) across all three factors
+- Factor 1: Foothold difficulty = 12.0
+- Factor 2: Foothold density = 12.0
+- Factor 3: Foothold distance = 12.0
+- Combined with wall-angle weights, this appropriately increases difficulty
+- On vertical: adds ~5.4 points to final score (45% of 12.0)
+- On slab: adds ~7.8 points to final score (65% of 12.0)
+- Flag route as "Campus Problem" in metadata
+- User should verify this is intentional (not detection failure)
+
+### Edge Case 17: Very Few Footholds (1-2)
+
+**Problem**: Extremely sparse footholds severely limit balance options
+
+**Solution**:
+
+- Apply high difficulty scores (11.0 for 1, 9.5 for 2)
+- Apply scarcity multipliers (1.5x) to foothold difficulty
+- Result: Very high difficulty contribution from foothold factors
+- Appropriate behavior: routes with 1-2 footholds are extremely technical
+- Document that this is expected behavior for balance-dependent routes
+
+### Edge Case 18: All Footholds Very Small (< 800px²)
+
+**Problem**: Route has adequate foothold count but all are tiny
+
+**Solution**:
+
+- High foothold difficulty score (avg ~9) despite adequate count
+- Foothold density score remains moderate (based on count)
+- Combined effect: high difficulty from Factor 1, moderate from Factor 2
+- Correct behavior: small footholds significantly increase technical difficulty
+- Example: 6 tiny footholds harder than 3 large footholds
+
+### Edge Case 19: Footholds Misclassified as Handholds
+
+**Problem**: Detection model incorrectly classifies footholds as handholds
+
+**Solution**:
+
+- Cannot be detected algorithmically without additional context
+- Mitigate by training better detection model
+- User feedback mechanism to report misclassifications
+- For now: trust detection model output
+- Future: implement confidence-based hold type reassignment
+
+### Edge Case 20: Extreme High-Steps (Foothold Spacing > 400px)
+
+**Problem**: Very large vertical gaps between footholds
+
+**Solution**:
+
+- Apply maximum foothold distance score (9.0 + 3.0 crux = 12.0)
+- On slabs (65% foothold weight): adds ~7.8 to combined distance score
+- Appropriate behavior: extreme high-steps require flexibility
+- May indicate detection gap (missed intermediate foothold)
+- Flag for user review if spacing exceeds threshold (e.g., >0.40 normalized)
+
+### Edge Case 21: Foothold-Heavy vs Handhold-Heavy Routes
+
+**Problem**: Route has 15 footholds but only 5 handholds
+
+**Solution**:
+
+- Each factor calculates separate hand/foot scores
+- Density: handhold density = high (few holds), foothold density = low (many holds)
+- Combined with wall-angle weights produces appropriate result
+- Vertical example: (high_hand × 0.55) + (low_foot × 0.45) = moderate score
+- Correct behavior: system balances hand and foot availability
+
+### Edge Case 22: Slab Route with No Footholds Detected
+
+**Problem**: Slab + campusing is extremely rare and likely detection error
+
+**Solution**:
+
+- Slab campusing would score: foothold penalty × 65% = extreme difficulty
+- Flag as "UNLIKELY - Review Detection" in metadata
+- Recommend user review: slabs almost never require campusing
+- If confirmed correct: route is elite-level (V10+)
+- Consider lowering detection confidence threshold for slab images
+
+### Edge Case 23: Mixed Foothold Sizes
+
+**Problem**: Route has mix of large and tiny footholds
+
+**Solution**:
+
+- Average foothold difficulty reflects mix
+- Example: 3 large (score 1) + 3 tiny (score 9) = avg 5.0
+- Scarcity multiplier applied to average: 5.0 × 1.1 = 5.5
+- Correct behavior: mixed sizes create moderate foothold difficulty
+- Variance captured in overall route complexity
+
+### Edge Case 24: Foothold Distance Calculation with <2 Footholds
+
+**Problem**: Cannot calculate distance metrics with 0-1 footholds
+
+**Solution**:
+
+- 0 footholds: distance score = 12.0 (campusing)
+- 1 foothold: distance score = 11.0 (single balance point, no spacing calc)
+- Both cases handled in `calculate_foothold_distance_score()`
+- Prevents division by zero or empty list errors
+- Appropriate high difficulty scores reflect reality
+
+### Edge Case 25: Wall Angle Changes Affect Foothold Importance
+
+**Problem**: Same foothold configuration scores differently on slab vs overhang
+
+**Solution**:
+
+- **This is correct behavior, not a bug**
+- Wall-angle-dependent weighting reflects climbing biomechanics
+- Slab: sparse/small footholds weighted heavily (65%)
+- Overhang: same footholds weighted lightly (25%)
+- Document this in UI/explainability: "foothold importance varies by wall angle"
+- Example: 3 small footholds on slab vs overhang = different difficulty
+
+---
+
 ## Validation & Calibration Strategy
 
 ### Calibration Data Needed
@@ -1575,29 +2528,79 @@ Add to [`src/cfg/user_config.yaml`](../src/cfg/user_config.yaml):
 
 ```yaml
 grade_prediction:
-  algorithm_version: "v2"
+  algorithm_version: "v2_with_footholds"
   weights:
     hold_difficulty: 0.35
     hold_density: 0.25
     distance: 0.20
     wall_incline: 0.20
-  distance_thresholds:
+  
+  # Handhold configuration
+  handhold_distance_thresholds:
     close: 150
     moderate: 300
     wide: 500
     very_wide: 600
-  size_thresholds:
+  handhold_size_thresholds:
     crimp_small: 500
     crimp_medium: 1000
     crimp_large: 2000
     sloper_small: 1500
     sloper_large: 3000
+    jug_small: 2000
+  
+  # Foothold configuration (NEW - CRITICAL)
+  foothold_enabled: true
+  foothold_distance_thresholds:
+    close: 120
+    moderate: 200
+    wide: 300
+    very_wide: 400
+  foothold_size_thresholds:
+    very_small: 800
+    small: 1500
+    medium: 3000
+  foothold_scarcity_multipliers:
+    zero_footholds: 12.0
+    one_to_two: 1.5
+    three_to_four: 1.25
+    five_to_six: 1.1
+    seven_plus: 1.0
+  foothold_density_scores:
+    zero: 12.0
+    one: 11.0
+    two: 9.5
+    three_to_four: 8.0
+    five_to_six: 6.0
+    seven_to_eight: 4.0
+    nine_to_twelve: 2.5
+    thirteen_plus: 1.0
+  
+  # Wall-angle-dependent foothold weighting (CRITICAL)
+  wall_angle_foothold_weights:
+    slab:
+      handhold_weight: 0.35
+      foothold_weight: 0.65
+    vertical:
+      handhold_weight: 0.55
+      foothold_weight: 0.45
+    slight_overhang:
+      handhold_weight: 0.60
+      foothold_weight: 0.40
+    moderate_overhang:
+      handhold_weight: 0.70
+      foothold_weight: 0.30
+    steep_overhang:
+      handhold_weight: 0.75
+      foothold_weight: 0.25
+  
   wall_incline_multipliers:
     slab: 0.65
     vertical: 1.00
     slight_overhang: 1.25
     moderate_overhang: 1.60
     steep_overhang: 2.00
+  
   # Complexity multiplier configuration
   complexity_multipliers:
     transition:
@@ -1659,36 +2662,55 @@ This enables:
 ### Test Coverage Areas
 
 1. **Unit Tests for Components**:
-   - `test_calculate_hold_dimensions()`: Verify area calculations
-   - `test_filter_handholds()`: Ensure correct hold type filtering
-   - `test_analyze_hold_difficulty()`: Test difficulty scoring
-   - `test_analyze_hold_density()`: Verify logarithmic relationship
-   - `test_analyze_hold_distances()`: Test distance calculations
+   - `test_calculate_hold_dimensions()`: Verify area calculations for both handholds and footholds
+   - `test_separate_holds()`: Ensure correct separation of handholds and footholds
+   - `test_analyze_handhold_difficulty()`: Test handhold difficulty scoring
+   - `test_analyze_foothold_difficulty()`: Test foothold difficulty scoring (including campusing)
+   - `test_analyze_handhold_density()`: Verify logarithmic relationship
+   - `test_analyze_foothold_density()`: Test foothold scarcity scoring
+   - `test_analyze_handhold_distances()`: Test handhold distance calculations
+   - `test_analyze_foothold_distances()`: Test foothold distance calculations (high-steps)
+   - `test_get_foothold_weight()`: Verify wall-angle-dependent weights
+   - `test_combine_with_wall_weights()`: Test hand/foot score integration
    - `test_analyze_wall_incline()`: Test incline scoring and multipliers
    - `test_map_score_to_grade()`: Verify grade boundaries
    - `test_detect_wall_transitions()`: Test transition detection logic
    - `test_calculate_transition_multiplier()`: Verify multiplier calculation
    - `test_calculate_hold_type_entropy()`: Test entropy calculation
    - `test_calculate_variability_multiplier()`: Verify variability scoring
+   - `test_campusing_penalty()`: Verify no-foothold extreme difficulty across all factors
+   - `test_foothold_scarcity_multipliers()`: Test 1-2, 3-4, 5-6 foothold scenarios
 
 2. **Integration Tests**:
-   - `test_predict_grade_v2_integration()`: Full pipeline test with wall incline
+   - `test_predict_grade_v2_integration()`: Full pipeline test with footholds and wall incline
+   - `test_foothold_integration()`: Test all three factors with foothold data
+   - `test_wall_angle_weight_application()`: Verify weights applied correctly across factors
+   - `test_slab_vs_overhang_foothold_impact()`: Compare same footholds on different angles
+   - `test_campusing_route_integration()`: Full pipeline with zero footholds
+   - `test_sparse_footholds_integration()`: Test routes with 1-3 footholds
    - `test_backward_compatibility()`: Ensure API compatibility
    - `test_confidence_adjustment()`: Verify confidence handling
    - `test_wall_incline_defaults()`: Test missing wall incline data handling
    - `test_complexity_multipliers_integration()`: Test with transitions and variability
    - `test_single_vs_multi_segment()`: Compare single wall vs segmented wall
    - `test_multiplier_combinations()`: Test various multiplier scenarios
+   - `test_separate_vs_combined_scores()`: Verify hand/foot scores combine correctly
 
 3. **Validation Tests**:
-   - `test_grade_accuracy()`: Compare against ground truth
+   - `test_grade_accuracy()`: Compare against ground truth (including foothold routes)
    - `test_grade_distribution()`: Ensure reasonable grade spread
    - `test_consistency()`: Same input → same output
    - `test_wall_incline_impact()`: Verify wall incline changes grade appropriately
+   - `test_foothold_impact_by_wall_angle()`: Verify foothold importance varies by angle
+   - `test_campusing_difficulty_increase()`: Verify no footholds significantly increases grade
+   - `test_sparse_foothold_difficulty()`: Verify 1-3 footholds increases difficulty appropriately
+   - `test_foothold_size_impact()`: Verify small vs large footholds affect difficulty
+   - `test_high_step_difficulty()`: Verify large foothold spacing increases difficulty
    - `test_transition_impact()`: Verify transitions increase difficulty
    - `test_variability_impact()`: Verify hold variety increases difficulty
    - `test_multiplier_bounds()`: Ensure multipliers stay within 1.0-1.5x range
    - `test_extreme_complexity()`: Test routes with max complexity don't break
+   - `test_slab_campus_detection_warning()`: Verify unlikely scenarios are flagged
 
 ### Acceptance Criteria
 
@@ -2049,7 +3071,7 @@ class UserProfile(Base):
 ## Risks & Mitigation
 
 | Risk | Mitigation |
-|------|------------|
+| :--: | :--------: |
 | Users misjudge their persona | Provide detailed descriptions, quiz tool, examples |
 | Adjustments feel inaccurate | Start conservative, calibrate with feedback, allow strength control |
 | Adds confusion | Clear UI showing both grades, educational content |
