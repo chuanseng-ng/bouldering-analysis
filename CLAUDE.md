@@ -47,7 +47,7 @@ This is a Flask-based web application that uses YOLOv8 computer vision to analyz
 
 ### Directory Layout
 
-```
+```text
 bouldering-analysis/
 ├── src/                          # Main application code (~3,773 lines)
 │   ├── cfg/                      # Configuration files
@@ -102,7 +102,7 @@ bouldering-analysis/
 ### Critical Files to Know
 
 | File | Purpose | Lines | Key Info |
-|------|---------|-------|----------|
+| ------ | --------- | ------- | ---------- |
 | `src/main.py` | Flask app + routes | ~26,805 | Main entry point, all API endpoints |
 | `src/models.py` | Database models | ~20,718 | 6 SQLAlchemy models (Analysis, Feedback, HoldType, etc.) |
 | `src/config.py` | Config management | ~10,142 | Thread-safe YAML config loading |
@@ -117,12 +117,14 @@ bouldering-analysis/
 ### Core Dependencies
 
 #### Web Framework
+
 - **Flask 3.1.2** - Main web framework
 - **Flask-SQLAlchemy 3.1.1** - ORM integration
 - **Flask-RESTX 1.3.2** - REST API extensions
 - **Werkzeug ProxyFix** - Reverse proxy support
 
 #### Machine Learning & Computer Vision
+
 - **PyTorch 2.9.1** - Deep learning framework
 - **Torchvision 0.24.1** - CV models and transforms
 - **Ultralytics 8.3.233** - YOLOv8 for hold detection
@@ -130,16 +132,19 @@ bouldering-analysis/
 - **OpenCV 4.12.0.88** - Image analysis
 
 #### Database
+
 - **SQLAlchemy 2.0.44** - ORM (core dependency)
 - **psycopg2-binary 2.9.11** - PostgreSQL adapter
 - **SQLite** - Default database for development
 
 #### Data & Configuration
+
 - **PyYAML 6.0.2** - YAML parsing for configs
 - **NumPy 2.2.6** - Numerical computing
 - **DVC 3.64.0** - Data version control
 
 #### Development & Testing
+
 - **pytest 9.0.1** - Testing framework
 - **pytest-cov 7.0.0** - Coverage measurement (99% required)
 - **ruff 0.14.7** - Fast linter + formatter
@@ -251,13 +256,15 @@ python scripts/migrations/drop_holds_detected_column.py
 ### Naming Standards
 
 #### Python Code
+
 - **Modules**: snake_case (`train_model.py`, `manage_models.py`)
 - **Classes**: PascalCase (`Analysis`, `HoldType`, `ModelVersion`)
 - **Functions**: snake_case (`get_hold_types()`, `load_config()`)
 - **Constants**: UPPER_SNAKE_CASE (`HOLD_TYPES`, `MAX_FILE_SIZE`)
 - **Private/Internal**: Leading underscore (`_hold_types_cache`, `_process_box()`)
 
-#### Database
+#### Database Naming Conventions
+
 - **Tables**: plural snake_case (`analyses`, `feedback`, `hold_types`)
 - **Columns**: snake_case (`image_filename`, `predicted_grade`, `bbox_x1`)
 - **Foreign Keys**: `{entity}_id` pattern (`analysis_id`, `hold_type_id`)
@@ -265,6 +272,7 @@ python scripts/migrations/drop_holds_detected_column.py
 - **Indexes**: `idx_` prefix (`idx_analysis_predicted_grade`)
 
 #### Configuration
+
 - **Keys**: Nested dot notation (`model_defaults.hold_detection_confidence_threshold`)
 - **Paths**: snake_case (`fine_tuned_models`, `hold_dataset`)
 
@@ -489,6 +497,7 @@ def test_analyze_endpoint_success(test_client, sample_image_path, mocker):
 The application uses SQLAlchemy ORM with 6 main models:
 
 #### 1. Analysis
+
 **Purpose**: Stores image analysis results
 
 ```python
@@ -509,6 +518,7 @@ class Analysis(Base):
 ```
 
 #### 2. DetectedHold
+
 **Purpose**: Individual hold detections (relational schema)
 
 ```python
@@ -526,6 +536,7 @@ class DetectedHold(Base):
 ```
 
 #### 3. HoldType
+
 **Purpose**: Reference table for hold classifications
 
 ```python
@@ -538,6 +549,7 @@ class HoldType(Base):
 ```
 
 **8 Hold Types:**
+
 1. crimp
 2. jug
 3. sloper
@@ -548,6 +560,7 @@ class HoldType(Base):
 8. top-out-hold
 
 #### 4. Feedback
+
 **Purpose**: User feedback on predictions
 
 ```python
@@ -563,6 +576,7 @@ class Feedback(Base):
 ```
 
 #### 5. ModelVersion
+
 **Purpose**: ML model tracking and versioning
 
 ```python
@@ -581,6 +595,7 @@ class ModelVersion(Base):
 ```
 
 #### 6. UserSession
+
 **Purpose**: Analytics and session tracking
 
 ```python
@@ -662,7 +677,7 @@ def get_statistics():
         return jsonify({'error': 'Internal server error'}), 500
 ```
 
-2. **Add tests in tests/test_main.py:**
+1. **Add tests in tests/test_main.py:**
 
 ```python
 def test_get_statistics_endpoint(test_client, test_app):
@@ -682,7 +697,7 @@ def test_get_statistics_endpoint(test_client, test_app):
     assert data['total_analyses'] == 1
 ```
 
-3. **Verify coverage remains 99%+**
+1. **Verify coverage remains 99%+**
 
 ### Adding a New Database Model
 
@@ -716,14 +731,14 @@ class RouteMetadata(Base):
         }
 ```
 
-2. **Update Analysis model relationship:**
+1. **Update Analysis model relationship:**
 
 ```python
 # In Analysis class
 route_metadata = relationship('RouteMetadata', back_populates='analysis', uselist=False)
 ```
 
-3. **Create migration script in scripts/migrations/:**
+1. **Create migration script in scripts/migrations/:**
 
 ```python
 # scripts/migrations/add_route_metadata_table.py
@@ -733,9 +748,9 @@ def upgrade():
     RouteMetadata.__table__.create(bind=engine)
 ```
 
-4. **Add comprehensive tests in tests/test_models.py**
+1. **Add comprehensive tests in tests/test_models.py**
 
-5. **Document migration in docs/migrations.md**
+2. **Document migration in docs/migrations.md**
 
 ### Modifying Configuration
 
@@ -752,7 +767,7 @@ model_paths:
   grade_classifier: 'models/grade_classifier/'  # NEW
 ```
 
-2. **Access in code via src/config.py:**
+1. **Access in code via src/config.py:**
 
 ```python
 from src.config import get_config_value
@@ -767,7 +782,7 @@ grade_model_path = get_config_value(
 )
 ```
 
-3. **Update tests to use new config values**
+1. **Update tests to use new config values**
 
 ### Training a New Model
 
@@ -877,6 +892,7 @@ pytest tests/ --cov=src/ --cov-report=html
 ```
 
 **Coverage exclusions** (pyproject.toml):
+
 - Tests themselves
 - `__init__.py` files
 - `src/setup.py` (one-time setup script)
@@ -893,6 +909,7 @@ mypy src/ tests/
 ```
 
 **Configuration** (mypy.ini):
+
 - Warning-level mode (not strict)
 - Return type warnings enabled
 - No implicit optional
@@ -912,6 +929,7 @@ ruff check --fix .
 ```
 
 **Ignored Rules** (.flake8):
+
 - E501: Line too long
 - W503: Line break before binary operator
 
@@ -938,6 +956,7 @@ pylint src/
 ```
 
 **Configuration** (.pylintrc):
+
 - Disabled: line-too-long
 
 ### Pre-Commit Checklist
@@ -952,6 +971,7 @@ Before committing code, ensure:
 - [ ] Pylint score ≥ 9.9: `pylint src/`
 
 **Or run comprehensive QA:**
+
 ```bash
 ./run_qa.csh
 ```
@@ -973,7 +993,7 @@ Failures block merging to main branch.
 ### Flask Routes
 
 | Endpoint | Method | Purpose | Request | Response |
-|----------|--------|---------|---------|----------|
+| ---------- | -------- | ----------- | ----------- | ------------ |
 | `/` | GET | Main UI page | - | HTML template |
 | `/analyze` | POST | Analyze route image | multipart/form-data with image file | JSON with analysis results |
 | `/feedback` | POST | Submit user feedback | JSON with analysis_id, user_grade, is_accurate, comments | JSON confirmation |
@@ -991,6 +1011,7 @@ curl -X POST http://localhost:5000/analyze \
 ```
 
 Response:
+
 ```json
 {
   "analysis_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -1090,6 +1111,7 @@ def test_analyze(mocker):
 ## Quick Reference
 
 ### File Extensions
+
 - `.py` - Python source files
 - `.yaml` / `.yml` - Configuration files
 - `.md` - Markdown documentation
@@ -1097,6 +1119,7 @@ def test_analyze(mocker):
 - `.jpg` / `.png` - Image files (gitignored)
 
 ### Important Directories
+
 - `src/` - Main application code
 - `tests/` - Test suite
 - `data/` - Datasets and uploads (mostly gitignored)
@@ -1105,6 +1128,7 @@ def test_analyze(mocker):
 - `.github/workflows/` - CI/CD pipelines
 
 ### Key Commands
+
 ```bash
 ./run.sh                  # Start Flask app
 ./run_setup_dev.sh        # Setup dev environment
@@ -1117,6 +1141,7 @@ pylint src/              # Code quality
 ```
 
 ### Environment Setup
+
 ```bash
 # Quick start
 pip install -r requirements.txt
