@@ -102,7 +102,7 @@ This application leverages deep learning and computer vision to automatically an
 
 ## Architecture
 
-```
+```text
 ┌─────────────┐
 │    User     │
 └──────┬──────┘
@@ -189,7 +189,7 @@ conda activate bouldering-analysis
 cd src && python main.py
 ```
 
-The application will be available at: **http://localhost:5000**
+The application will be available at: **<http://localhost:5000>**
 
 ---
 
@@ -356,7 +356,7 @@ python src/manage_models.py deactivate hold_detection 1
 
 Datasets should follow the YOLO format:
 
-```
+```text
 data/sample_hold/
 ├── train/
 │   ├── images/
@@ -438,7 +438,7 @@ pylint src/
 
 ### Project Structure
 
-```
+```text
 bouldering-analysis/
 ├── src/                          # Main application code
 │   ├── cfg/                      # Configuration files
