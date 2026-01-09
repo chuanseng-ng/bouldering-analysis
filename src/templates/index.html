@@ -115,25 +115,78 @@
         .stats p {
             margin: 5px 0;
         }
+        .form-group {
+            margin: 20px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+        }
+        .breakdown {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .breakdown h4 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .breakdown ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .breakdown li {
+            margin: 8px 0;
+            padding: 5px;
+            background-color: white;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Bouldering Route Analysis</h1>
-        
+
         <!-- Display error message if passed from Flask -->
         {% if error %}
         <div class="error" style="display: block;">
             {{ error }}
         </div>
         {% endif %}
-        
+
         <div class="upload-area" id="uploadArea">
             <p>Drag and drop a bouldering route image here or click to select</p>
             <input type="file" id="fileInput" accept="image/*">
             <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
                 Choose Image
             </button>
+        </div>
+
+        <div class="form-group">
+            <label for="wallIncline">Wall Angle:</label>
+            <select id="wallIncline" name="wall_incline">
+                <option value="vertical" selected>Vertical (straight up)</option>
+                <option value="slab">Slab (leaning back)</option>
+                <option value="slight_overhang">Slight Overhang</option>
+                <option value="moderate_overhang">Moderate Overhang</option>
+                <option value="steep_overhang">Steep Overhang (roof)</option>
+            </select>
+            <small>Select the wall angle for more accurate grade prediction</small>
         </div>
 
         <div class="loading" id="loading">
@@ -155,6 +208,7 @@
     <script>
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
+        const wallIncline = document.getElementById('wallIncline');
         const loading = document.getElementById('loading');
         const error = document.getElementById('error');
         const result = document.getElementById('result');
@@ -175,7 +229,7 @@
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('dragover');
-            
+
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 handleFile(files[0]);
@@ -203,6 +257,7 @@
             // Create FormData for file upload
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('wall_incline', wallIncline.value);
 
             // Upload and analyze
             fetch('/analyze', {
@@ -226,7 +281,7 @@
                 // Use the server-provided, safe URL for the image
                 resultImage.src = data.image_url;
                 predictedGrade.textContent = `Predicted Grade: ${data.predicted_grade}`;
-                
+
                 // Display stats
                 let statsHtml = '<h3>Analysis Details</h3>';
                 if (data.features) {
@@ -235,7 +290,23 @@
                 if (data.confidence != null) {
                     statsHtml += `<p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>`;
                 }
-                
+
+                // Display score breakdown if available
+                if (data.score_breakdown) {
+                    const breakdown = data.score_breakdown;
+                    statsHtml += '<div class="breakdown">';
+                    statsHtml += '<h4>Score Breakdown</h4>';
+                    statsHtml += '<ul>';
+                    statsHtml += `<li><strong>Hold Difficulty:</strong> ${breakdown.hold_difficulty} (35%)</li>`;
+                    statsHtml += `<li><strong>Hold Density:</strong> ${breakdown.hold_density} (25%)</li>`;
+                    statsHtml += `<li><strong>Distance:</strong> ${breakdown.distance} (20%)</li>`;
+                    statsHtml += `<li><strong>Wall Angle:</strong> ${breakdown.wall_incline} (20%)</li>`;
+                    statsHtml += '</ul>';
+                    statsHtml += `<p><strong>Final Score:</strong> ${breakdown.final_score}</p>`;
+                    statsHtml += `<p><strong>Handholds:</strong> ${breakdown.handhold_count} | <strong>Footholds:</strong> ${breakdown.foothold_count}</p>`;
+                    statsHtml += '</div>';
+                }
+
                 if (data.features && data.features.hold_types && Object.keys(data.features.hold_types).length > 0) {
                     statsHtml += '<p><strong>Hold Types:</strong></p><ul>';
                     for (const [type, count] of Object.entries(data.features.hold_types)) {

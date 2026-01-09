@@ -45,6 +45,7 @@ class Analysis(Base):
     predicted_grade = db.Column(db.String(10), nullable=False)
     confidence_score = db.Column(db.Float, nullable=True)
     features_extracted = db.Column(db.JSON, nullable=True)  # Store extracted features
+    wall_incline = db.Column(db.String(20), default="vertical")  # Wall angle category
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(
         db.DateTime,
@@ -79,6 +80,7 @@ class Analysis(Base):
             "predicted_grade": self.predicted_grade,
             "confidence_score": self.confidence_score,
             "features_extracted": self.features_extracted,
+            "wall_incline": self.wall_incline,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

@@ -24,6 +24,7 @@ from werkzeug.utils import secure_filename
 from PIL import Image
 from ultralytics import YOLO
 from sqlalchemy.exc import SQLAlchemyError
+from src.grade_prediction_mvp import predict_grade_v2_mvp
 
 logger = logging.getLogger(__name__)
 
@@ -327,9 +328,12 @@ def index():
             os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
             file.save(filepath)
 
+            # Get wall incline from form (default to 'vertical')
+            wall_incline = request.form.get("wall_incline", "vertical")
+
             # Process the image
             try:
-                result = analyze_image(filepath, unique_filename)
+                result = analyze_image(filepath, unique_filename, wall_incline)
                 return render_template(  # pragma: no cover
                     "index.html", result=result, image_path=unique_filename
                 )
@@ -364,9 +368,12 @@ def analyze_route():
         os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
         file.save(filepath)
 
+        # Get wall incline from form (default to 'vertical')
+        wall_incline = request.form.get("wall_incline", "vertical")
+
         # Process the image
         try:
-            result = analyze_image(filepath, unique_filename)
+            result = analyze_image(filepath, unique_filename, wall_incline)
             return jsonify(result)
         except (IOError, RuntimeError, SQLAlchemyError):
             app.logger.exception("Error processing image")
@@ -652,14 +659,29 @@ def _format_holds_for_response(
     return result
 
 
-def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
-    """Analyze a bouldering route image"""
+def analyze_image(
+    image_path: str, image_filename: str, wall_incline: str = "vertical"
+) -> dict[str, Any]:
+    """
+    Analyze a bouldering route image.
+
+    Args:
+        image_path: Path to the image file
+        image_filename: Filename of the uploaded image
+        wall_incline: Wall angle category (default: 'vertical')
+
+    Returns:
+        Dictionary with analysis results
+    """
     if not hold_detection_model:
         raise RuntimeError("Hold detection model not loaded")
 
     # Load and preprocess image
     img: Image.Image = Image.open(image_path)
     img = img.convert("RGB")
+
+    # Get image dimensions for distance normalization
+    image_height = img.height
 
     # Run detection
     results = hold_detection_model(img)
@@ -669,16 +691,44 @@ def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
         results, get_hold_types(), confidence_threshold
     )
 
-    # Predict grade
-    predicted_grade = predict_grade(features)
+    # Create temporary hold objects for the prediction function
+    # Map hold type names to HoldType objects for prediction
+    hold_types_by_name = {ht.name: ht for ht in db.session.query(HoldType).all()}
 
-    # Create Analysis record
+    # Create hold objects with necessary attributes for prediction
+    hold_objects = []
+    for hold_data in detected_holds_data:
+        hold_type = hold_types_by_name.get(hold_data["hold_type"])
+        if hold_type:
+            # Create a simple object with the attributes needed by prediction
+            class HoldObject:
+                """Temporary hold object for grade prediction."""
+
+                def __init__(self, data, ht):
+                    self.name = ht.name
+                    self.bbox_x1 = data["bbox_x1"]
+                    self.bbox_y1 = data["bbox_y1"]
+                    self.bbox_x2 = data["bbox_x2"]
+                    self.bbox_y2 = data["bbox_y2"]
+                    self.confidence = data["confidence"]
+
+            hold_objects.append(HoldObject(hold_data, hold_type))
+
+    # Predict grade using new algorithm
+    predicted_grade, prediction_confidence, score_breakdown = predict_grade_v2_mvp(
+        detected_holds=hold_objects,
+        wall_incline=wall_incline,
+        image_height=image_height,
+    )
+
+    # Create Analysis record with new fields
     analysis = Analysis(
         image_filename=image_filename,
         image_path=image_path,
         predicted_grade=predicted_grade,
-        confidence_score=features["average_confidence"],
-        features_extracted=features,
+        confidence_score=prediction_confidence,
+        features_extracted=score_breakdown,  # Store breakdown instead of basic features
+        wall_incline=wall_incline,
     )
     db.session.add(analysis)
     db.session.flush()  # Flush to get the analysis.id before creating DetectedHold records
@@ -695,12 +745,13 @@ def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
     return {
         "analysis_id": analysis.id,
         "predicted_grade": predicted_grade,
-        "confidence": features["average_confidence"],
+        "confidence": prediction_confidence,
         # Provide a server-safe URL for the uploaded image so the frontend
         # does not need to construct paths from the original filename.
         "image_url": url_for("uploaded_file", filename=image_filename, _external=True),
         "holds": holds_from_db,
         "features": features,
+        "score_breakdown": score_breakdown,  # Include detailed breakdown
     }
 
 

@@ -542,6 +542,7 @@ class TestRoutes:
                 predicted_grade="V3",
                 confidence_score=0.85,
                 features_extracted={"total_holds": 8},
+                wall_incline="vertical",
             )
             db.session.add(analysis2)
             db.session.flush()

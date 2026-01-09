@@ -86,6 +86,7 @@ def sample_analysis_data():
             "hold_types": {"crimp": 2, "jug": 3},
             "average_confidence": 0.85,
         },
+        "wall_incline": "vertical",
     }
 
 
