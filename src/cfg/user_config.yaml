@@ -11,7 +11,7 @@ model_defaults:
 model_paths:
   # Path to the base YOLOv8 model
   base_yolov8: 'yolov8n.pt'
-  
+
   # Directory for storing fine-tuned models
   fine_tuned_models: 'models/hold_detection/'
 
@@ -19,6 +19,73 @@ model_paths:
 data_paths:
   # Path to hold detection training data
   hold_dataset: 'data/sample_hold/'
-  
+
   # Path for uploaded images
   uploads: 'data/uploads/'
+
+# Grade Prediction Configuration (Phase 1a MVP)
+grade_prediction:
+  algorithm_version: "v2_mvp"
+
+  # Factor weights (sum should be close to 1.0)
+  weights:
+    hold_difficulty: 0.35
+    hold_density: 0.25
+    distance: 0.20
+    wall_incline: 0.20
+
+  # Hold/foot weighting (constant for MVP - wall-angle-dependent in Phase 1b)
+  handhold_weight: 0.60
+  foothold_weight: 0.40
+
+  # Handhold difficulty base scores
+  handhold_base_scores:
+    crimp: 10
+    pocket: 10
+    sloper: 7
+    pinch: 7
+    start-hold: 4
+    top-out-hold: 4
+    jug: 1
+    foot-hold: 5  # fallback if misclassified
+
+  # Size thresholds (pixels²) - CALIBRATION REQUIRED
+  # These are starting estimates and should be adjusted based on:
+  # - Image resolution (camera distance/angle)
+  # - Detection model bbox calibration
+  # - User feedback patterns
+  size_thresholds:
+    # Crimps and pockets
+    crimp_small: 1000      # +2 difficulty
+    crimp_large: 2500      # +1 difficulty
+
+    # Slopers
+    sloper_small: 2000     # +2 difficulty
+
+    # Jugs
+    jug_small: 2000        # +1 difficulty (not true jug)
+
+    # Footholds
+    foothold_small: 1000   # 8 points
+    foothold_large: 2000   # 5 points
+
+  # Distance thresholds (normalized by image height)
+  # CALIBRATION REQUIRED based on camera setup and typical wall dimensions
+  distance_thresholds:
+    very_short: 0.12      # < 12% wall height
+    short: 0.20           # 12-20%
+    moderate: 0.30        # 20-30%
+    long: 0.45            # 30-45%
+    # > 45% = very long (dyno territory)
+
+  # Wall incline categories and difficulty scores
+  wall_incline_scores:
+    slab: 3.0                  # Easier (technical, balance-focused)
+    vertical: 6.0              # Baseline
+    slight_overhang: 7.5       # Moderate increase
+    moderate_overhang: 9.0     # Significant increase
+    steep_overhang: 11.0       # Very hard (roof climbing)
+
+  # Performance settings
+  confidence_threshold: 0.5    # Minimum avg confidence for reliable prediction
+  default_wall_incline: "vertical"  # Default if not specified
