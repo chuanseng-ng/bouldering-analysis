@@ -158,7 +158,9 @@ class HoldObject:
     confidence: float
 
     @classmethod
-    def from_detection_data(cls, data: dict[str, Any], hold_type: HoldType) -> "HoldObject":
+    def from_detection_data(
+        cls, data: dict[str, Any], hold_type: HoldType
+    ) -> "HoldObject":
         """Create a HoldObject from detection data and hold type.
 
         Args:

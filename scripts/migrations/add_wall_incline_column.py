@@ -112,7 +112,9 @@ def column_exists(inspector, table_name: str, column_name: str) -> bool:
         return False
 
 
-def add_wall_incline_column(engine, db_type: str) -> bool:  # pylint: disable=unused-argument
+def add_wall_incline_column(
+    engine, db_type: str
+) -> bool:  # pylint: disable=unused-argument
     """
     Add the wall_incline column to the analyses table.
 
@@ -145,6 +147,8 @@ def add_wall_incline_column(engine, db_type: str) -> bool:  # pylint: disable=un
     try:
         with engine.begin() as connection:
             # Both SQLite and PostgreSQL support ALTER TABLE ADD COLUMN
+            # Note: table_name and column_name are hardcoded constants - do not
+            # use user input here as identifiers cannot be parameterized
             sql = text(
                 f"ALTER TABLE {table_name} ADD COLUMN {column_name} VARCHAR(20) DEFAULT 'vertical'"
             )
@@ -309,13 +313,17 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
 
     # Mask password in log output
     safe_db_url = db_url
-    if "@" in db_url:
-        # Mask password for PostgreSQL URLs
-        parts = db_url.split("@")
-        if ":" in parts[0]:
-            user_pass = parts[0].split("://")[1]
-            if ":" in user_pass:
-                safe_db_url = db_url.replace(user_pass.split(":")[1], "****")
+    try:
+        if "@" in db_url:
+            # Mask password for PostgreSQL URLs
+            parts = db_url.split("@")
+            if ":" in parts[0]:
+                user_pass = parts[0].split("://")[1]
+                if ":" in user_pass:
+                    safe_db_url = db_url.replace(user_pass.split(":")[1], "****")
+    except (IndexError, ValueError):
+        # If URL parsing fails, fall back to showing "[masked]"
+        safe_db_url = "[database URL - masked for security]"
 
     logger.info("Database URL: %s", safe_db_url)
     logger.info("Database Type: %s", db_type)
