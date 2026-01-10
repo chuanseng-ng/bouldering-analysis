@@ -259,12 +259,14 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
 **Approach**: Use YOLOv8-OBB instead of standard YOLOv8
 
 **What Changes**:
+
 1. Bounding box format includes rotation
 2. Labels include angle information
 3. Model architecture supports oriented detection
 
 **Label Format Changes**:
-```
+
+```text
 # Standard YOLO (current):
 <class_id> <x_center> <y_center> <width> <height>
 
@@ -274,7 +276,8 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
 ```
 
 **Example OBB Label**:
-```
+
+```text
 # Crimp tilted 30 degrees
 0 0.5 0.3 0.08 0.12 30.0
 ```
@@ -282,11 +285,13 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
 **Implementation Steps**:
 
 1. **Re-annotate Dataset with Orientation**:
+
    - Use tools like Roboflow or LabelImg with rotation support
    - Mark bounding boxes with rotation angle
    - Export in YOLO-OBB format
 
 2. **Update data.yaml**:
+
    ```yaml
    # No changes needed - same format
    train: train
@@ -296,6 +301,7 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
    ```
 
 3. **Modify Training Script**:
+
    ```python
    # In src/train_model.py, line 297:
    from ultralytics import YOLO
@@ -305,29 +311,35 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
    ```
 
 4. **Update Detection Code** (in src/main.py):
+
    ```python
    # Current detection (line ~520):
    results = model(image_np)
-   
-   # Extract detections
+
+   # Extract detections (standard bounding boxes)
    for det in results[0].boxes.data:
        x1, y1, x2, y2, conf, cls = det
-   
-   # NEW: OBB detection
-   for obb in results[0].obb.data:
-       x1, y1, x2, y2, x3, y3, x4, y4, conf, cls = obb
-       # Or: x_center, y_center, width, height, angle, conf, cls
-       
-       # Calculate orientation
-       angle = calculate_obb_angle(x1, y1, x2, y2, x3, y3, x4, y4)
+
+   # NEW: OBB detection - iterate over OBB objects and access attributes
+   for detection in results[0].obb:
+       # Access oriented bounding box properties
+       xywhr = detection.xywhr[0]  # [x_center, y_center, width, height, rotation]
+       x_center, y_center, width, height, angle = xywhr
+       conf = detection.conf[0]  # Confidence score
+       cls = detection.cls[0]    # Class ID
+
+       # Alternatively, get corner points (xyxyxyxy format)
+       corners = detection.xyxyxyxy[0]  # 4 corner points [[x1,y1], [x2,y2], ...]
    ```
 
 **Pros**:
+
 - Native YOLO support
 - Single model for both detection and orientation
 - Good accuracy
 
 **Cons**:
+
 - Requires complete dataset re-annotation (100+ images)
 - 2-4 weeks of annotation work
 - More complex training setup
@@ -346,6 +358,7 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
 1. **Current Model**: Detects holds and types (no changes)
 
 2. **New Orientation Classifier**:
+
    ```python
    # Train simple CNN for orientation
    # Input: Cropped hold image (from bbox)
@@ -361,6 +374,7 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
    ```
 
 3. **Pipeline**:
+
    ```python
    # Detect holds
    hold_detections = yolo_model(image)
@@ -373,10 +387,12 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
    ```
 
 **Annotation Requirements**:
+
 - Re-annotate with orientation labels (simpler than OBB)
 - Just add orientation class to each hold
 
 **Example Annotation CSV**:
+
 ```csv
 image_id,bbox_x1,bbox_y1,bbox_x2,bbox_y2,hold_type,orientation
 route_001,500,300,600,400,crimp,downward
@@ -384,11 +400,13 @@ route_001,700,500,850,650,jug,horizontal
 ```
 
 **Pros**:
+
 - Simpler than OBB
 - Can train orientation model separately
 - Less annotation work
 
 **Cons**:
+
 - Two-stage inference (slower)
 - Two models to maintain
 - Potential error compounding
@@ -402,6 +420,7 @@ route_001,700,500,850,650,jug,horizontal
 **Implementation**:
 
 1. **Add UI in upload form**:
+
    ```html
    <div class="hold-annotation">
        <h4>Detected Holds - Add Orientation</h4>
@@ -422,6 +441,7 @@ route_001,700,500,850,650,jug,horizontal
    ```
 
 2. **Store in database**:
+
    ```python
    # Add to DetectedHold model
    class DetectedHold(Base):
@@ -431,11 +451,13 @@ route_001,700,500,850,650,jug,horizontal
    ```
 
 **Pros**:
+
 - No model retraining needed
 - Accurate (human-labeled)
 - Can implement immediately
 
 **Cons**:
+
 - Manual work per route
 - User friction
 - Inconsistent labeling
@@ -447,12 +469,14 @@ route_001,700,500,850,650,jug,horizontal
 ### For Phase 1a MVP: **Option 3 (Manual Annotation)**
 
 **Why**:
+
 - ✅ Can implement in 1-2 days
 - ✅ No model retraining required
 - ✅ Provides data for future automatic detection
 - ✅ Validates if slant detection is actually critical
 
 **Implementation**:
+
 ```python
 # 1. Add orientation field to DetectedHold model
 # In src/models.py
@@ -468,11 +492,13 @@ orientation = Column(String(20), nullable=True, default='unknown')
 ### For Phase 1b: **Option 1 (YOLO-OBB)** - IF slant proves critical
 
 **Prerequisites**:
+
 - Phase 1a feedback shows slant is important
 - Budget for 2-4 weeks of dataset annotation
 - Clear accuracy improvement expected
 
 **Steps**:
+
 1. Annotate 100+ routes with oriented bounding boxes
 2. Train YOLOv8-OBB model
 3. Update detection pipeline
@@ -481,6 +507,7 @@ orientation = Column(String(20), nullable=True, default='unknown')
 ### For Phase 2: **Option 2 (Two-Stage)** - IF OBB too expensive
 
 **When**:
+
 - OBB annotation too costly
 - Need faster iteration
 - Orientation less critical than hold detection
@@ -492,17 +519,20 @@ orientation = Column(String(20), nullable=True, default='unknown')
 ### 1. Dataset Quality
 
 **Minimum Dataset Size**:
+
 - Training: ≥100 images (more is better)
 - Validation: ≥20 images
 - Per-class balance: ≥10 examples per hold type
 
 **Image Quality**:
+
 - Resolution: 1280x720 or higher
 - Good lighting
 - Clear hold visibility
 - Varied angles and routes
 
 **Annotation Quality**:
+
 - Tight bounding boxes
 - Consistent labeling
 - Review for errors
@@ -510,6 +540,7 @@ orientation = Column(String(20), nullable=True, default='unknown')
 ### 2. Training Parameters
 
 **For Small Datasets (100-300 images)**:
+
 ```bash
 python src/train_model.py \
     --model-name v1.0 \
@@ -519,6 +550,7 @@ python src/train_model.py \
 ```
 
 **For Medium Datasets (300-1000 images)**:
+
 ```bash
 python src/train_model.py \
     --model-name v1.0 \
@@ -528,6 +560,7 @@ python src/train_model.py \
 ```
 
 **For Large Datasets (1000+ images)**:
+
 ```bash
 python src/train_model.py \
     --model-name v1.0 \
@@ -539,7 +572,8 @@ python src/train_model.py \
 ### 3. Monitoring Training
 
 **Check for Overfitting**:
-```
+
+```text
 # Good: train and val losses close
 Epoch 50: train_loss=0.45, val_loss=0.48  ✅
 
@@ -548,6 +582,7 @@ Epoch 50: train_loss=0.25, val_loss=0.65  ❌ Overfitting!
 ```
 
 **Solutions for Overfitting**:
+
 - Add more training data
 - Use data augmentation
 - Reduce model complexity
@@ -556,6 +591,7 @@ Epoch 50: train_loss=0.25, val_loss=0.65  ❌ Overfitting!
 ### 4. Model Evaluation
 
 **After Training, Evaluate**:
+
 ```python
 from ultralytics import YOLO
 
@@ -573,6 +609,7 @@ print(f"Recall: {results.box.mr}")
 ```
 
 **Target Metrics**:
+
 - mAP@0.5: ≥0.80 (good), ≥0.90 (excellent)
 - mAP@0.5:0.95: ≥0.60 (good), ≥0.75 (excellent)
 - Precision: ≥0.85
@@ -585,6 +622,7 @@ print(f"Recall: {results.box.mr}")
 ### Issue 1: "No images found in train/images"
 
 **Solution**:
+
 ```bash
 # Check directory structure
 ls -R data/your_dataset/
@@ -597,6 +635,7 @@ ls -R data/your_dataset/
 ### Issue 2: "Class mismatch - nc=8 but found class 9"
 
 **Solution**:
+
 - Check label files for class IDs > 7
 - Class IDs must be 0-7 for 8 classes
 - Fix annotation errors
@@ -604,12 +643,14 @@ ls -R data/your_dataset/
 ### Issue 3: Low mAP (<0.5)
 
 **Possible Causes**:
+
 - Too few training images
 - Poor annotation quality
 - Imbalanced classes
 - Insufficient training epochs
 
 **Solutions**:
+
 - Add more training data
 - Review and fix annotations
 - Balance class distribution
@@ -618,6 +659,7 @@ ls -R data/your_dataset/
 ### Issue 4: Out of Memory (CUDA OOM)
 
 **Solution**:
+
 ```bash
 # Reduce batch size
 python src/train_model.py --batch-size 8
@@ -631,6 +673,7 @@ python src/train_model.py --device cpu
 ## Summary
 
 ### Current Setup
+
 - ✅ Detects 8 hold types
 - ✅ Provides bounding boxes
 - ✅ Classifies hold type

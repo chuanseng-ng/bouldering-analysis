@@ -37,11 +37,13 @@ Balance exercises, slab climbing, edging technique, mental focus
 ### Adjustment Profile (Starting Values)
 
 **Slab Routes:**
+
 - Wall incline: ×0.65-0.75 (25-35% easier)
 - Distance: ×0.85-0.90 (10-15% easier - better balance)
 - Hold density: ×0.90-0.95 (5-10% easier - efficient movement)
 
 **Overhang Routes:**
+
 - Wall incline: ×1.25-1.35 (25-35% harder)
 - Distance: ×1.10-1.15 (10-15% harder - poor positioning)
 - Hold difficulty: ×1.05-1.10 (5-10% harder - less powerful grip)
@@ -77,16 +79,19 @@ Campus board, weighted pull-ups, plyometric training, finger strength
 ### Adjustment Profile (Starting Values)
 
 **Overhang Routes:**
+
 - Wall incline: ×0.70-0.80 (20-30% easier)
 - Distance: ×0.65-0.75 (25-35% easier - big reaches are strength)
 - Hold difficulty: ×0.80-0.90 (10-20% easier - strong grip)
 
 **Slab Routes:**
+
 - Wall incline: ×1.20-1.30 (20-30% harder)
 - Distance: ×1.05-1.15 (5-15% harder - balance issues)
 - Hold difficulty: ×1.10-1.20 (10-20% harder - can't muscle through)
 
 **Wide Spacing Routes:**
+
 - Distance: ×0.65-0.75 (25-35% easier - powerful reaches)
 
 ---
@@ -119,11 +124,13 @@ Varied climbing, flash attempts, route analysis, flexibility
 ### Adjustment Profile (Starting Values)
 
 **All Routes:**
+
 - Hold difficulty: ×0.92-0.98 (2-8% easier - efficient technique)
 - Hold density: ×0.85-0.95 (5-15% easier - finds sequences)
 - Distance: ×0.92-0.98 (2-8% easier - optimizes positioning)
 
 **Complexity Multipliers:**
+
 - Wall transitions: ×0.75-0.85 (15-25% less affected)
 - Hold variability: ×0.70-0.80 (20-30% less affected - adapts well)
 
@@ -158,11 +165,13 @@ Hangboard, finger strength protocols, half-crimp technique
 ### Adjustment Profile (Starting Values)
 
 **Crimp-Heavy Routes:**
+
 - Hold difficulty: ×0.65-0.75 (25-35% easier)
 - Distance: ×1.02-1.08 (2-8% harder - prefers static)
 - Hold density: ×0.92-0.98 (2-8% easier - efficient on small holds)
 
 **Sloper-Heavy Routes:**
+
 - Hold difficulty: ×1.30-1.40 (30-40% harder)
 - Distance: ×1.05-1.15 (5-15% harder - can't static crimp)
 
@@ -196,12 +205,14 @@ Yoga, flexibility work, hip mobility, creative problems
 ### Adjustment Profile (Starting Values)
 
 **All Routes:**
+
 - Hold difficulty: ×1.05-1.15 (5-15% harder - may lack finger strength)
 - Hold density: ×0.80-0.90 (10-20% easier - uses holds creatively)
 - Distance: ×0.70-0.80 (20-30% easier - wide moves are easy)
 - Wall incline: ×0.85-0.95 (5-15% easier on overhangs - core/hip flexibility)
 
 **Compression Routes:**
+
 - Hold difficulty: ×0.75-0.85 (15-25% easier)
 - Distance: ×0.65-0.75 (25-35% easier - flexibility shines)
 
@@ -237,10 +248,12 @@ ARCing, volume climbing, long routes, circuit training
 ### Adjustment Profile (Starting Values)
 
 **High Hold Count Routes (>12 holds):**
+
 - Hold density: ×0.80-0.90 (10-20% easier)
 - Hold difficulty: ×0.92-0.98 (2-8% easier - paces effort)
 
 **Low Hold Count Routes (<8 holds):**
+
 - Hold density: ×1.15-1.25 (15-25% harder - lacks peak power)
 - Hold difficulty: ×1.05-1.15 (5-15% harder - can't power through)
 
@@ -337,4 +350,3 @@ Each persona has:
 4. ✅ **Biomechanical rationale** - Based on climbing domain knowledge
 
 **Next**: See [implementation_approach.md](implementation_approach.md) for technical integration details.
-

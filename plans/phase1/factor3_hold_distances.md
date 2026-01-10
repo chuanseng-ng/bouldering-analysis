@@ -9,6 +9,7 @@ Evaluate difficulty based on the spatial distribution of holds - specifically, h
 ## Core Principle
 
 **Larger distances between holds increase difficulty:**
+
 - **Long reaches** require span, flexibility, or dynamic moves
 - **Dynamic moves** require power, coordination, and higher risk
 - **Spatial clustering** indicates rest positions vs continuous difficulty
@@ -48,6 +49,7 @@ normalized_distance = pixel_distance / image_height
 ```
 
 **Example**:
+
 - Distance: 400 pixels
 - Image height: 2000 pixels
 - Normalized: 400 / 2000 = 0.20 (20% of wall height)
@@ -59,30 +61,35 @@ normalized_distance = pixel_distance / image_height
 ### Classification
 
 **Tier 1 - Very Short Distances (Easy)**
+
 - Normalized distance: < 0.10 (< 10% wall height)
 - **Score: 1-2**
 - Interpretation: Holds close together, easy to reach
 - Movement: Static, controlled
 
 **Tier 2 - Short Distances (Moderate-Easy)**
+
 - Normalized distance: 0.10 - 0.20
 - **Score: 3-4**
 - Interpretation: Comfortable static reaches
 - Movement: Standard climbing moves
 
 **Tier 3 - Moderate Distances (Moderate)**
+
 - Normalized distance: 0.20 - 0.30
 - **Score: 5-7**
 - Interpretation: Extended reaches, requires technique
 - Movement: Static or dynamic depending on climber
 
 **Tier 4 - Long Distances (Hard)**
+
 - Normalized distance: 0.30 - 0.45
 - **Score: 8-10**
 - Interpretation: Large reaches, likely dynamic
 - Movement: Dynamic or powerful static (lockoffs)
 
 **Tier 5 - Very Long Distances (Very Hard)**
+
 - Normalized distance: > 0.45 (> 45% wall height)
 - **Score: 11-12**
 - Interpretation: Dyno or coordination moves
@@ -125,6 +132,7 @@ def calculate_distance_difficulty_score(normalized_distance: float) -> float:
 ### Approach Options
 
 **Option A: Average Distance (Simple)**
+
 ```text
 avg_distance = mean(all_inter_hold_distances)
 Distance_Score = calculate_distance_difficulty_score(avg_distance)
@@ -134,6 +142,7 @@ Distance_Score = calculate_distance_difficulty_score(avg_distance)
 **Cons**: Ignores one very hard move that defines route difficulty
 
 **Option B: Weighted Average (Emphasize Hard Moves)**
+
 ```python
 def calculate_weighted_distance_score(distances: list) -> float:
     """
@@ -164,11 +173,13 @@ def calculate_weighted_distance_score(distances: list) -> float:
 ### Vertical vs Lateral Distances
 
 **Consideration**: Vertical and lateral reaches have different difficulty:
+
 - **Vertical reaches (upward)**: Require pulling strength, harder
 - **Lateral reaches (sideways)**: Require core tension, balance
 - **Downward reaches**: Unusual, typically easier
 
 **Advanced Implementation** (optional future enhancement):
+
 ```python
 def calculate_directional_distance_score(dx, dy, total_distance):
     """
@@ -212,6 +223,7 @@ def classify_movement_type(normalized_distance: float) -> str:
 ```
 
 **Calibration Note**: Dynamic threshold varies by:
+
 - Climber height and wingspan
 - Wall angle (overhangs require dynos at shorter distances)
 - Hold types (good holds enable longer static reaches)
@@ -244,6 +256,7 @@ def calculate_factor3_score(distances: list) -> float:
 ```
 
 **Rationale**: Dynamic moves add:
+
 - Coordination requirements
 - Higher fall risk
 - Greater power demands
@@ -254,11 +267,13 @@ def calculate_factor3_score(distances: list) -> float:
 ### Example 1: Close Static Moves
 
 **Setup:**
+
 - 10 inter-hold distances
 - Average normalized distance: 0.15 (15% wall height)
 - All moves static
 
 **Calculation:**
+
 - Base score: 2 + ((0.15 - 0.10) / 0.10) × 2 = 2 + 1 = **3.0**
 - Dynamic ratio: 0/10 = 0.0
 - Dynamic penalty: 1 + (0.0 × 0.2) = 1.0
@@ -269,11 +284,13 @@ def calculate_factor3_score(distances: list) -> float:
 ### Example 2: Mixed Distances with Some Dynos
 
 **Setup:**
+
 - 8 inter-hold distances: [0.12, 0.18, 0.25, 0.28, 0.22, 0.38, 0.42, 0.20]
 - Average: 0.256
 - Dynamic count (>0.35): 2 moves
 
 **Calculation:**
+
 - Base score: 4 + ((0.256 - 0.20) / 0.10) × 3 = 4 + 1.68 = **5.68**
 - Dynamic ratio: 2/8 = 0.25
 - Dynamic penalty: 1 + (0.25 × 0.2) = 1.05
@@ -284,11 +301,13 @@ def calculate_factor3_score(distances: list) -> float:
 ### Example 3: Long Dyno Problem
 
 **Setup:**
+
 - 5 inter-hold distances: [0.15, 0.50, 0.45, 0.18, 0.55]
 - Average: 0.366
 - Dynamic count (>0.35): 3 moves
 
 **Calculation:**
+
 - Base score: 7 + ((0.366 - 0.30) / 0.15) × 3 = 7 + 1.32 = **8.32**
 - Dynamic ratio: 3/5 = 0.60
 - Dynamic penalty: 1 + (0.60 × 0.2) = 1.12
@@ -301,12 +320,14 @@ def calculate_factor3_score(distances: list) -> float:
 ### Minimum Viable Implementation
 
 **Phase 1a:**
+
 1. Calculate inter-hold distances (consecutive holds)
 2. Normalize by wall height
 3. Compute average distance score
 4. No dynamic penalty initially (simplify)
 
 **Phase 1b (Refinement):**
+
 1. Add dynamic move detection
 2. Apply dynamic penalty
 3. Optionally implement weighted average (emphasize crux)
@@ -319,16 +340,19 @@ def calculate_factor3_score(distances: list) -> float:
 **Approach Options:**
 
 **Option A: Vertical Ordering (Simple)**
+
 - Assume climbers move bottom to top
 - Sort holds by y-coordinate (bbox_y position)
 - Calculate consecutive distances
 
 **Option B: Nearest Neighbor (Better)**
+
 - Build graph of hold-to-hold distances
 - Use minimum spanning tree or greedy nearest-neighbor
 - Approximates likely climbing path
 
 **Option C: User Annotation (Future)**
+
 - Allow users to mark sequence during upload
 - Most accurate, but requires user effort
 
@@ -337,14 +361,17 @@ def calculate_factor3_score(distances: list) -> float:
 ### Edge Cases
 
 **Single hold (start to finish):**
+
 - No inter-hold distances
 - Default to minimal score or use wall height as proxy
 
 **Clustered holds (rest position):**
+
 - Many short distances followed by one long distance
 - Weighted average approach captures this better
 
 **Traversing routes:**
+
 - Vertical ordering fails
 - May require nearest-neighbor approach
 
@@ -380,4 +407,3 @@ Factor 3 evaluates movement demands through:
 **Result**: Distance difficulty score (range ~1-12) reflecting reach requirements and movement type.
 
 **Next**: Combine with [Factor 1 (Hold Analysis)](factor1_hold_analysis.md), [Factor 2 (Density)](factor2_hold_density.md), and [Factor 4 (Wall Incline)](factor4_wall_incline.md).
-

@@ -8,11 +8,32 @@ detected holds, model versions, and user sessions.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import Enum
 import uuid
 from typing import Any
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
+
+
+class WallInclineType(str, Enum):
+    """Enumeration of valid wall incline types for bouldering routes."""
+
+    SLAB = "slab"
+    VERTICAL = "vertical"
+    SLIGHT_OVERHANG = "slight_overhang"
+    MODERATE_OVERHANG = "moderate_overhang"
+    STEEP_OVERHANG = "steep_overhang"
+
+    @classmethod
+    def values(cls) -> list[str]:
+        """Return list of all valid wall incline values."""
+        return [member.value for member in cls]
+
+    @classmethod
+    def is_valid(cls, value: str) -> bool:
+        """Check if a value is a valid wall incline type."""
+        return value in cls.values()
 
 
 class Base(db.Model):  # type: ignore[name-defined]

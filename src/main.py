@@ -16,6 +16,7 @@ import os
 import logging
 import threading
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for
@@ -113,6 +114,7 @@ from src.models import (  # noqa: E402 # pylint: disable=E0401
     HoldType,
     DetectedHold,
     ModelVersion,
+    WallInclineType,
 )
 
 # Import config utilities
@@ -130,6 +132,50 @@ from src.constants import HOLD_TYPES  # noqa: E402 # pylint: disable=E0401
 # Module-level cache for hold types
 _hold_types_cache: Optional[dict[int, str]] = None
 _hold_types_cache_lock = threading.Lock()
+
+
+@dataclass
+class HoldObject:
+    """Data class representing a detected hold for grade prediction.
+
+    This class provides a lightweight representation of a detected hold
+    with the attributes needed by the grade prediction algorithm.
+
+    Attributes:
+        name: The hold type name (e.g., 'crimp', 'jug', 'sloper')
+        bbox_x1: Left edge of bounding box
+        bbox_y1: Top edge of bounding box
+        bbox_x2: Right edge of bounding box
+        bbox_y2: Bottom edge of bounding box
+        confidence: Detection confidence score (0.0-1.0)
+    """
+
+    name: str
+    bbox_x1: float
+    bbox_y1: float
+    bbox_x2: float
+    bbox_y2: float
+    confidence: float
+
+    @classmethod
+    def from_detection_data(cls, data: dict[str, Any], hold_type: HoldType) -> "HoldObject":
+        """Create a HoldObject from detection data and hold type.
+
+        Args:
+            data: Dictionary containing bbox and confidence data
+            hold_type: HoldType database object
+
+        Returns:
+            HoldObject instance initialized from the detection data
+        """
+        return cls(
+            name=hold_type.name,
+            bbox_x1=data["bbox_x1"],
+            bbox_y1=data["bbox_y1"],
+            bbox_x2=data["bbox_x2"],
+            bbox_y2=data["bbox_y2"],
+            confidence=data["confidence"],
+        )
 
 
 def get_hold_types() -> dict[int, str]:
@@ -331,6 +377,14 @@ def index():
             # Get wall incline from form (default to 'vertical')
             wall_incline = request.form.get("wall_incline", "vertical")
 
+            # Validate wall_incline value
+            if not WallInclineType.is_valid(wall_incline):
+                return render_template(
+                    "index.html",
+                    error=f"Invalid wall incline '{wall_incline}'. "
+                    f"Valid values: {', '.join(WallInclineType.values())}",
+                )
+
             # Process the image
             try:
                 result = analyze_image(filepath, unique_filename, wall_incline)
@@ -370,6 +424,18 @@ def analyze_route():
 
         # Get wall incline from form (default to 'vertical')
         wall_incline = request.form.get("wall_incline", "vertical")
+
+        # Validate wall_incline value
+        if not WallInclineType.is_valid(wall_incline):
+            return (
+                jsonify(
+                    {
+                        "error": f"Invalid wall incline '{wall_incline}'. "
+                        f"Valid values: {', '.join(WallInclineType.values())}"
+                    }
+                ),
+                400,
+            )
 
         # Process the image
         try:
@@ -700,19 +766,8 @@ def analyze_image(
     for hold_data in detected_holds_data:
         hold_type = hold_types_by_name.get(hold_data["hold_type"])
         if hold_type:
-            # Create a simple object with the attributes needed by prediction
-            class HoldObject:
-                """Temporary hold object for grade prediction."""
-
-                def __init__(self, data, ht):
-                    self.name = ht.name
-                    self.bbox_x1 = data["bbox_x1"]
-                    self.bbox_y1 = data["bbox_y1"]
-                    self.bbox_x2 = data["bbox_x2"]
-                    self.bbox_y2 = data["bbox_y2"]
-                    self.confidence = data["confidence"]
-
-            hold_objects.append(HoldObject(hold_data, hold_type))
+            # Use module-level HoldObject dataclass for prediction
+            hold_objects.append(HoldObject.from_detection_data(hold_data, hold_type))
 
     # Predict grade using new algorithm
     predicted_grade, prediction_confidence, score_breakdown = predict_grade_v2_mvp(

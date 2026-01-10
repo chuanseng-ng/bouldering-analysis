@@ -11,6 +11,7 @@ This document defines the **Minimum Viable Product (MVP)** for Phase 1 route-bas
 The full Phase 1 specification ([phase1_route_based_prediction.md](../phase1_route_based_prediction.md)) includes many advanced features that are **DEFERRED** in Phase 1a:
 
 **Phase 1a MVP (THIS DOCUMENT)**:
+
 - 4 basic factors with simplified scoring
 - Constant foothold weighting (60/40 split)
 - NO slanted hold detection
@@ -19,12 +20,14 @@ The full Phase 1 specification ([phase1_route_based_prediction.md](../phase1_rou
 - Manual wall angle input
 
 **Deferred to Phase 1b** (Calibration & Refinement):
+
 - Wall-angle-dependent foothold weighting
 - Slanted hold orientation adjustments
 - Advanced foothold scarcity multipliers
 - Empirical threshold calibration
 
 **Deferred to Phase 1c** (Advanced Features):
+
 - Complexity multipliers (transitions, variability)
 - Multi-segment wall support
 - Entropy-based hold type analysis
@@ -34,6 +37,7 @@ The full Phase 1 specification ([phase1_route_based_prediction.md](../phase1_rou
 ## Objectives
 
 ### Primary Goal
+
 Replace the current simplified grade prediction with a **basic multi-factor algorithm** that:
 1. Considers hold types, sizes, counts, and spacing
 2. Incorporates wall angle
@@ -41,6 +45,7 @@ Replace the current simplified grade prediction with a **basic multi-factor algo
 4. Provides explainable predictions
 
 ### Success Criteria
+
 - ✅ **Accuracy**: ≥50% exact match, ≥75% within ±1 grade (lower bar for MVP)
 - ✅ **Performance**: <100ms per route prediction
 - ✅ **Stability**: No crashes, handles edge cases
@@ -48,6 +53,7 @@ Replace the current simplified grade prediction with a **basic multi-factor algo
 - ✅ **Deployable**: Ready for user feedback collection
 
 ### Non-Goals for Phase 1a
+
 - ❌ Perfect accuracy (that comes from calibration)
 - ❌ Complex difficulty models (keep it simple)
 - ❌ Automatic hold orientation detection
@@ -68,6 +74,7 @@ V-Grade = map(Final Score, 0-12 range)
 ```
 
 **Weighting** (same as full spec):
+
 ```text
 Base_Score = (
     Hold_Difficulty_Score × 0.35 +
@@ -82,6 +89,7 @@ Base_Score = (
 ## Factor 1: Hold Type & Size Analysis (SIMPLIFIED)
 
 ### Objective
+
 Score holds based on type and size, considering both handholds and footholds.
 
 ### ⚠️ SIMPLIFICATIONS FOR MVP
@@ -109,6 +117,7 @@ HANDHOLD_BASE_SCORES = {
 #### Size Adjustment (SIMPLIFIED)
 
 Calculate hold area:
+
 ```python
 hold_area = (bbox_x2 - bbox_x1) * (bbox_y2 - bbox_y1)
 ```
@@ -235,6 +244,7 @@ def calculate_combined_hold_difficulty(handholds: list, footholds: list) -> floa
 ## Factor 2: Hold Count Analysis (SIMPLIFIED)
 
 ### Objective
+
 Assess difficulty based on number of available holds.
 
 ### Handhold Density
@@ -299,6 +309,7 @@ def calculate_combined_hold_density(handhold_count: int, foothold_count: int) ->
 ## Factor 3: Hold Distance Analysis (SIMPLIFIED)
 
 ### Objective
+
 Measure spacing between holds to assess reach difficulty.
 
 ### Distance Calculation
@@ -410,6 +421,7 @@ def calculate_combined_distance_score(handholds: list, footholds: list, image_he
 ## Factor 4: Wall Incline Analysis (SIMPLIFIED)
 
 ### Objective
+
 Account for wall angle impact on difficulty.
 
 ### Wall Incline Categories
@@ -441,6 +453,7 @@ def calculate_wall_incline_score(wall_incline: str) -> float:
 ```
 
 **User Input**: Add dropdown in UI with 5 options:
+
 - Slab (leaning back)
 - Vertical (straight up)
 - Slight overhang (leaning forward slightly)
@@ -568,6 +581,7 @@ class Analysis(Base):
 ```
 
 **Migration**:
+
 ```python
 # Migration script
 def upgrade():
@@ -669,6 +683,7 @@ Show score breakdown:
 ## Implementation Checklist
 
 ### Week 1-2: Foundation
+
 - [ ] Database migration: Add `wall_incline` field
 - [ ] Create `src/grade_prediction_mvp.py` module
 - [ ] Implement hold separation (handholds vs footholds)
@@ -676,6 +691,7 @@ Show score breakdown:
 - [ ] Write unit tests for utilities
 
 ### Week 2-3: Core Factors
+
 - [ ] Implement Factor 1: Hold difficulty (simplified)
 - [ ] Implement Factor 2: Hold density (simplified)
 - [ ] Implement Factor 3: Distances (simplified)
@@ -683,18 +699,21 @@ Show score breakdown:
 - [ ] Unit tests for each factor
 
 ### Week 3-4: Integration
+
 - [ ] Implement `predict_grade_v2_mvp()` main function
 - [ ] Update `src/main.py` to use new function
 - [ ] Add configuration loading
 - [ ] Integration tests
 
 ### Week 4-5: UI & Deployment
+
 - [ ] Add wall_incline dropdown to upload form
 - [ ] Update results display with breakdown
 - [ ] Test end-to-end flow
 - [ ] Deploy to staging
 
 ### Week 5-6: Feedback Collection
+
 - [ ] Deploy to production with feature flag
 - [ ] Collect user feedback (target: 50+ routes)
 - [ ] Monitor prediction distribution
@@ -800,6 +819,7 @@ Based on climbing domain knowledge, expect to adjust:
 ### Success Criteria for Phase 1a
 
 After calibration:
+
 - ✅ Accuracy: ≥50% exact match, ≥75% within ±1 grade
 - ✅ User satisfaction: >3.0/5.0
 - ✅ System stability: No crashes, <100ms predictions
@@ -814,12 +834,14 @@ After calibration:
 ### Phase 1b: Calibration & Refinement (2-3 weeks after 1a)
 
 **Add after MVP validated**:
+
 - ✅ Wall-angle-dependent foothold weighting (65% on slabs, 25% on overhangs)
 - ✅ Slanted hold detection (if YOLO model updated) OR manual annotation
 - ✅ Advanced foothold scarcity multipliers
 - ✅ Empirical threshold recalibration
 
 **Prerequisites**:
+
 - Phase 1a deployed, collecting feedback
 - ≥100 route samples analyzed
 - Systematic biases identified
@@ -827,12 +849,14 @@ After calibration:
 ### Phase 1c: Advanced Features (2-3 weeks after 1b)
 
 **Add after refined model validated**:
+
 - ✅ Complexity multipliers (wall transitions, hold type variability)
 - ✅ Multi-segment wall support
 - ✅ Shannon entropy for hold type analysis
 - ✅ Advanced scoring formulas
 
 **Prerequisites**:
+
 - Phase 1b accuracy ≥60% exact, ≥80% within ±1 grade
 - User feedback positive (>3.5/5.0)
 - Development resources available
@@ -842,7 +866,7 @@ After calibration:
 ## Comparison: MVP vs Full Spec
 
 | Feature | Phase 1a MVP | Full Phase 1 Spec | Complexity Reduction |
-|---------|-------------|-------------------|---------------------|
+| :-----: | :----------: | :---------------: | :------------------: |
 | Slanted holds | ❌ Deferred | ✅ Required | HIGH - no detection method |
 | Foothold weighting | Constant (60/40) | Wall-angle-dependent | MEDIUM - simpler logic |
 | Size categories | 3 categories | 5+ categories | LOW - easier thresholds |

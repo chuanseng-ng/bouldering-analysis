@@ -169,21 +169,21 @@ See [factor1_hold_analysis.md](phase1/factor1_hold_analysis.md) for wall-angle-d
 
 ### Phase 1: Route-Based Prediction (Core) - **IMMEDIATE PRIORITY**
 
-**Stage 1a: Basic Model**
+#### Stage 1a: Basic Model
 
 - Implement 4-factor algorithm
 - Manual wall angle input
 - Basic hold size/type scoring
 - Deploy and collect feedback
 
-**Stage 1b: Calibration & Slant Integration**
+#### Stage 1b: Calibration & Slant Integration
 
 - Analyze user feedback
 - Adjust factor weights and thresholds
 - Add hold slant angle detection/adjustment
 - Achieve ≥60% exact match, ≥80% within ±1 grade
 
-**Stage 1c: Advanced Features** (Optional)
+#### Stage 1c: Advanced Features (Optional)
 
 - Add complexity multipliers
 - Wall segment support (multi-angle routes)
@@ -253,13 +253,13 @@ See [factor1_hold_analysis.md](phase1/factor1_hold_analysis.md) for wall-angle-d
 
 ### External Resources
 
-- **MediaPipe Pose** (for Phase 2): https://google.github.io/mediapipe/solutions/pose.html
+- **MediaPipe Pose** (for Phase 2): [MediaPipe Pose Documentation](https://google.github.io/mediapipe/solutions/pose.html)
 - **V-Scale Grading**: Standard bouldering difficulty scale (V0-V12)
 
 ## Version History
 
 | Version | Date | Changes | Author |
-|---------|------|---------|--------|
+| :-----: | :--: | :-----: | :----: |
 | 2.0 | 2026-01-07 | Restructured into modular files, added slanted hold considerations, removed deterministic timelines, emphasized calibration | Claude Code |
 | 1.0 | 2026-01-04 | Initial comprehensive plan | System |
 

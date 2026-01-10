@@ -362,6 +362,7 @@ GROUP BY persona_applied;
 ```
 
 **Adjust configuration:**
+
 - If slab specialists report grades too easy → Increase multiplier lower bounds
 - If power climbers report grades too hard → Decrease multiplier upper bounds
 - Iterate weekly until satisfaction targets met
@@ -388,6 +389,7 @@ personas:
 ## Success Metrics
 
 **Track weekly:**
+
 - Persona adoption rate (% of users selecting non-balanced)
 - Persona distribution (which personas are popular)
 - Average satisfaction rating per persona
@@ -395,6 +397,7 @@ personas:
 - Grade shift distribution (how much personas change predictions)
 
 **Target metrics**:
+
 - Adoption: >40%
 - Satisfaction: >3.5/5.0
 - Accuracy: >70% "feels accurate"
@@ -402,17 +405,21 @@ personas:
 ## Edge Cases and Fallbacks
 
 **Unknown persona name:**
+
 - Default to "balanced" (no adjustments)
 
 **Missing route characteristics:**
+
 - Use default/neutral classifications
 - Log for review
 
 **Extreme adjustments (>3 grade shift):**
+
 - Cap adjustments to prevent unrealistic personalization
 - Log for calibration review
 
 **Persona feedback collection failures:**
+
 - Gracefully degrade, continue with feature
 - Log errors for investigation
 
@@ -431,4 +438,3 @@ Phase 1.5 implementation requires:
 **Timeline**: 6-8 weeks after Phase 1 validation
 
 **Next**: See [persona_definitions.md](persona_definitions.md) for detailed persona specifications.
-

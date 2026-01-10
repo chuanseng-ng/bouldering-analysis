@@ -9,10 +9,12 @@ Assess route difficulty based on the number of available holds, considering both
 ## Core Principle
 
 **Inverse relationship with difficulty (non-linear):**
+
 - **Fewer holds** → Fewer movement options → Higher difficulty
 - **More holds** → Multiple sequences available → Lower difficulty
 
 **CRITICAL**: Foothold scarcity has different implications than handhold scarcity:
+
 - **Handholds**: Fewer can indicate powerful, athletic problems
 - **Footholds**: Fewer almost always increases difficulty (balance limitations)
 
@@ -31,7 +33,7 @@ Clamp result between 0 and 12.
 ### Mapping
 
 | Hold Count | Calculation | Score | Interpretation |
-|------------|-------------|-------|----------------|
+| :--------: | :---------: | :---: | :------------: |
 | 3 | 12 - (1.58 × 2.5) | ~8.2 | Extremely difficult (V8-V12) |
 | 5 | 12 - (2.32 × 2.5) | ~6.5 | Hard (V6-V8) |
 | 8 | 12 - (3.0 × 2.5) | ~5.0 | Moderate-hard (V4-V6) |
@@ -40,6 +42,7 @@ Clamp result between 0 and 12.
 | 20+ | 12 - (4.32+ × 2.5) | ~1.0 | Easy (V0-V2) |
 
 **Rationale**:
+
 - Doubling holds doesn't halve difficulty
 - Each additional hold provides diminishing marginal benefit
 - Very few holds create exponentially harder problems
@@ -79,7 +82,7 @@ def calculate_foothold_density_score(foothold_count: int) -> float:
 ```
 
 | Foothold Count | Score | Interpretation |
-|----------------|-------|----------------|
+| :------------: | :---: | :------------: |
 | 0 | 12.0 | Campusing required (extreme) |
 | 1-2 | 10.0 | Very limited balance options |
 | 3-4 | 7.0 | Significant balance constraints |
@@ -88,6 +91,7 @@ def calculate_foothold_density_score(foothold_count: int) -> float:
 | 11+ | 1.0 | Abundant options |
 
 **Rationale**:
+
 - Footholds enable balance, rest, and efficient movement
 - Missing footholds forces campusing (elite-only technique)
 - Few footholds severely limits movement sequences
@@ -136,6 +140,7 @@ def calculate_factor2_score(
 ```
 
 **Weighting Rationale**:
+
 - **Slabs**: Foothold availability critical (60% weight)
 - **Vertical**: Balanced importance (45% foothold weight)
 - **Overhangs**: Handhold density matters more (25% foothold weight)
@@ -153,6 +158,7 @@ def calculate_factor2_score(
 - This interaction is captured by combining Factor 2 with Factor 1
 
 **Example**:
+
 - Route A: 10 handholds (all jugs), density score = 4.75
 - Route B: 10 handholds (all crimps), density score = 4.75
 - But Route B is much harder due to hold types (captured in Factor 1)
@@ -160,11 +166,13 @@ def calculate_factor2_score(
 ### Route Setting Patterns
 
 **Boulder problems vs Long routes:**
+
 - **Short boulders** (3-5 hard moves): Typically 5-10 handholds
 - **Long boulders** (10+ moves): Typically 12-20 handholds
 - Adjust expectations based on route length if available
 
 **Gym-specific calibration:**
+
 - Some gyms set sparse routes (difficulty from limited holds)
 - Other gyms set dense routes (difficulty from hold types)
 - Monitor gym-specific patterns in feedback
@@ -174,11 +182,13 @@ def calculate_factor2_score(
 ### Example 1: Sparse Powerful Route
 
 **Setup:**
+
 - 5 handholds (all jugs for power moves)
 - 3 footholds (medium size)
 - Wall angle: Steep overhang
 
 **Calculation:**
+
 - Handhold density: 12 - (log₂(5) × 2.5) = 12 - 5.8 = **6.2**
 - Foothold density: **7.0** (3-4 footholds tier)
 - Weights (steep overhang): 75% hands, 25% feet
@@ -189,11 +199,13 @@ def calculate_factor2_score(
 ### Example 2: Technical Slab with Sparse Footholds
 
 **Setup:**
+
 - 12 handholds (mixed types)
 - 4 footholds (small size)
 - Wall angle: Slab
 
 **Calculation:**
+
 - Handhold density: 12 - (log₂(12) × 2.5) = 12 - 8.96 = **3.04**
 - Foothold density: **7.0** (3-4 footholds tier)
 - Weights (slab): 40% hands, 60% feet
@@ -204,11 +216,13 @@ def calculate_factor2_score(
 ### Example 3: Campusing Route (No Footholds)
 
 **Setup:**
+
 - 8 handholds (crimps and pockets)
 - 0 footholds (campusing)
 - Wall angle: Vertical
 
 **Calculation:**
+
 - Handhold density: 12 - (log₂(8) × 2.5) = 12 - 7.5 = **4.5**
 - Foothold density: **12.0** (campusing)
 - Weights (vertical): 55% hands, 45% feet
@@ -221,12 +235,14 @@ def calculate_factor2_score(
 ### Minimum Viable Implementation
 
 **Phase 1a:**
+
 1. Count handholds and footholds separately
 2. Apply density formulas
 3. Combine with wall-angle weights
 4. Log predictions and feedback
 
 **Phase 1b (Calibration):**
+
 1. Analyze prediction accuracy by hold count
 2. Adjust logarithmic multiplier (2.5) if needed
 3. Refine foothold density thresholds (2, 4, 6, 10)
@@ -235,6 +251,7 @@ def calculate_factor2_score(
 ### Data Collection for Calibration
 
 **Log for each route:**
+
 - Handhold count and types
 - Foothold count and sizes
 - Wall angle
@@ -242,6 +259,7 @@ def calculate_factor2_score(
 - User feedback (actual difficulty perceived)
 
 **Analyze patterns:**
+
 - Are sparse routes (5-8 holds) consistently over/under-predicted?
 - Is campusing (0 footholds) adequately penalized?
 - Do foothold density weights align with slab vs overhang feedback?
@@ -249,14 +267,17 @@ def calculate_factor2_score(
 ### Edge Cases
 
 **Single hold routes (contrived):**
+
 - handhold_count = 1: Score = 12.0 (max difficulty)
 - Likely unrealistic in practice
 
 **Very dense routes (20+ holds):**
+
 - Score approaches 1.0 (easy)
 - May indicate beginner route or long endurance problem
 
 **Misdetection (holds missed by CV):**
+
 - Density scores will be artificially high
 - Monitor detection completeness alongside calibration
 - Consider confidence scores in hold detection
@@ -296,4 +317,3 @@ Factor 2 evaluates hold availability through:
 **Result**: Hold density score (range ~1-12) reflecting movement options and balance constraints.
 
 **Next**: Combine with [Factor 1 (Hold Analysis)](factor1_hold_analysis.md), [Factor 3 (Distances)](factor3_hold_distances.md), and [Factor 4 (Wall Incline)](factor4_wall_incline.md).
-

@@ -31,6 +31,7 @@ This document provides the **recommended implementation sequence** based on feas
 **Scope**: Basic 4-factor model with simplified scoring
 
 **Features**:
+
 - ✅ Basic hold difficulty (NO slant detection)
 - ✅ Hold density (simplified categories)
 - ✅ Hold distances (basic calculation)
@@ -39,11 +40,13 @@ This document provides the **recommended implementation sequence** based on feas
 - ✅ **Constant 60/40 foothold weighting** (no wall angle dependency)
 
 **Success Criteria**:
+
 - Accuracy: ≥50% exact, ≥75% within ±1 grade
 - Performance: <100ms per route
 - Deployable with user feedback collection
 
 **Deliverables**:
+
 - `src/grade_prediction_mvp.py` module
 - Database migration for `wall_incline` field
 - UI dropdown for wall angle input
@@ -62,17 +65,20 @@ This document provides the **recommended implementation sequence** based on feas
 **Scope**: Calibrate MVP based on real data, add refinements
 
 **Features**:
+
 - ✅ Empirical threshold calibration (adjust config values)
 - ✅ Wall-angle-dependent foothold weighting (if data supports it)
 - ✅ Slanted hold detection OR manual annotation (if feasible)
 - ✅ Advanced foothold scarcity multipliers (if needed)
 
 **Success Criteria**:
+
 - Accuracy: ≥60% exact, ≥80% within ±1 grade
 - User satisfaction: >3.5/5.0
 - No regressions from Phase 1a
 
 **Deliverables**:
+
 - Updated configuration with calibrated values
 - Optional: Slant angle detection or annotation UI
 - Enhanced foothold analysis
@@ -89,17 +95,20 @@ This document provides the **recommended implementation sequence** based on feas
 **Scope**: Add complexity multipliers and advanced analysis
 
 **Features**:
+
 - ✅ Complexity multipliers (wall transitions, hold type variability)
 - ✅ Multi-segment wall support (if useful)
 - ✅ Shannon entropy for hold type analysis
 - ✅ Advanced scoring formulas
 
 **Success Criteria**:
+
 - Accuracy: ≥70% exact, ≥85% within ±1 grade
 - User satisfaction: >4.0/5.0
 - Measurable improvement over Phase 1b
 
 **Deliverables**:
+
 - Wall segment input UI (advanced mode)
 - Transition detection algorithm
 - Hold type entropy calculation
@@ -114,6 +123,7 @@ This document provides the **recommended implementation sequence** based on feas
 **Timing**: 2-3 months after Phase 1 deployment
 
 **Prerequisites**:
+
 - ✅ Phase 1 (1a + 1b minimum) deployed and validated
 - ✅ Baseline accuracy ≥60% within ±1 grade
 - ✅ User feedback system operational
@@ -132,6 +142,7 @@ This document provides the **recommended implementation sequence** based on feas
 **Timing**: 6+ months after Phase 1 deployment
 
 **Prerequisites**:
+
 - ✅ Phase 1 accuracy ≥70% within ±1 grade
 - ✅ Stable in production for 6+ months
 - ✅ Resources for video processing infrastructure
@@ -147,6 +158,7 @@ This document provides the **recommended implementation sequence** based on feas
 ## Week-by-Week Breakdown (Phase 1a MVP)
 
 ### Weeks 1-2: Foundation
+
 - [ ] **Database**: Add `wall_incline` field to Analysis model
 - [ ] **Module**: Create `src/grade_prediction_mvp.py`
 - [ ] **Utilities**: Hold separation, dimension calculation
@@ -154,6 +166,7 @@ This document provides the **recommended implementation sequence** based on feas
 - [ ] **Config**: Add MVP configuration to `user_config.yaml`
 
 ### Weeks 2-3: Core Factors
+
 - [ ] **Factor 1**: Implement hold difficulty (simplified, no slant)
 - [ ] **Factor 2**: Implement hold density (simplified categories)
 - [ ] **Factor 3**: Implement distances (basic calculation)
@@ -161,12 +174,14 @@ This document provides the **recommended implementation sequence** based on feas
 - [ ] **Tests**: Unit tests for each factor
 
 ### Weeks 3-4: Integration
+
 - [ ] **Main Function**: `predict_grade_v2_mvp()`
 - [ ] **Integration**: Update `src/main.py` to use new function
 - [ ] **Config Loading**: Load configuration values
 - [ ] **Tests**: Integration tests, end-to-end tests
 
 ### Weeks 4-5: UI & Deployment
+
 - [ ] **UI**: Add wall_incline dropdown to upload form
 - [ ] **UI**: Update results display with score breakdown
 - [ ] **Testing**: Manual QA, edge case testing
@@ -174,6 +189,7 @@ This document provides the **recommended implementation sequence** based on feas
 - [ ] **Documentation**: User-facing documentation
 
 ### Weeks 5-6: Production & Feedback
+
 - [ ] **Production**: Deploy with feature flag
 - [ ] **Monitoring**: Set up prediction logging
 - [ ] **Feedback**: Collect user feedback (target: 50+ routes)
@@ -185,29 +201,34 @@ This document provides the **recommended implementation sequence** based on feas
 ## Critical Success Factors
 
 ### 1. Start Simple
+
 - ✅ Implement Phase 1a MVP first
 - ✅ NO slant detection initially
 - ✅ NO complexity multipliers initially
 - ✅ Constant foothold weighting (60/40)
 
 ### 2. Deploy Fast
+
 - ✅ Target 4-6 weeks to production
 - ✅ Get user feedback early
 - ✅ Iterate based on real data
 
 ### 3. Measure Everything
+
 - ✅ Log all predictions with full breakdown
 - ✅ Track prediction distribution by grade
 - ✅ Monitor systematic biases (route type patterns)
 - ✅ Collect user feedback on every prediction
 
 ### 4. Iterate Weekly
+
 - ✅ After deployment, review feedback weekly
 - ✅ Adjust configuration values based on data
 - ✅ Document what changes improved accuracy
 - ✅ Deploy config updates without code changes
 
 ### 5. Treat Values as Hypotheses
+
 - ✅ All thresholds are starting points
 - ✅ Expect ±30-50% adjustment range
 - ✅ Calibration is part of the process
@@ -218,23 +239,27 @@ This document provides the **recommended implementation sequence** based on feas
 ## What NOT to Implement (Yet)
 
 ### ❌ Deferred to Phase 1b
+
 - Slanted hold detection/adjustment
 - Wall-angle-dependent foothold weighting
 - Advanced foothold scarcity multipliers (7 levels → simplified to 3)
 - Fine-grained size categories (5+ → simplified to 3)
 
 ### ❌ Deferred to Phase 1c
+
 - Complexity multipliers (wall transitions)
 - Hold type variability (entropy-based)
 - Multi-segment wall support
 - Advanced scoring formulas
 
 ### ❌ Deferred to Phase 1.5
+
 - Persona-based personalization
 - Multi-persona blending
 - User profile system
 
 ### ❌ Deferred to Phase 2
+
 - Video analysis
 - Pose estimation
 - Cross-validation system
@@ -244,7 +269,7 @@ This document provides the **recommended implementation sequence** based on feas
 ## Decision Matrix: When to Add Features
 
 | Feature | Add When... | Success Criteria |
-|---------|------------|------------------|
+| :-----: | :---------: | :--------------: |
 | **Basic 4 factors** | Now (Phase 1a) | N/A - core requirement |
 | **Constant foothold weighting** | Now (Phase 1a) | N/A - core requirement |
 | **Manual wall angle input** | Now (Phase 1a) | N/A - core requirement |
@@ -262,7 +287,7 @@ This document provides the **recommended implementation sequence** based on feas
 ### Complexity Reduction
 
 | Metric | Full Phase 1 Spec | Phase 1a MVP | Reduction |
-|--------|------------------|--------------|-----------|
+| :----: | :---------------: | :----------: | :-------: |
 | **Lines of Code** | ~1200 | ~400 | 67% |
 | **Implementation Time** | 8-12 weeks | 4-6 weeks | 50% |
 | **Configuration Values** | ~40 | ~15 | 63% |
@@ -273,7 +298,7 @@ This document provides the **recommended implementation sequence** based on feas
 ### Feature Comparison
 
 | Feature | Full Phase 1 | Phase 1a MVP | Notes |
-|---------|-------------|--------------|-------|
+| :-----: | :----------: | :----------: | :---: |
 | Slanted holds | Required | ❌ Deferred | No detection method |
 | Foothold weighting | Wall-angle-dependent | Constant (60/40) | Simpler |
 | Size categories | 5+ levels | 3 levels | Easier thresholds |
@@ -289,6 +314,7 @@ This document provides the **recommended implementation sequence** based on feas
 ### Q: Why not implement the full Phase 1 spec?
 
 **A**: The full spec includes features that:
+
 1. Can't be implemented yet (slanted holds - no detection)
 2. Add complexity without proven value (wall-angle weighting before validation)
 3. Should be calibrated first (complexity multipliers before base model works)
@@ -298,6 +324,7 @@ This document provides the **recommended implementation sequence** based on feas
 ### Q: Will Phase 1a be accurate enough?
 
 **A**: Initial accuracy may be lower (50-60% exact match), but:
+
 - Better than current system
 - Provides foundation for calibration
 - Enables feedback collection
@@ -308,6 +335,7 @@ This document provides the **recommended implementation sequence** based on feas
 ### Q: When should we add slanted hold detection?
 
 **A**: Options:
+
 1. **Phase 1b**: If YOLO model retrained with orientation labels
 2. **Phase 1b**: If manual annotation UI added
 3. **Later**: If not critical for accuracy (may be less important than thought)
@@ -317,6 +345,7 @@ This document provides the **recommended implementation sequence** based on feas
 ### Q: What if we have more resources?
 
 **A**: Even with more resources:
+
 1. Start with Phase 1a MVP (risk mitigation)
 2. Validate approach early
 3. Then parallelize Phase 1b features
@@ -327,6 +356,7 @@ This document provides the **recommended implementation sequence** based on feas
 ### Q: How do we handle user expectations?
 
 **A**: Communication:
+
 - "This is version 1.0 of improved grade prediction"
 - "Grades will improve as we collect feedback"
 - "Help us calibrate by providing feedback on predictions"
@@ -353,11 +383,13 @@ This document provides the **recommended implementation sequence** based on feas
 ### Reference Documents
 
 **For Implementation**:
+
 - 📘 **Phase 1a MVP Spec**: [`phase1/phase1a_mvp_specification.md`](phase1/phase1a_mvp_specification.md) ⭐ **START HERE**
 - 📗 **Phase 1 Full Spec**: [`phase1_route_based_prediction.md`](phase1_route_based_prediction.md) - Reference only, DO NOT implement yet
 - 📙 **Overview**: [`overview.md`](overview.md) - System context
 
 **For Later Phases**:
+
 - 📕 **Phase 1.5**: [`phase1.5/README.md`](phase1.5/README.md) - After Phase 1 validated
 - 📔 **Phase 2**: [`phase2/README.md`](phase2/README.md) - Distant future
 
@@ -385,16 +417,19 @@ This document provides the **recommended implementation sequence** based on feas
 ### Success Metrics
 
 **Phase 1a MVP**:
+
 - Accuracy: ≥50% exact, ≥75% within ±1 grade
 - Deployment: <6 weeks
 - Feedback: ≥50 routes collected
 
 **Phase 1b Calibrated**:
+
 - Accuracy: ≥60% exact, ≥80% within ±1 grade
 - User satisfaction: >3.5/5.0
 - Stable, no regressions
 
 **Phase 1c Advanced** (if pursued):
+
 - Accuracy: ≥70% exact, ≥85% within ±1 grade
 - User satisfaction: >4.0/5.0
 - Measurable improvement over 1b

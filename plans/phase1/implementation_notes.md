@@ -11,6 +11,7 @@ This document provides practical technical guidance for implementing the Phase 1
 **Goal**: Working prediction system, even if accuracy is initially moderate
 
 **Implement**:
+
 1. ✅ Factor 1: Hold difficulty (handhold + foothold, basic size tiers)
 2. ✅ Factor 2: Hold density (handhold + foothold counts)
 3. ✅ Factor 3: Inter-hold distances (average distance score)
@@ -20,18 +21,21 @@ This document provides practical technical guidance for implementing the Phase 1
 7. ✅ User feedback collection (actual difficulty vs predicted)
 
 **DO NOT implement yet**:
+
 - ❌ Hold slant angle adjustments (add in Phase 1b)
 - ❌ Complexity multipliers (add in Phase 1c)
 - ❌ Advanced distance analysis (weighted average, directional)
 - ❌ Wall segments (multi-angle routes)
 
 **Success Criteria**:
+
 - Predictions complete in < 100ms
 - No crashes on edge cases (0 holds, missing data)
 - User feedback system functional
 - Detailed logging for calibration
 
 **Deployment Strategy**:
+
 - Deploy to staging environment
 - Test with 20-50 routes
 - Collect initial feedback
@@ -43,25 +47,27 @@ This document provides practical technical guidance for implementing the Phase 1
 
 **Activities**:
 1. **Analyze Feedback Patterns**:
+2. 
    - Which grades are consistently over/under-predicted?
    - Do slabs/overhangs have systematic bias?
    - Are sparse vs dense routes mis-predicted?
 
-2. **Calibrate Factor Weights**:
+3. **Calibrate Factor Weights**:
    - Adjust weights (0.35, 0.25, 0.20, 0.20) based on correlation with feedback
    - Example: If hold types dominate difficulty, increase Factor 1 weight to 0.40
 
-3. **Calibrate Difficulty Tiers**:
+4. **Calibrate Difficulty Tiers**:
    - Adjust hold type scores (crimps = 10, jugs = 1, etc.)
    - Adjust size thresholds (500px², 1500px², etc.)
    - Adjust wall incline scores (slab = 3.0, overhang = 9.0, etc.)
 
-4. **Add Hold Slant Adjustments**:
+5. **Add Hold Slant Adjustments**:
    - Implement slant angle detection or manual annotation
    - Apply slant multipliers to hold scores
    - Validate improvement in accuracy
 
 **Success Criteria**:
+
 - ✅ Exact match: ≥60%
 - ✅ Within ±1 grade: ≥80%
 - ✅ No systematic bias by wall angle
@@ -72,11 +78,13 @@ This document provides practical technical guidance for implementing the Phase 1
 **Goal**: Add complexity multipliers if accuracy targets met
 
 **Prerequisites**:
+
 - ✅ Phase 1b accuracy criteria achieved
 - ✅ Systematic under-prediction of complex routes identified
 - ✅ Resources available for additional development
 
 **Implement**:
+
 1. ✅ Wall segment tracking (multi-angle routes)
 2. ✅ Wall transition detection and multiplier
 3. ✅ Hold type entropy calculation and multiplier
@@ -84,6 +92,7 @@ This document provides practical technical guidance for implementing the Phase 1
 5. ✅ A/B testing (with vs without multipliers)
 
 **Success Criteria**:
+
 - ✅ Accuracy improves by ≥5% on complex routes
 - ✅ No regression on simple routes
 - ✅ Overall exact match: ≥70%
@@ -109,6 +118,7 @@ class Analysis(Base):
 ```
 
 **Migration**:
+
 ```bash
 # Create migration
 flask db migrate -m "Add wall_incline and wall_segments to Analysis"
@@ -178,6 +188,7 @@ grade_prediction:
 ```
 
 **Benefits**:
+
 - Easy to adjust without code changes
 - Version control for calibration history
 - A/B testing different configurations
@@ -300,12 +311,14 @@ def analyze_image(...):
 ### Data Collection
 
 **Log for every prediction**:
+
 - Input features (hold counts, types, sizes, distances, wall angle)
 - Predicted grade and confidence
 - Factor scores (breakdown)
 - User feedback (if provided)
 
 **Store in database or log files**:
+
 ```python
 # Add to feedback mechanism
 class UserFeedback(Base):
@@ -324,6 +337,7 @@ class UserFeedback(Base):
 **Weekly calibration review**:
 
 1. **Aggregate Feedback**:
+
    ```sql
    -- Over-predictions: predicted > perceived
    SELECT predicted_grade, user_perceived_grade, COUNT(*)
@@ -374,6 +388,7 @@ Week 8: Fine-tune or proceed to Phase 1c
 **Problem**: Adjusting calibration based on 5-10 feedback samples
 
 **Solution**:
+
 - Wait for ≥50 feedback samples before major adjustments
 - Look for consistent patterns, not individual outliers
 - Use statistical significance tests
@@ -383,6 +398,7 @@ Week 8: Fine-tune or proceed to Phase 1c
 **Problem**: Crashes on 0 holds, missing wall angle, etc.
 
 **Solution**:
+
 - Add extensive error handling
 - Default to neutral values (wall angle = 'vertical', etc.)
 - Log edge cases for review
@@ -392,6 +408,7 @@ Week 8: Fine-tune or proceed to Phase 1c
 **Problem**: Adjusting Factor 1 to fix Factor 4 issues
 
 **Solution**:
+
 - Calibrate factors independently when possible
 - Analyze which factor is actually causing bias
 - Use breakdown logging to identify root cause
@@ -401,6 +418,7 @@ Week 8: Fine-tune or proceed to Phase 1c
 **Problem**: Implementing complexity multipliers before base model works
 
 **Solution**:
+
 - Strictly follow phased approach
 - DO NOT add complexity multipliers in Phase 1a
 - Validate base model first
@@ -410,6 +428,7 @@ Week 8: Fine-tune or proceed to Phase 1c
 **Problem**: Size thresholds (500px², 1500px²) don't work across different image resolutions
 
 **Solution**:
+
 - Normalize hold sizes by image dimensions
 - Or: Separate thresholds per resolution range
 - Or: Collect image resolution statistics and adjust
@@ -502,6 +521,7 @@ def test_no_regression_on_calibration_routes():
    - Avoid nested loops
 
 4. **Profile slow sections**:
+
    ```python
    import cProfile
    cProfile.run('predict_grade_v2(...)')
@@ -510,6 +530,7 @@ def test_no_regression_on_calibration_routes():
 ## Deployment Checklist
 
 **Before deploying Phase 1a**:
+
 - [ ] All unit tests passing
 - [ ] Database migration tested
 - [ ] User feedback mechanism functional
@@ -518,12 +539,14 @@ def test_no_regression_on_calibration_routes():
 - [ ] Edge cases handled (0 holds, missing data)
 
 **Before deploying Phase 1b**:
+
 - [ ] ≥50 feedback samples collected
 - [ ] Calibration analysis complete
 - [ ] New config values tested in staging
 - [ ] Regression tests passing
 
 **Before deploying Phase 1c**:
+
 - [ ] Phase 1b accuracy criteria met
 - [ ] Complexity multipliers tested independently
 - [ ] A/B test results favorable
@@ -542,9 +565,9 @@ Phase 1 implementation requires:
 **Key Success Factor**: Treat all specification values as starting hypotheses. Calibrate with real data.
 
 **Next Steps**:
+
 1. Implement Phase 1a (basic 4-factor model)
 2. Deploy to staging and collect feedback
 3. Calibrate and refine (Phase 1b)
 4. Optionally add complexity (Phase 1c)
 5. Only then consider Phase 1.5 (personas) or Phase 2 (video)
-

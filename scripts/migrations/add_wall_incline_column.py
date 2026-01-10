@@ -112,13 +112,15 @@ def column_exists(inspector, table_name: str, column_name: str) -> bool:
         return False
 
 
-def add_wall_incline_column(engine, db_type: str) -> bool:
+def add_wall_incline_column(engine, db_type: str) -> bool:  # pylint: disable=unused-argument
     """
     Add the wall_incline column to the analyses table.
 
     Args:
         engine: SQLAlchemy engine
         db_type: Type of database ('sqlite', 'postgresql', etc.)
+            Note: Currently unused but kept for API consistency with
+            rollback_drop_wall_incline_column() and future database-specific handling.
 
     Returns:
         bool: True if successful, False otherwise

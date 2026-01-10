@@ -18,23 +18,27 @@ The grade prediction planning documents are **well-researched and technically so
 
 ### 1. ⚠️ **Slanted Hold Detection - BLOCKING ISSUE** (HIGHEST PRIORITY)
 
-**Problem**: 
+**Problem**:
+
 - Documents mark slanted hold analysis as "CRITICAL" requirement
 - No detection method exists in current YOLO model
 - Model only outputs: bbox, hold type, confidence (NOT orientation)
 
-**Impact**: 
+**Impact**:
+
 - Cannot implement as specified
 - Would require 2-4 weeks of model retraining OR manual annotation UI
 
 **Recommendation**:
-```
+
+```text
 ✅ Phase 1a MVP: Assume all holds horizontal (defer slant detection)
 ✅ Phase 1b: Add IF model retrained OR manual annotation available
 ✅ Validate necessity: May be less critical than assumed
 ```
 
 **Files Affected**:
+
 - `phase1_route_based_prediction.md` (lines 116-130, 169-186)
 - `phase1/factor1_hold_analysis.md`
 - `overview.md` (lines 118-129)
@@ -44,24 +48,28 @@ The grade prediction planning documents are **well-researched and technically so
 ### 2. ⚠️ **Over-Specified Initial Scope** (HIGH PRIORITY)
 
 **Problem**:
+
 - Full Phase 1 spec includes features better suited for refinement
 - Wall-angle-dependent foothold weighting (complex 5-tier system)
 - Complexity multipliers (entire advanced subsystem)
 - Multi-segment wall support (complex UI/data requirements)
 
 **Impact**:
+
 - 8-12 week timeline becomes unrealistic
 - High risk of getting stuck on advanced features
 - Can't iterate quickly based on feedback
 
 **Recommendation**:
-```
+
+```text
 ✅ Phase 1a (4-6 weeks): Basic 4 factors, constant foothold weighting (60/40)
 ✅ Phase 1b (2-3 weeks): Calibration, add wall-angle weighting if data supports
 ✅ Phase 1c (2-3 weeks): Complexity multipliers if accuracy improvement proven
 ```
 
 **Complexity Reduction**:
+
 - Lines of code: 1200 → 400 (67% reduction)
 - Implementation time: 8-12 weeks → 4-6 weeks (50% faster)
 - Configuration values: 40 → 15 (63% fewer)
@@ -71,11 +79,13 @@ The grade prediction planning documents are **well-researched and technically so
 ### 3. ⚠️ **Prescriptive Threshold Values** (MEDIUM PRIORITY)
 
 **Problem**:
+
 - Specifications provide very specific pixel/ratio thresholds
 - Risk: Developers treat as final production values
 - Reality: Require ±30-50% adjustment after real-world testing
 
 **Examples**:
+
 ```python
 # From specs - these are HYPOTHESES, not final values:
 crimp_small: 500     # May need to be 300-700
@@ -84,12 +94,14 @@ distance_close: 150  # May need to be 100-250
 ```
 
 **Impact**:
+
 - False confidence in initial accuracy
 - Insufficient emphasis on calibration process
 - May miss need for iteration
 
 **Recommendation**:
-```
+
+```text
 ✅ Add calibration warnings to every factor specification
 ✅ Emphasize: "Expect ±30-50% adjustment"
 ✅ Document calibration process explicitly
@@ -101,11 +113,13 @@ distance_close: 150  # May need to be 100-250
 ### 4. ⚠️ **Wall-Angle-Dependent Foothold Weighting Complexity** (MEDIUM PRIORITY)
 
 **Problem**:
+
 - Technically correct but complex for MVP
 - 5 wall angle categories × 3 factors = 15 different weight combinations
 - No validation that this complexity improves accuracy
 
 **Example Complexity**:
+
 ```python
 # Full spec approach - complex:
 wall_angle_foothold_weights = {
@@ -118,7 +132,8 @@ wall_angle_foothold_weights = {
 ```
 
 **Recommendation**:
-```
+
+```text
 ✅ Phase 1a: Use constant 60/40 weighting
 ✅ Phase 1b: Add wall-angle dependency IF data shows clear pattern
 ✅ Simpler to debug and iterate
@@ -129,12 +144,14 @@ wall_angle_foothold_weights = {
 ### 5. ⚠️ **Timeline Estimates Lack Context** (MEDIUM PRIORITY)
 
 **Problem**:
+
 - Fixed timelines assume ideal conditions
 - "8-12 weeks" doesn't specify resources/constraints
 - No adjustment guidance for different scenarios
 
 **Recommendation**:
-```
+
+```text
 ✅ Specify assumptions: "1 full-time developer, no competing priorities"
 ✅ Provide ranges: "4-6 weeks (MVP) or 8-12 weeks (full spec)"
 ✅ Add adjustment guidance: "Scale based on your resources"
@@ -145,6 +162,7 @@ wall_angle_foothold_weights = {
 ## Feasibility by Phase
 
 ### ✅ Phase 1a MVP: **HIGHLY FEASIBLE** (4-6 weeks)
+
 - Basic 4 factors with simplified scoring
 - Constant foothold weighting
 - Manual wall angle input (single angle)
@@ -152,18 +170,21 @@ wall_angle_foothold_weights = {
 - **Recommended starting point**
 
 ### ⚠️ Phase 1 Full Spec: **FEASIBLE BUT TOO COMPLEX FOR INITIAL**
+
 - Requires model retraining (slant detection)
 - Complex wall-angle-dependent weighting
 - Advanced features before basic validation
 - **Defer advanced features to Phase 1b/1c**
 
 ### ✅ Phase 1.5 (Personas): **FEASIBLE AFTER PHASE 1 VALIDATION**
+
 - Clear prerequisites defined
 - Non-destructive layering approach
 - Good technical design
 - **Implement only after Phase 1 proven**
 
 ### ✅ Phase 2 (Video): **FEASIBLE BUT DISTANT FUTURE**
+
 - Correctly prioritized as low
 - Good technical approach
 - Appropriate prerequisites
@@ -196,6 +217,7 @@ wall_angle_foothold_weights = {
 ### 📝 RECOMMENDED: Update Existing Documents
 
 **Add to each factor specification**:
+
 ```markdown
 ## ⚠️ CALIBRATION REQUIRED
 
@@ -206,6 +228,7 @@ DO NOT treat these values as production-ready.
 ```
 
 **Add to overview.md**:
+
 ```markdown
 ## Implementation Path
 
@@ -217,6 +240,7 @@ DO NOT treat these values as production-ready.
 ```
 
 **Update phase1_route_based_prediction.md**:
+
 ```markdown
 ## ⚠️ NOTE: Simplified MVP Available
 
@@ -233,30 +257,36 @@ See: phase1/phase1a_mvp_specification.md
 ### HIGH RISK ⚠️
 
 **Risk**: Implementing full Phase 1 spec without MVP approach
+
 - **Impact**: 8-12 week timeline, gets stuck on slant detection, complex debugging
 - **Mitigation**: Use Phase 1a MVP approach, iterate to full spec later
 
 **Risk**: Treating threshold values as final
+
 - **Impact**: Low initial accuracy, frustration, extensive rework
 - **Mitigation**: Emphasize calibration, plan weekly iterations
 
 ### MEDIUM RISK ⚠️
 
 **Risk**: Slant detection unavailable in Phase 1b
+
 - **Impact**: Can't implement "critical" feature
 - **Mitigation**: Validate necessity with Phase 1a feedback first
 
 **Risk**: Insufficient feedback data for calibration
+
 - **Impact**: Can't improve accuracy, stuck with initial values
 - **Mitigation**: Design aggressive feedback collection from day 1
 
 ### LOW RISK ✅
 
 **Risk**: MVP not accurate enough
+
 - **Impact**: Lower initial accuracy (50-60% vs 60-70%)
 - **Mitigation**: Expected for MVP, improve via calibration
 
 **Risk**: Users want advanced features immediately
+
 - **Impact**: Pressure to add complexity early
 - **Mitigation**: Clear communication, show roadmap, deliver value fast
 
@@ -267,7 +297,7 @@ See: phase1/phase1a_mvp_specification.md
 ### Phase 1a MVP Targets: **REALISTIC**
 
 | Metric | Target | Assessment |
-|--------|--------|------------|
+| :----: | :----: | :--------: |
 | Exact match | ≥50% | ✅ Realistic for MVP |
 | Within ±1 grade | ≥75% | ✅ Achievable |
 | Prediction time | <100ms | ✅ No performance concerns |
@@ -276,7 +306,7 @@ See: phase1/phase1a_mvp_specification.md
 ### Phase 1 Full Spec Targets: **OPTIMISTIC**
 
 | Metric | Target | Assessment |
-|--------|--------|------------|
+| :----: | :----: | :--------: |
 | Exact match | ≥60% | ⚠️ Requires calibration |
 | Within ±1 grade | ≥80% | ⚠️ Requires iteration |
 | Timeline | 8-12 weeks | ⚠️ Assumes no blockers |
@@ -311,7 +341,7 @@ See: phase1/phase1a_mvp_specification.md
 
 ### Recommended Sequence
 
-```
+```text
 Phase 1a MVP (4-6 weeks)
     ↓ Deploy & collect 100+ feedback samples
 Phase 1b Calibration (2-3 weeks)
@@ -326,7 +356,7 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 ### Week-by-Week (Phase 1a)
 
 | Week | Focus | Deliverables |
-|------|-------|--------------|
+| :--: | :---: | :----------: |
 | 1-2 | Foundation | Database, module, utilities, config |
 | 2-3 | Core Factors | 4 factors implemented, unit tests |
 | 3-4 | Integration | Main function, integration tests |
@@ -340,6 +370,7 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 ### Q: Can we skip the MVP and implement the full spec?
 
 **A**: Not recommended. Reasons:
+
 - Slant detection blocks implementation (no method available)
 - Complex features before validation (wall-angle weighting, multipliers)
 - Harder to debug and iterate
@@ -350,6 +381,7 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 ### Q: Is the MVP accurate enough?
 
 **A**: Initial accuracy may be 50-60% exact match, but:
+
 - Better than current system
 - Provides foundation for calibration
 - Enables feedback collection
@@ -360,6 +392,7 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 ### Q: When can we add slant detection?
 
 **A**: Options:
+
 1. **Phase 1b**: If YOLO model retrained with orientation labels
 2. **Phase 1b**: If manual annotation UI added
 3. **Later**: If Phase 1a feedback shows it's not critical
@@ -369,6 +402,7 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 ### Q: What if we have more development resources?
 
 **A**: Even with more resources:
+
 - Start with MVP (risk mitigation, faster validation)
 - Validate approach early
 - Then parallelize Phase 1b features
@@ -377,6 +411,7 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 ### Q: How confident are the threshold values?
 
 **A**: Low confidence - they are starting hypotheses. Expect:
+
 - ±30-50% adjustment range
 - Weekly calibration iterations
 - Different values for different gyms/contexts
@@ -389,11 +424,13 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 ## Files Reference
 
 ### New Files (Created by Assessment)
+
 - ✅ [`phase1/phase1a_mvp_specification.md`](phase1/phase1a_mvp_specification.md) - Simplified MVP spec
 - ✅ [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md) - Week-by-week plan
 - ✅ [`FEASIBILITY_ASSESSMENT.md`](FEASIBILITY_ASSESSMENT.md) - This document
 
 ### Existing Files (Need Updates)
+
 - ⚠️ [`overview.md`](overview.md) - Add MVP path recommendation
 - ⚠️ [`phase1_route_based_prediction.md`](phase1_route_based_prediction.md) - Add "use MVP" note
 - ⚠️ [`phase1/factor*.md`](phase1/) - Add calibration warnings
@@ -431,7 +468,8 @@ Phase 2 Video Analysis (13-18 weeks) - FUTURE
 
 The grade prediction plans are **feasible with recommended simplifications**. The core issue is over-specification for initial implementation, particularly around slant detection (not currently possible) and advanced features (should come after validation).
 
-**Recommended approach**: 
+**Recommended approach**:
+
 - ✅ Implement Phase 1a MVP (4-6 weeks)
 - ✅ Deploy and collect feedback
 - ✅ Calibrate and iterate weekly

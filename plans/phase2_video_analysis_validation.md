@@ -788,9 +788,9 @@ This allows:
 
 ### Video Analysis References
 
-- MediaPipe Pose: https://google.github.io/mediapipe/solutions/pose.html
-- OpenPose: https://github.com/CMU-Perceptual-Computing-Lab/openpose
-- AlphaPose: https://github.com/MVIG-SJTU/AlphaPose
+- [MediaPipe Pose](https://google.github.io/mediapipe/solutions/pose.html)
+- [OpenPose](https://github.com/CMU-Perceptual-Computing-Lab/openpose)
+- [AlphaPose](https://github.com/MVIG-SJTU/AlphaPose)
 
 ### Movement Analysis Concepts
 
@@ -835,4 +835,3 @@ This allows:
 **Timeline**: 13-18 weeks after Phase 1 validation
 
 **Recommendation**: Focus on Phase 1 first. Consider Phase 2 only after Phase 1 has proven successful in production.
-
