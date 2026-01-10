@@ -684,33 +684,33 @@ Show score breakdown:
 
 ### Week 1-2: Foundation
 
-- [ ] Database migration: Add `wall_incline` field
-- [ ] Create `src/grade_prediction_mvp.py` module
-- [ ] Implement hold separation (handholds vs footholds)
-- [ ] Implement hold dimension calculation
-- [ ] Write unit tests for utilities
+- [x] Database migration: Add `wall_incline` field
+- [x] Create `src/grade_prediction_mvp.py` module
+- [x] Implement hold separation (handholds vs footholds)
+- [x] Implement hold dimension calculation
+- [x] Write unit tests for utilities
 
 ### Week 2-3: Core Factors
 
-- [ ] Implement Factor 1: Hold difficulty (simplified)
-- [ ] Implement Factor 2: Hold density (simplified)
-- [ ] Implement Factor 3: Distances (simplified)
-- [ ] Implement Factor 4: Wall incline
-- [ ] Unit tests for each factor
+- [x] Implement Factor 1: Hold difficulty (simplified)
+- [x] Implement Factor 2: Hold density (simplified)
+- [x] Implement Factor 3: Distances (simplified)
+- [x] Implement Factor 4: Wall incline
+- [x] Unit tests for each factor
 
 ### Week 3-4: Integration
 
-- [ ] Implement `predict_grade_v2_mvp()` main function
-- [ ] Update `src/main.py` to use new function
-- [ ] Add configuration loading
-- [ ] Integration tests
+- [x] Implement `predict_grade_v2_mvp()` main function
+- [x] Update `src/main.py` to use new function
+- [x] Add configuration loading
+- [x] Integration tests
 
 ### Week 4-5: UI & Deployment
 
-- [ ] Add wall_incline dropdown to upload form
-- [ ] Update results display with breakdown
-- [ ] Test end-to-end flow
-- [ ] Deploy to staging
+- [x] Add wall_incline dropdown to upload form
+- [x] Update results display with breakdown
+- [x] Test end-to-end flow (see `tests/test_e2e_grade_prediction.py` - 15 tests)
+- [ ] Deploy to staging (see [Staging Deployment Guide](e2e_testing_and_staging.md#part-2-staging-deployment))
 
 ### Week 5-6: Feedback Collection
 
@@ -718,6 +718,13 @@ Show score breakdown:
 - [ ] Collect user feedback (target: 50+ routes)
 - [ ] Monitor prediction distribution
 - [ ] Document issues and edge cases
+
+---
+
+## E2E Testing and Staging Guide
+
+For detailed instructions on end-to-end testing and staging deployment, see:
+**[e2e_testing_and_staging.md](e2e_testing_and_staging.md)**
 
 ---
 

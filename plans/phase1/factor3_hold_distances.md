@@ -319,19 +319,21 @@ def calculate_factor3_score(distances: list) -> float:
 
 ### Minimum Viable Implementation
 
-**Phase 1a:**
+**Phase 1a** - IMPLEMENTED ✅ (see `src/grade_prediction_mvp.py`):
 
-1. Calculate inter-hold distances (consecutive holds)
-2. Normalize by wall height
-3. Compute average distance score
-4. No dynamic penalty initially (simplify)
+1. [x] Calculate inter-hold distances (consecutive holds, sorted by y-coordinate)
+2. [x] Normalize by image height
+3. [x] Compute average and max distance scores
+4. [x] Simplified scoring with coarse thresholds (no dynamic penalty)
+5. [x] Combine handhold/foothold distances with constant 60/40 weighting
 
-**Phase 1b (Refinement):**
+**Phase 1b (Refinement)** - PENDING:
 
-1. Add dynamic move detection
-2. Apply dynamic penalty
-3. Optionally implement weighted average (emphasize crux)
-4. Calibrate thresholds based on feedback
+1. [ ] Add dynamic move detection (threshold-based)
+2. [ ] Apply dynamic penalty for long reaches
+3. [ ] Optionally implement weighted average (emphasize crux)
+4. [ ] Calibrate distance thresholds based on feedback
+5. [ ] Consider directional adjustments (vertical vs lateral)
 
 ### Determining Hold Sequence
 
@@ -399,10 +401,10 @@ def calculate_factor3_score(distances: list) -> float:
 
 Factor 3 evaluates movement demands through:
 
-1. ✅ **Inter-hold distances** - Normalized by wall height
-2. ✅ **Difficulty tiers** - Short to very long reaches
-3. ✅ **Dynamic move detection** - Threshold-based classification
-4. ✅ **Dynamic penalty** - Additional difficulty for dynamic moves
+1. [x] **Inter-hold distances** - Normalized by image height - IMPLEMENTED
+2. [x] **Difficulty tiers** - Short to very long reaches (coarse categories) - IMPLEMENTED
+3. [ ] **Dynamic move detection** - Threshold-based classification - DEFERRED to Phase 1b
+4. [ ] **Dynamic penalty** - Additional difficulty for dynamic moves - DEFERRED to Phase 1b
 
 **Result**: Distance difficulty score (range ~1-12) reflecting reach requirements and movement type.
 

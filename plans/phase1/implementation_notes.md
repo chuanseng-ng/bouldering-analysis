@@ -6,19 +6,19 @@ This document provides practical technical guidance for implementing the Phase 1
 
 ## Staged Implementation Approach
 
-### Phase 1a: Basic 4-Factor Model (Weeks 1-4)
+### Phase 1a: Basic 4-Factor Model (Weeks 1-4) - IMPLEMENTED ✅
 
 **Goal**: Working prediction system, even if accuracy is initially moderate
 
-**Implement**:
+**Implemented** (see `src/grade_prediction_mvp.py`):
 
-1. ✅ Factor 1: Hold difficulty (handhold + foothold, basic size tiers)
-2. ✅ Factor 2: Hold density (handhold + foothold counts)
-3. ✅ Factor 3: Inter-hold distances (average distance score)
-4. ✅ Factor 4: Wall incline (manual user input)
-5. ✅ Combined scoring with initial weights (0.35, 0.25, 0.20, 0.20)
-6. ✅ Grade mapping (score → V0-V12)
-7. ✅ User feedback collection (actual difficulty vs predicted)
+1. [x] Factor 1: Hold difficulty (handhold + foothold, basic size tiers)
+2. [x] Factor 2: Hold density (handhold + foothold counts)
+3. [x] Factor 3: Inter-hold distances (average distance score)
+4. [x] Factor 4: Wall incline (manual user input)
+5. [x] Combined scoring with initial weights (0.35, 0.25, 0.20, 0.20)
+6. [x] Grade mapping (score → V0-V12)
+7. [ ] User feedback collection (actual difficulty vs predicted)
 
 **DO NOT implement yet**:
 
@@ -72,6 +72,298 @@ This document provides practical technical guidance for implementing the Phase 1
 - ✅ Within ±1 grade: ≥80%
 - ✅ No systematic bias by wall angle
 - ✅ User satisfaction >3.0/5.0
+
+### Phase 1b Calibration Workflow
+
+#### 7-Step Calibration Procedure
+
+**Step 1: Deploy with Logging**
+- Deploy Phase 1a MVP with comprehensive logging enabled
+- Ensure all predictions log: wall angle, factor scores, final prediction
+- Verify user feedback collection is functional
+
+**Step 2: Data Collection (Minimum Requirements)**
+- **Sample size**: ≥100 analyzed routes with user feedback
+- **Wall angle coverage**: ≥3 angle categories with 20+ samples each
+- **Collection period**: ≥2 weeks to capture diverse route types
+- **Quality check**: Exclude obvious outliers (user error, mislabeled routes)
+
+**Step 3: Bias Analysis**
+
+```sql
+-- Error distribution by wall angle
+SELECT
+    wall_incline,
+    COUNT(*) as total,
+    SUM(CASE WHEN predicted_grade > user_grade THEN 1 ELSE 0 END) as over_predicted,
+    SUM(CASE WHEN predicted_grade < user_grade THEN 1 ELSE 0 END) as under_predicted,
+    SUM(CASE WHEN predicted_grade = user_grade THEN 1 ELSE 0 END) as accurate,
+    AVG(ABS(predicted_grade_num - user_grade_num)) as mae
+FROM analysis_feedback
+GROUP BY wall_incline;
+
+-- Factor-specific accuracy by angle
+SELECT
+    wall_incline,
+    AVG(factor1_score) as avg_hold_difficulty,
+    AVG(factor2_score) as avg_hold_density,
+    STDDEV(final_score - user_grade_num) as prediction_stddev
+FROM analysis_feedback
+GROUP BY wall_incline;
+```
+
+**Step 4: Identify Adjustment Targets**
+
+| Bias Pattern | Primary Adjustment | Secondary Check |
+|--------------|-------------------|-----------------|
+| Slab over-predicted | Increase slab foothold weight | Check Factor 1 hold scores |
+| Overhang under-predicted | Increase overhang handhold weight | Check Factor 4 wall score |
+| All angles biased similarly | Adjust factor weights | Check grade mapping thresholds |
+| High variance, no pattern | Collect more data | Check detection quality |
+
+**Step 5: Apply Adjustments**
+
+Update `src/cfg/user_config.yaml`:
+
+```yaml
+grade_prediction:
+  wall_angle_weights:
+    slab:              { handhold: 0.40, foothold: 0.60 }  # Adjust if slab biased
+    vertical:          { handhold: 0.55, foothold: 0.45 }
+    slight_overhang:   { handhold: 0.60, foothold: 0.40 }
+    moderate_overhang: { handhold: 0.70, foothold: 0.30 }
+    steep_overhang:    { handhold: 0.75, foothold: 0.25 }  # Adjust if overhang biased
+```
+
+Adjustment increments: ±0.05 per iteration (e.g., 0.60 → 0.65)
+
+**Step 6: Validation**
+- Deploy adjusted config to staging
+- Test with 20-30 routes across affected angle categories
+- Compare accuracy metrics before/after
+- Acceptance criteria: ≥5% improvement in affected category, no regression elsewhere
+
+**Step 7: Independent Calibration Trigger (If Needed)**
+
+Consider splitting Factor 1 and Factor 2 weights only if:
+- Shared weight adjustment improves one factor but degrades another
+- Factor-specific bias ≥15% for a wall angle category
+- Sample size ≥150 routes with feedback
+
+If triggered, create factor-specific config:
+
+```yaml
+# Phase 1b+ (if required) - NOT default
+grade_prediction:
+  factor1_wall_angle_weights:  # Hold difficulty weights
+    slab: { handhold: 0.40, foothold: 0.60 }
+    # ...
+  factor2_wall_angle_weights:  # Hold density weights
+    slab: { handhold: 0.45, foothold: 0.55 }  # Different from Factor 1
+    # ...
+```
+
+#### Rollback Strategy
+
+If calibration degrades accuracy:
+
+1. Revert `user_config.yaml` to previous version (git checkout)
+2. Redeploy with original config
+3. Analyze what went wrong (insufficient data? wrong adjustment direction?)
+4. Wait for more data before re-attempting
+
+### Wall-Angle Weight Configuration
+
+#### Shared Configuration Structure (Phase 1b Default)
+
+```yaml
+# src/cfg/user_config.yaml
+grade_prediction:
+  # Shared wall-angle weights used by Factor 1 and Factor 2
+  wall_angle_weights:
+    slab:
+      handhold: 0.40
+      foothold: 0.60
+    vertical:
+      handhold: 0.55
+      foothold: 0.45
+    slight_overhang:
+      handhold: 0.60
+      foothold: 0.40
+    moderate_overhang:
+      handhold: 0.70
+      foothold: 0.30
+    steep_overhang:
+      handhold: 0.75
+      foothold: 0.25
+```
+
+**Access Pattern**:
+
+```python
+# Both factors use the same config path
+def get_wall_angle_weights(wall_angle: str) -> tuple[float, float]:
+    config = load_config()
+    weights = config["grade_prediction"]["wall_angle_weights"][wall_angle]
+    return weights["handhold"], weights["foothold"]
+
+# Factor 1
+hand_weight, foot_weight = get_wall_angle_weights(wall_angle)
+factor1_score = (handhold_score * hand_weight) + (foothold_score * foot_weight)
+
+# Factor 2 (same weights)
+hand_weight, foot_weight = get_wall_angle_weights(wall_angle)
+factor2_score = (handhold_density * hand_weight) + (foothold_density * foot_weight)
+```
+
+#### Independent Weights Structure (Phase 1b+ If Required)
+
+Only implement if shared weights create conflicting optimization (see Decision Criteria in Factor 2 documentation):
+
+```yaml
+# Future-state structure - NOT default implementation
+grade_prediction:
+  # Factor 1: Hold difficulty weights
+  factor1_wall_angle_weights:
+    slab:              { handhold: 0.40, foothold: 0.60 }
+    vertical:          { handhold: 0.55, foothold: 0.45 }
+    slight_overhang:   { handhold: 0.60, foothold: 0.40 }
+    moderate_overhang: { handhold: 0.70, foothold: 0.30 }
+    steep_overhang:    { handhold: 0.75, foothold: 0.25 }
+
+  # Factor 2: Hold density weights (may differ)
+  factor2_wall_angle_weights:
+    slab:              { handhold: 0.45, foothold: 0.55 }
+    vertical:          { handhold: 0.55, foothold: 0.45 }
+    slight_overhang:   { handhold: 0.58, foothold: 0.42 }
+    moderate_overhang: { handhold: 0.68, foothold: 0.32 }
+    steep_overhang:    { handhold: 0.72, foothold: 0.28 }
+```
+
+#### Fallback Defaults
+
+If config is missing or invalid, use hardcoded defaults:
+
+```python
+DEFAULT_WALL_ANGLE_WEIGHTS = {
+    "slab": (0.40, 0.60),
+    "vertical": (0.55, 0.45),
+    "slight_overhang": (0.60, 0.40),
+    "moderate_overhang": (0.70, 0.30),
+    "steep_overhang": (0.75, 0.25),
+}
+```
+
+### Calibration Logging
+
+#### Per-Prediction Breakdown Logging
+
+Every prediction must log structured data for calibration analysis:
+
+```python
+# Log format: JSON for programmatic analysis
+calibration_log = {
+    "timestamp": "2024-01-15T14:30:00Z",
+    "analysis_id": "uuid-here",
+
+    # Input features
+    "wall_angle": "moderate_overhang",
+    "handhold_count": 8,
+    "foothold_count": 4,
+    "image_height": 1200,
+
+    # Factor scores
+    "factor1_score": 7.2,
+    "factor2_score": 5.8,
+    "factor3_score": 6.1,
+    "factor4_score": 9.0,
+
+    # Weights applied
+    "factor_weights": {
+        "hold_difficulty": 0.35,
+        "hold_density": 0.25,
+        "distance": 0.20,
+        "wall_incline": 0.20
+    },
+    "wall_angle_weights": {
+        "handhold": 0.70,
+        "foothold": 0.30
+    },
+
+    # Scoring
+    "base_score": 6.89,
+    "final_score": 6.89,
+    "predicted_grade": "V6",
+    "confidence": 0.82,
+
+    # Factor contributions (for analysis)
+    "contributions": {
+        "factor1_contribution": 2.52,  # 7.2 * 0.35
+        "factor2_contribution": 1.45,  # 5.8 * 0.25
+        "factor3_contribution": 1.22,  # 6.1 * 0.20
+        "factor4_contribution": 1.80   # 9.0 * 0.20
+    },
+
+    # User feedback (when available)
+    "user_grade": "V7",  # null if not provided
+    "error": -1,  # predicted - actual (null if no feedback)
+    "is_accurate": false  # |error| <= 0
+}
+
+logger.info("CALIBRATION_LOG: %s", json.dumps(calibration_log))
+```
+
+#### Aggregation Queries for Calibration
+
+**Error Distribution by Angle**:
+
+```sql
+SELECT
+    wall_angle,
+    COUNT(*) as sample_count,
+    AVG(error) as mean_error,  -- Negative = under-predicted
+    AVG(ABS(error)) as mae,
+    SUM(CASE WHEN error > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as pct_over,
+    SUM(CASE WHEN error < 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as pct_under,
+    SUM(CASE WHEN error = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as pct_exact
+FROM calibration_logs
+WHERE user_grade IS NOT NULL
+GROUP BY wall_angle
+ORDER BY mae DESC;
+```
+
+**Factor-Specific Accuracy by Angle**:
+
+```sql
+SELECT
+    wall_angle,
+    AVG(factor1_score) as avg_f1,
+    AVG(factor2_score) as avg_f2,
+    CORR(factor1_score, error) as f1_error_correlation,
+    CORR(factor2_score, error) as f2_error_correlation
+FROM calibration_logs
+WHERE user_grade IS NOT NULL
+GROUP BY wall_angle;
+```
+
+**Bias Direction Analysis**:
+
+```sql
+-- Identify angles with systematic over/under-prediction
+SELECT
+    wall_angle,
+    CASE
+        WHEN AVG(error) > 0.3 THEN 'OVER_PREDICTED'
+        WHEN AVG(error) < -0.3 THEN 'UNDER_PREDICTED'
+        ELSE 'BALANCED'
+    END as bias_direction,
+    AVG(error) as mean_error,
+    COUNT(*) as sample_count
+FROM calibration_logs
+WHERE user_grade IS NOT NULL
+GROUP BY wall_angle
+HAVING COUNT(*) >= 20;  -- Minimum sample size
+```
 
 ### Phase 1c: Advanced Features (Weeks 9-12, Optional)
 
@@ -529,14 +821,14 @@ def test_no_regression_on_calibration_routes():
 
 ## Deployment Checklist
 
-**Before deploying Phase 1a**:
+**Before deploying Phase 1a** - COMPLETED ✅:
 
-- [ ] All unit tests passing
-- [ ] Database migration tested
+- [x] All unit tests passing
+- [x] Database migration tested
 - [ ] User feedback mechanism functional
-- [ ] Logging infrastructure in place
-- [ ] Configuration file validated
-- [ ] Edge cases handled (0 holds, missing data)
+- [x] Logging infrastructure in place
+- [x] Configuration file validated
+- [x] Edge cases handled (0 holds, missing data)
 
 **Before deploying Phase 1b**:
 
