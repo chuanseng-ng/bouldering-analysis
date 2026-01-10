@@ -11,7 +11,6 @@ import io
 import time
 from unittest.mock import Mock, patch
 
-import pytest
 from PIL import Image
 
 from src.models import Analysis, WallInclineType
@@ -283,6 +282,7 @@ class TestDatabasePersistence:
                 json_data = response.get_json()
 
                 analysis = db.session.get(Analysis, json_data["analysis_id"])
+                assert analysis is not None, "Analysis record not found"
                 assert analysis.wall_incline == incline, (
                     f"Expected {incline}, got {analysis.wall_incline}"
                 )
