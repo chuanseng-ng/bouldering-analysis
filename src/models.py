@@ -8,11 +8,32 @@ detected holds, model versions, and user sessions.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import Enum
 import uuid
 from typing import Any
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
+
+
+class WallInclineType(str, Enum):
+    """Enumeration of valid wall incline types for bouldering routes."""
+
+    SLAB = "slab"
+    VERTICAL = "vertical"
+    SLIGHT_OVERHANG = "slight_overhang"
+    MODERATE_OVERHANG = "moderate_overhang"
+    STEEP_OVERHANG = "steep_overhang"
+
+    @classmethod
+    def values(cls) -> list[str]:
+        """Return list of all valid wall incline values."""
+        return [member.value for member in cls]
+
+    @classmethod
+    def is_valid(cls, value: str) -> bool:
+        """Check if a value is a valid wall incline type."""
+        return value in cls.values()
 
 
 class Base(db.Model):  # type: ignore[name-defined]
@@ -45,6 +66,9 @@ class Analysis(Base):
     predicted_grade = db.Column(db.String(10), nullable=False)
     confidence_score = db.Column(db.Float, nullable=True)
     features_extracted = db.Column(db.JSON, nullable=True)  # Store extracted features
+    wall_incline = db.Column(
+        db.String(20), nullable=False, default="vertical"
+    )  # Wall angle category
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(
         db.DateTime,
@@ -79,6 +103,7 @@ class Analysis(Base):
             "predicted_grade": self.predicted_grade,
             "confidence_score": self.confidence_score,
             "features_extracted": self.features_extracted,
+            "wall_incline": self.wall_incline,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

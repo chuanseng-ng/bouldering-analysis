@@ -16,6 +16,7 @@ import os
 import logging
 import threading
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for
@@ -24,6 +25,7 @@ from werkzeug.utils import secure_filename
 from PIL import Image
 from ultralytics import YOLO
 from sqlalchemy.exc import SQLAlchemyError
+from src.grade_prediction_mvp import predict_grade_v2_mvp
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +114,7 @@ from src.models import (  # noqa: E402 # pylint: disable=E0401
     HoldType,
     DetectedHold,
     ModelVersion,
+    WallInclineType,
 )
 
 # Import config utilities
@@ -129,6 +132,52 @@ from src.constants import HOLD_TYPES  # noqa: E402 # pylint: disable=E0401
 # Module-level cache for hold types
 _hold_types_cache: Optional[dict[int, str]] = None
 _hold_types_cache_lock = threading.Lock()
+
+
+@dataclass
+class HoldObject:
+    """Data class representing a detected hold for grade prediction.
+
+    This class provides a lightweight representation of a detected hold
+    with the attributes needed by the grade prediction algorithm.
+
+    Attributes:
+        name: The hold type name (e.g., 'crimp', 'jug', 'sloper')
+        bbox_x1: Left edge of bounding box
+        bbox_y1: Top edge of bounding box
+        bbox_x2: Right edge of bounding box
+        bbox_y2: Bottom edge of bounding box
+        confidence: Detection confidence score (0.0-1.0)
+    """
+
+    name: str
+    bbox_x1: float
+    bbox_y1: float
+    bbox_x2: float
+    bbox_y2: float
+    confidence: float
+
+    @classmethod
+    def from_detection_data(
+        cls, data: dict[str, Any], hold_type: HoldType
+    ) -> "HoldObject":
+        """Create a HoldObject from detection data and hold type.
+
+        Args:
+            data: Dictionary containing bbox and confidence data
+            hold_type: HoldType database object
+
+        Returns:
+            HoldObject instance initialized from the detection data
+        """
+        return cls(
+            name=hold_type.name,
+            bbox_x1=data["bbox_x1"],
+            bbox_y1=data["bbox_y1"],
+            bbox_x2=data["bbox_x2"],
+            bbox_y2=data["bbox_y2"],
+            confidence=data["confidence"],
+        )
 
 
 def get_hold_types() -> dict[int, str]:
@@ -327,9 +376,20 @@ def index():
             os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
             file.save(filepath)
 
+            # Get wall incline from form (default to 'vertical')
+            wall_incline = request.form.get("wall_incline", "vertical")
+
+            # Validate wall_incline value
+            if not WallInclineType.is_valid(wall_incline):
+                return render_template(
+                    "index.html",
+                    error=f"Invalid wall incline '{wall_incline}'. "
+                    f"Valid values: {', '.join(WallInclineType.values())}",
+                )
+
             # Process the image
             try:
-                result = analyze_image(filepath, unique_filename)
+                result = analyze_image(filepath, unique_filename, wall_incline)
                 return render_template(  # pragma: no cover
                     "index.html", result=result, image_path=unique_filename
                 )
@@ -364,9 +424,24 @@ def analyze_route():
         os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
         file.save(filepath)
 
+        # Get wall incline from form (default to 'vertical')
+        wall_incline = request.form.get("wall_incline", "vertical")
+
+        # Validate wall_incline value
+        if not WallInclineType.is_valid(wall_incline):
+            return (
+                jsonify(
+                    {
+                        "error": f"Invalid wall incline '{wall_incline}'. "
+                        f"Valid values: {', '.join(WallInclineType.values())}"
+                    }
+                ),
+                400,
+            )
+
         # Process the image
         try:
-            result = analyze_image(filepath, unique_filename)
+            result = analyze_image(filepath, unique_filename, wall_incline)
             return jsonify(result)
         except (IOError, RuntimeError, SQLAlchemyError):
             app.logger.exception("Error processing image")
@@ -652,14 +727,29 @@ def _format_holds_for_response(
     return result
 
 
-def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
-    """Analyze a bouldering route image"""
+def analyze_image(
+    image_path: str, image_filename: str, wall_incline: str = "vertical"
+) -> dict[str, Any]:
+    """
+    Analyze a bouldering route image.
+
+    Args:
+        image_path: Path to the image file
+        image_filename: Filename of the uploaded image
+        wall_incline: Wall angle category (default: 'vertical')
+
+    Returns:
+        Dictionary with analysis results
+    """
     if not hold_detection_model:
         raise RuntimeError("Hold detection model not loaded")
 
     # Load and preprocess image
     img: Image.Image = Image.open(image_path)
     img = img.convert("RGB")
+
+    # Get image dimensions for distance normalization
+    image_height = img.height
 
     # Run detection
     results = hold_detection_model(img)
@@ -669,16 +759,33 @@ def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
         results, get_hold_types(), confidence_threshold
     )
 
-    # Predict grade
-    predicted_grade = predict_grade(features)
+    # Create temporary hold objects for the prediction function
+    # Map hold type names to HoldType objects for prediction
+    hold_types_by_name = {ht.name: ht for ht in db.session.query(HoldType).all()}
 
-    # Create Analysis record
+    # Create hold objects with necessary attributes for prediction
+    hold_objects = []
+    for hold_data in detected_holds_data:
+        hold_type = hold_types_by_name.get(hold_data["hold_type"])
+        if hold_type:
+            # Use module-level HoldObject dataclass for prediction
+            hold_objects.append(HoldObject.from_detection_data(hold_data, hold_type))
+
+    # Predict grade using new algorithm
+    predicted_grade, prediction_confidence, score_breakdown = predict_grade_v2_mvp(
+        detected_holds=hold_objects,
+        wall_incline=wall_incline,
+        image_height=image_height,
+    )
+
+    # Create Analysis record with new fields
     analysis = Analysis(
         image_filename=image_filename,
         image_path=image_path,
         predicted_grade=predicted_grade,
-        confidence_score=features["average_confidence"],
-        features_extracted=features,
+        confidence_score=prediction_confidence,
+        features_extracted=score_breakdown,  # Store breakdown instead of basic features
+        wall_incline=wall_incline,
     )
     db.session.add(analysis)
     db.session.flush()  # Flush to get the analysis.id before creating DetectedHold records
@@ -695,12 +802,13 @@ def analyze_image(image_path: str, image_filename: str) -> dict[str, Any]:
     return {
         "analysis_id": analysis.id,
         "predicted_grade": predicted_grade,
-        "confidence": features["average_confidence"],
+        "confidence": prediction_confidence,
         # Provide a server-safe URL for the uploaded image so the frontend
         # does not need to construct paths from the original filename.
         "image_url": url_for("uploaded_file", filename=image_filename, _external=True),
         "holds": holds_from_db,
         "features": features,
+        "score_breakdown": score_breakdown,  # Include detailed breakdown
     }
 
 
