@@ -112,9 +112,7 @@ def column_exists(inspector, table_name: str, column_name: str) -> bool:
         return False
 
 
-def add_wall_incline_column(
-    engine, db_type: str
-) -> bool:  # pylint: disable=unused-argument
+def add_wall_incline_column(engine, db_type: str) -> bool:  # pylint: disable=unused-argument
     """
     Add the wall_incline column to the analyses table.
 
