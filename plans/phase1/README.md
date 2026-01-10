@@ -176,12 +176,14 @@ See [`factor1_hold_analysis.md`](factor1_hold_analysis.md) for wall-angle-depend
 ```text
 phase1/
 ├── README.md                          (this file - overview)
+├── phase1a_mvp_specification.md       (MVP implementation spec)
 ├── factor1_hold_analysis.md           (hold types, sizes, slant angles)
 ├── factor2_hold_density.md            (hold count and spacing)
 ├── factor3_hold_distances.md          (inter-hold distances, reaches)
 ├── factor4_wall_incline.md            (wall angle impact)
 ├── complexity_multipliers.md          (transitions and variability)
-└── implementation_notes.md            (technical guidance, calibration)
+├── implementation_notes.md            (technical guidance, calibration)
+└── e2e_testing_and_staging.md         (E2E testing & deployment guide) [NEW]
 ```
 
 ## Success Criteria

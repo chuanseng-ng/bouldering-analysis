@@ -709,8 +709,8 @@ Show score breakdown:
 
 - [x] Add wall_incline dropdown to upload form
 - [x] Update results display with breakdown
-- [ ] Test end-to-end flow
-- [ ] Deploy to staging
+- [x] Test end-to-end flow (see `tests/test_e2e_grade_prediction.py` - 15 tests)
+- [ ] Deploy to staging (see [Staging Deployment Guide](e2e_testing_and_staging.md#part-2-staging-deployment))
 
 ### Week 5-6: Feedback Collection
 
@@ -718,6 +718,13 @@ Show score breakdown:
 - [ ] Collect user feedback (target: 50+ routes)
 - [ ] Monitor prediction distribution
 - [ ] Document issues and edge cases
+
+---
+
+## E2E Testing and Staging Guide
+
+For detailed instructions on end-to-end testing and staging deployment, see:
+**[e2e_testing_and_staging.md](e2e_testing_and_staging.md)**
 
 ---
 
