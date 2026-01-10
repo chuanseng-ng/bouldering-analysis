@@ -454,6 +454,41 @@ def calculate_factor1_score(
 4. [ ] Calibrate slant impact based on user feedback
 5. [ ] Monitor accuracy improvement
 
+### Shared Wall-Angle Weight Configuration
+
+**Phase 1b Starting Values** (shared with Factor 2):
+
+| Wall Angle | Handhold Weight | Foothold Weight |
+|------------|-----------------|-----------------|
+| Slab | 0.40 | 0.60 |
+| Vertical | 0.55 | 0.45 |
+| Slight Overhang | 0.60 | 0.40 |
+| Moderate Overhang | 0.70 | 0.30 |
+| Steep Overhang | 0.75 | 0.25 |
+
+**Key Points**:
+- Factor 1 and Factor 2 share the same wall-angle weights from a single configuration source
+- Weights are stored in `grade_prediction.wall_angle_weights` in `user_config.yaml`
+- This follows the "validate-then-diverge" principle: shared weights simplify initial calibration
+- Independent calibration (separate weights per factor) only considered if shared weights create conflicting optimization
+
+**Configuration Access**:
+```python
+# Factor 1 reads from shared config
+hand_weight, foot_weight = get_wall_angle_weights(wall_angle)
+factor1_score = (handhold_score * hand_weight) + (foothold_score * foot_weight)
+```
+
+**Cross-Reference**: See [Factor 2 Hold Density - Wall-Angle Weight Calibration Strategy](factor2_hold_density.md#wall-angle-weight-calibration-strategy) for:
+- Decision criteria for independent calibration
+- Systematic bias thresholds
+- Factor-specific bias detection workflow
+
+See [Implementation Notes - Wall-Angle Weight Configuration](implementation_notes.md#wall-angle-weight-configuration) for:
+- YAML configuration structure
+- Fallback defaults
+- Future-state structure for independent weights
+
 ### Calibration Strategy
 
 **Initial Deployment:**
@@ -500,9 +535,11 @@ Factor 1 evaluates hold difficulty through:
 2. [x] **Size adjustments** (smaller = harder) - IMPLEMENTED
 3. [ ] **Slant angle multipliers** (downward harder, upward easier) - DEFERRED to Phase 1b
 4. [x] **Foothold quality** (size, scarcity) - IMPLEMENTED (slant deferred)
-5. [ ] **Wall-angle weighting** (65% footholds on slabs, 25% on overhangs) - DEFERRED to Phase 1b (using constant 60/40 in MVP)
+5. [ ] **Wall-angle weighting** (60% footholds on slabs, 25% on overhangs) - DEFERRED to Phase 1b (using constant 60/40 in MVP, shared config with Factor 2)
 
 **Result**: Comprehensive hold difficulty score (range ~1-13) that properly accounts for hands, feet, and orientation.
+
+**Configuration Note**: Wall-angle weights are shared with Factor 2 from `grade_prediction.wall_angle_weights` config. See [Implementation Notes](implementation_notes.md#wall-angle-weight-configuration) for details.
 
 **Next**: Combine with [Factor 2 (Hold Density)](factor2_hold_density.md), [Factor 3 (Distances)](factor3_hold_distances.md), and [Factor 4 (Wall Incline)](factor4_wall_incline.md).
 
