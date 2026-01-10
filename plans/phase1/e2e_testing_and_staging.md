@@ -28,17 +28,21 @@ python src/setup_dev.py
 #### Test Case 1: Basic Image Upload and Analysis
 
 **Steps:**
+
 1. Start the Flask development server:
+
    ```bash
    ./run.sh
    # Or: cd src && python main.py
    ```
+
 2. Open browser to `http://localhost:5000`
 3. Upload a bouldering route image (JPG/PNG)
 4. Select wall incline from dropdown (e.g., "Vertical")
 5. Click "Analyze Route"
 
 **Expected Results:**
+
 - [ ] Image uploads successfully
 - [ ] Loading spinner displays during analysis
 - [ ] Predicted grade displays (V0-V12)
@@ -53,6 +57,7 @@ python src/setup_dev.py
 #### Test Case 2: Wall Incline Variations
 
 **Steps:**
+
 1. Upload the same image 5 times with different wall inclines:
    - Slab
    - Vertical
@@ -61,6 +66,7 @@ python src/setup_dev.py
    - Steep Overhang
 
 **Expected Results:**
+
 - [ ] Slab produces lowest wall incline score (3.0)
 - [ ] Steep overhang produces highest wall incline score (11.0)
 - [ ] Predicted grades increase with steeper angles
@@ -69,7 +75,7 @@ python src/setup_dev.py
 #### Test Case 3: Edge Cases
 
 | Test | Action | Expected Result |
-|------|--------|-----------------|
+| :--: | :----: | :-------------: |
 | No holds detected | Upload image with no climbing holds | Handles gracefully, returns prediction |
 | Invalid file type | Upload .txt or .pdf file | Error message displayed |
 | Large file | Upload image > 16MB | Error message about file size |
@@ -113,14 +119,17 @@ curl http://localhost:5000/stats
 #### Test Case 5: Database Persistence
 
 **Steps:**
+
 1. Analyze an image
 2. Note the analysis_id from response
-3. Query database directly:
+3. Query database directly (or use `/stats` endpoint for API-based verification):
+
    ```bash
    sqlite3 bouldering_analysis.db "SELECT * FROM analyses WHERE id='<analysis_id>';"
    ```
 
 **Expected Results:**
+
 - [ ] Analysis record exists in database
 - [ ] `wall_incline` field is populated correctly
 - [ ] `predicted_grade` matches UI display
@@ -129,9 +138,11 @@ curl http://localhost:5000/stats
 #### Test Case 6: Score Breakdown Validation
 
 **Steps:**
+
 1. Analyze an image and capture the breakdown
 2. Manually verify weighted sum:
-   ```
+
+   ```text
    final_score = (hold_difficulty × 0.35) +
                  (hold_density × 0.25) +
                  (distance × 0.20) +
@@ -139,6 +150,7 @@ curl http://localhost:5000/stats
    ```
 
 **Expected Results:**
+
 - [ ] Calculated final_score matches breakdown.final_score
 - [ ] Grade mapping is correct for the final_score
 
@@ -298,6 +310,7 @@ docker run -p 5000:5000 -v $(pwd)/models:/app/models bouldering-staging
 Example for **Render.com**:
 
 1. Create `render.yaml`:
+
    ```yaml
    services:
      - type: web
@@ -356,7 +369,7 @@ curl https://staging.your-domain.com/health
 Run these tests on the staging environment:
 
 | Test | Command/Action | Success Criteria |
-|------|----------------|------------------|
+| :--: | :------------: | :--------------: |
 | Health check | `curl /health` | Returns 200 OK |
 | Upload image | Web UI upload | Grade displayed |
 | API analyze | `curl -X POST /analyze` | JSON response |
@@ -381,6 +394,19 @@ docker run -p 5000:5000 bouldering:previous-tag
 # Use platform's rollback feature (Render, Heroku, etc.)
 ```
 
+**Post-Rollback Verification Checklist:**
+
+- [ ] Health check passes: `curl /health` returns 200
+- [ ] Data integrity: Verify recent analyses are intact
+- [ ] Smoke tests: Upload and analyze one test image
+- [ ] Monitor error logs for 15 minutes after rollback
+
+**Stakeholder Communication:**
+
+1. Notify team via Slack/email immediately after rollback
+2. Document root cause and affected timeframe
+3. Create incident report if rollback was due to user-facing issues
+
 ---
 
 ## Part 3: Monitoring and Logging
@@ -390,6 +416,7 @@ docker run -p 5000:5000 bouldering:previous-tag
 During staging:
 
 1. **Prediction Distribution**: Track predicted grades
+
    ```sql
    SELECT predicted_grade, COUNT(*)
    FROM analyses
@@ -398,6 +425,7 @@ During staging:
    ```
 
 2. **Wall Incline Usage**: Track which angles are selected
+
    ```sql
    SELECT wall_incline, COUNT(*)
    FROM analyses
@@ -429,10 +457,35 @@ logging.basicConfig(
 ```
 
 Key log points for Phase 1a:
+
 - Prediction requests (wall_incline, hold counts)
 - Factor scores (all 4 factors)
 - Final predicted grade
 - Any errors or edge cases
+
+### 3.3 Alert Thresholds
+
+Configure alerts for anomalous patterns:
+
+| Metric | Threshold | Alert Condition |
+| :----: | :-------: | :-------------: |
+| V12 predictions | > 10% of total | May indicate scoring bug |
+| Average confidence | < 0.5 | Detection quality issue |
+| Prediction latency | > 500ms p95 | Performance degradation |
+| Error rate | > 5% | Application instability |
+
+**Log Retention Policy:**
+
+- Staging logs: 30 days
+- Production logs: 90 days
+- Calibration data: Indefinite (for model improvement)
+
+**Dashboard Metrics to Display:**
+
+- Prediction distribution histogram (V0-V12)
+- Wall incline selection breakdown (pie chart)
+- Average response time (line chart, hourly)
+- Error rate over time (line chart, daily)
 
 ---
 

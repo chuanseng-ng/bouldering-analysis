@@ -539,7 +539,11 @@ Factor 1 evaluates hold difficulty through:
 
 **Result**: Comprehensive hold difficulty score (range ~1-13) that properly accounts for hands, feet, and orientation.
 
-**Configuration Note**: Wall-angle weights are shared with Factor 2 from `grade_prediction.wall_angle_weights` config. See [Implementation Notes](implementation_notes.md#wall-angle-weight-configuration) for details.
+**Configuration Note**:
+- **Phase 1a (MVP)**: Uses hardcoded constant 60/40 handhold/foothold weights (wall-angle-independent)
+- **Phase 1b**: Will read wall-angle-dependent weights from `grade_prediction.wall_angle_weights` config, shared with Factor 2
+
+See [Implementation Notes](implementation_notes.md#wall-angle-weight-configuration) for full configuration details.
 
 **Next**: Combine with [Factor 2 (Hold Density)](factor2_hold_density.md), [Factor 3 (Distances)](factor3_hold_distances.md), and [Factor 4 (Wall Incline)](factor4_wall_incline.md).
 

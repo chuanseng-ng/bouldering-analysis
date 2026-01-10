@@ -215,7 +215,7 @@ def calculate_segmented_wall_score(wall_segments: list) -> float:
 
     Args:
         wall_segments: List of (angle_category, proportion) tuples
-            Example: [('vertical', 0.6), ('overhang', 0.4)]
+            Example: [('vertical', 0.6), ('moderate_overhang', 0.4)]
 
     Returns:
         Weighted average wall score

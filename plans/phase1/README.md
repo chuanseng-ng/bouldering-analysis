@@ -193,15 +193,16 @@ phase1/
 - [x] All 4 factors implemented
 - [x] Basic prediction working (even if accuracy moderate)
 - [x] Prediction time < 100ms
-- [ ] User feedback collection operational
+- [x] Clear explanations for predictions (score breakdown)
 - [x] Detailed logging for calibration
+- [ ] User feedback collection operational (deferred to Phase 1b)
 
 ### Target Accuracy (Phase 1b) - PENDING
 
+- [ ] User feedback mechanism deployed
 - [ ] Exact match: ≥60%
 - [ ] Within ±1 grade: ≥80%
 - [ ] No regressions from current system
-- [x] Clear explanations for predictions
 
 ### Advanced Features (Phase 1c) - PENDING
 

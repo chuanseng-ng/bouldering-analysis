@@ -152,12 +152,14 @@ def calculate_factor2_score(
 **Principle**: Factor 1 (Hold Difficulty) and Factor 2 (Hold Density) share the same wall-angle weights from a single configuration source during initial deployment.
 
 **Rationale**:
+
 - Both factors use handhold/foothold weighting that varies by wall angle
 - Maintaining consistency simplifies initial calibration
 - Reduces configuration complexity and potential for conflicting adjustments
 - Follows the "validate-then-diverge" principle: prove shared weights are insufficient before splitting
 
 **Configuration Source** (Phase 1b):
+
 ```yaml
 # src/cfg/user_config.yaml
 grade_prediction:
@@ -178,7 +180,7 @@ Independent calibration (separate weights for Factor 1 vs Factor 2) should **onl
 #### Prerequisites Before Considering Independent Weights
 
 | Requirement | Threshold | Rationale |
-|-------------|-----------|-----------|
+| :---------: | :-------: | :-------: |
 | Sample size | ≥100 analyzed routes | Statistical significance |
 | Data collection period | ≥2 weeks | Capture diverse route types |
 | Wall angle coverage | ≥3 angle categories with 20+ samples each | Ensure angle-specific patterns are real |
@@ -198,7 +200,7 @@ Consider independent weights when **both** conditions are met:
 
 #### Decision Workflow
 
-```
+```text
 1. Collect 100+ samples with user feedback
 2. Calculate prediction accuracy by wall angle
 3. Check: Do Factor 1 and Factor 2 show similar accuracy patterns?
@@ -242,7 +244,8 @@ When collecting user feedback, specific patterns indicate wall-angle weight adju
 3. **Sample requirement**: ≥20 routes in that angle category
 
 **Example Analysis:**
-```
+
+```text
 Slab routes (n=35):
 - Over-predicted: 24 (69%)  ← Exceeds 60% threshold
 - Under-predicted: 8 (23%)
@@ -256,7 +259,7 @@ Slab routes (n=35):
 **Before adjusting wall-angle weights, rule out factor-level issues:**
 
 | Symptom | Factor Issue (Not Weight) | Weight Issue |
-|---------|---------------------------|--------------|
+| :-----: | :-----------------------: | :----------: |
 | All angles show similar bias | Factor formula needs adjustment | Unlikely weight issue |
 | One angle shows unique bias | Check that angle's routes | Likely weight issue |
 | Bias correlates with hold count | Density formula issue | Unlikely weight issue |
@@ -270,11 +273,13 @@ Slab routes (n=35):
 **Observation**: Slab routes predicted V4 on average, users report V3 on average.
 
 **Diagnosis**:
+
 - Check if Factor 1 (hold difficulty) is over-scoring slab holds → No, hold scores reasonable
 - Check if density formula is harsh → No, other angles are accurate
 - Conclusion: Foothold weight too low for slabs (their ease isn't captured)
 
 **Adjustment**: Increase slab foothold weight from 0.60 to 0.65
+
 - More foothold influence → Lower Factor 2 score → Lower final prediction
 
 #### Scenario 2: Steep Overhang Under-Prediction
@@ -282,11 +287,13 @@ Slab routes (n=35):
 **Observation**: Steep overhang routes predicted V6 on average, users report V8 on average.
 
 **Diagnosis**:
+
 - Check Factor 4 (wall incline score) → Correct at 11.0
 - Check handhold density → Reasonable
 - Conclusion: Handhold difficulty not weighted enough on overhangs
 
 **Adjustment**: Increase steep overhang handhold weight from 0.75 to 0.80
+
 - More handhold influence → Higher Factor 1/2 scores → Higher final prediction
 
 #### Scenario 3: Mixed Results (No Clear Pattern)
@@ -294,6 +301,7 @@ Slab routes (n=35):
 **Observation**: Some slabs over-predicted, some under-predicted, no pattern.
 
 **Diagnosis**:
+
 - Variance is random, not systematic
 - Sample size may be too small
 - Individual route variation (not weight issue)

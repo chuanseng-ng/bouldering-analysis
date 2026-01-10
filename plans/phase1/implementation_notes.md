@@ -46,22 +46,22 @@ This document provides practical technical guidance for implementing the Phase 1
 **Goal**: Improve accuracy through calibration and add slant consideration
 
 **Activities**:
+
 1. **Analyze Feedback Patterns**:
-2. 
    - Which grades are consistently over/under-predicted?
    - Do slabs/overhangs have systematic bias?
    - Are sparse vs dense routes mis-predicted?
 
-3. **Calibrate Factor Weights**:
+2. **Calibrate Factor Weights**:
    - Adjust weights (0.35, 0.25, 0.20, 0.20) based on correlation with feedback
    - Example: If hold types dominate difficulty, increase Factor 1 weight to 0.40
 
-4. **Calibrate Difficulty Tiers**:
+3. **Calibrate Difficulty Tiers**:
    - Adjust hold type scores (crimps = 10, jugs = 1, etc.)
    - Adjust size thresholds (500px², 1500px², etc.)
    - Adjust wall incline scores (slab = 3.0, overhang = 9.0, etc.)
 
-5. **Add Hold Slant Adjustments**:
+4. **Add Hold Slant Adjustments**:
    - Implement slant angle detection or manual annotation
    - Apply slant multipliers to hold scores
    - Validate improvement in accuracy
@@ -77,21 +77,24 @@ This document provides practical technical guidance for implementing the Phase 1
 
 #### 7-Step Calibration Procedure
 
-**Step 1: Deploy with Logging**
+##### Step 1: Deploy with Logging
+
 - Deploy Phase 1a MVP with comprehensive logging enabled
 - Ensure all predictions log: wall angle, factor scores, final prediction
 - Verify user feedback collection is functional
 
-**Step 2: Data Collection (Minimum Requirements)**
+##### Step 2: Data Collection (Minimum Requirements)
+
 - **Sample size**: ≥100 analyzed routes with user feedback
 - **Wall angle coverage**: ≥3 angle categories with 20+ samples each
 - **Collection period**: ≥2 weeks to capture diverse route types
 - **Quality check**: Exclude obvious outliers (user error, mislabeled routes)
 
-**Step 3: Bias Analysis**
+##### Step 3: Bias Analysis
 
 ```sql
 -- Error distribution by wall angle
+-- Note: Uses calibration_logs table (joined analyses + feedback data)
 SELECT
     wall_incline,
     COUNT(*) as total,
@@ -99,7 +102,7 @@ SELECT
     SUM(CASE WHEN predicted_grade < user_grade THEN 1 ELSE 0 END) as under_predicted,
     SUM(CASE WHEN predicted_grade = user_grade THEN 1 ELSE 0 END) as accurate,
     AVG(ABS(predicted_grade_num - user_grade_num)) as mae
-FROM analysis_feedback
+FROM calibration_logs
 GROUP BY wall_incline;
 
 -- Factor-specific accuracy by angle
@@ -108,20 +111,20 @@ SELECT
     AVG(factor1_score) as avg_hold_difficulty,
     AVG(factor2_score) as avg_hold_density,
     STDDEV(final_score - user_grade_num) as prediction_stddev
-FROM analysis_feedback
+FROM calibration_logs
 GROUP BY wall_incline;
 ```
 
-**Step 4: Identify Adjustment Targets**
+##### Step 4: Identify Adjustment Targets
 
 | Bias Pattern | Primary Adjustment | Secondary Check |
-|--------------|-------------------|-----------------|
+| :----------: | :----------------: | :-------------: |
 | Slab over-predicted | Increase slab foothold weight | Check Factor 1 hold scores |
 | Overhang under-predicted | Increase overhang handhold weight | Check Factor 4 wall score |
 | All angles biased similarly | Adjust factor weights | Check grade mapping thresholds |
 | High variance, no pattern | Collect more data | Check detection quality |
 
-**Step 5: Apply Adjustments**
+##### Step 5: Apply Adjustments
 
 Update `src/cfg/user_config.yaml`:
 
@@ -137,15 +140,17 @@ grade_prediction:
 
 Adjustment increments: ±0.05 per iteration (e.g., 0.60 → 0.65)
 
-**Step 6: Validation**
+##### Step 6: Validation
+
 - Deploy adjusted config to staging
 - Test with 20-30 routes across affected angle categories
 - Compare accuracy metrics before/after
 - Acceptance criteria: ≥5% improvement in affected category, no regression elsewhere
 
-**Step 7: Independent Calibration Trigger (If Needed)**
+##### Step 7: Independent Calibration Trigger (If Needed)
 
 Consider splitting Factor 1 and Factor 2 weights only if:
+
 - Shared weight adjustment improves one factor but degrades another
 - Factor-specific bias ≥15% for a wall angle category
 - Sample size ≥150 routes with feedback
@@ -267,7 +272,7 @@ calibration_log = {
     "analysis_id": "uuid-here",
 
     # Input features
-    "wall_angle": "moderate_overhang",
+    "wall_incline": "moderate_overhang",
     "handhold_count": 8,
     "foothold_count": 4,
     "image_height": 1200,
@@ -319,7 +324,7 @@ logger.info("CALIBRATION_LOG: %s", json.dumps(calibration_log))
 
 ```sql
 SELECT
-    wall_angle,
+    wall_incline,
     COUNT(*) as sample_count,
     AVG(error) as mean_error,  -- Negative = under-predicted
     AVG(ABS(error)) as mae,
@@ -328,7 +333,7 @@ SELECT
     SUM(CASE WHEN error = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as pct_exact
 FROM calibration_logs
 WHERE user_grade IS NOT NULL
-GROUP BY wall_angle
+GROUP BY wall_incline
 ORDER BY mae DESC;
 ```
 
@@ -336,14 +341,14 @@ ORDER BY mae DESC;
 
 ```sql
 SELECT
-    wall_angle,
+    wall_incline,
     AVG(factor1_score) as avg_f1,
     AVG(factor2_score) as avg_f2,
     CORR(factor1_score, error) as f1_error_correlation,
     CORR(factor2_score, error) as f2_error_correlation
 FROM calibration_logs
 WHERE user_grade IS NOT NULL
-GROUP BY wall_angle;
+GROUP BY wall_incline;
 ```
 
 **Bias Direction Analysis**:
@@ -351,7 +356,7 @@ GROUP BY wall_angle;
 ```sql
 -- Identify angles with systematic over/under-prediction
 SELECT
-    wall_angle,
+    wall_incline,
     CASE
         WHEN AVG(error) > 0.3 THEN 'OVER_PREDICTED'
         WHEN AVG(error) < -0.3 THEN 'UNDER_PREDICTED'
@@ -361,7 +366,7 @@ SELECT
     COUNT(*) as sample_count
 FROM calibration_logs
 WHERE user_grade IS NOT NULL
-GROUP BY wall_angle
+GROUP BY wall_incline
 HAVING COUNT(*) >= 20;  -- Minimum sample size
 ```
 
