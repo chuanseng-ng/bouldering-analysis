@@ -441,17 +441,18 @@ def calculate_factor1_score(
 
 ### Minimum Viable Implementation
 
-**Phase 1a (Basic):**
-1. Implement handhold and foothold size-based scoring
-2. Use neutral slant multiplier (1.0) for all holds
-3. Apply wall-angle-dependent weighting
-4. Collect feedback on predictions
+**Phase 1a (Basic)** - IMPLEMENTED ✅:
+1. [x] Implement handhold and foothold size-based scoring (`src/grade_prediction_mvp.py`)
+2. [x] Use neutral slant multiplier (1.0) for all holds
+3. [x] Apply constant 60/40 weighting (wall-angle-dependent deferred to Phase 1b)
+4. [ ] Collect feedback on predictions
 
-**Phase 1b (Slant Integration):**
-1. Add slant angle detection or manual annotation
-2. Implement slant adjustment multipliers
-3. Calibrate slant impact based on user feedback
-4. Monitor accuracy improvement
+**Phase 1b (Slant Integration)** - PENDING:
+1. [ ] Add slant angle detection or manual annotation
+2. [ ] Implement slant adjustment multipliers
+3. [ ] Implement wall-angle-dependent foothold weighting
+4. [ ] Calibrate slant impact based on user feedback
+5. [ ] Monitor accuracy improvement
 
 ### Calibration Strategy
 
@@ -495,11 +496,11 @@ def calculate_factor1_score(
 
 Factor 1 evaluates hold difficulty through:
 
-1. ✅ **Hold type tiers** (crimps hardest, jugs easiest)
-2. ✅ **Size adjustments** (smaller = harder)
-3. ✅ **Slant angle multipliers** (downward harder, upward easier)
-4. ✅ **Foothold quality** (size, scarcity, slant)
-5. ✅ **Wall-angle weighting** (65% footholds on slabs, 25% on overhangs)
+1. [x] **Hold type tiers** (crimps hardest, jugs easiest) - IMPLEMENTED
+2. [x] **Size adjustments** (smaller = harder) - IMPLEMENTED
+3. [ ] **Slant angle multipliers** (downward harder, upward easier) - DEFERRED to Phase 1b
+4. [x] **Foothold quality** (size, scarcity) - IMPLEMENTED (slant deferred)
+5. [ ] **Wall-angle weighting** (65% footholds on slabs, 25% on overhangs) - DEFERRED to Phase 1b (using constant 60/40 in MVP)
 
 **Result**: Comprehensive hold difficulty score (range ~1-13) that properly accounts for hands, feet, and orientation.
 

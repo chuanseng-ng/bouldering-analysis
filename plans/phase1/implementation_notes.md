@@ -6,19 +6,19 @@ This document provides practical technical guidance for implementing the Phase 1
 
 ## Staged Implementation Approach
 
-### Phase 1a: Basic 4-Factor Model (Weeks 1-4)
+### Phase 1a: Basic 4-Factor Model (Weeks 1-4) - IMPLEMENTED ✅
 
 **Goal**: Working prediction system, even if accuracy is initially moderate
 
-**Implement**:
+**Implemented** (see `src/grade_prediction_mvp.py`):
 
-1. ✅ Factor 1: Hold difficulty (handhold + foothold, basic size tiers)
-2. ✅ Factor 2: Hold density (handhold + foothold counts)
-3. ✅ Factor 3: Inter-hold distances (average distance score)
-4. ✅ Factor 4: Wall incline (manual user input)
-5. ✅ Combined scoring with initial weights (0.35, 0.25, 0.20, 0.20)
-6. ✅ Grade mapping (score → V0-V12)
-7. ✅ User feedback collection (actual difficulty vs predicted)
+1. [x] Factor 1: Hold difficulty (handhold + foothold, basic size tiers)
+2. [x] Factor 2: Hold density (handhold + foothold counts)
+3. [x] Factor 3: Inter-hold distances (average distance score)
+4. [x] Factor 4: Wall incline (manual user input)
+5. [x] Combined scoring with initial weights (0.35, 0.25, 0.20, 0.20)
+6. [x] Grade mapping (score → V0-V12)
+7. [ ] User feedback collection (actual difficulty vs predicted)
 
 **DO NOT implement yet**:
 
@@ -529,14 +529,14 @@ def test_no_regression_on_calibration_routes():
 
 ## Deployment Checklist
 
-**Before deploying Phase 1a**:
+**Before deploying Phase 1a** - COMPLETED ✅:
 
-- [ ] All unit tests passing
-- [ ] Database migration tested
+- [x] All unit tests passing
+- [x] Database migration tested
 - [ ] User feedback mechanism functional
-- [ ] Logging infrastructure in place
-- [ ] Configuration file validated
-- [ ] Edge cases handled (0 holds, missing data)
+- [x] Logging infrastructure in place
+- [x] Configuration file validated
+- [x] Edge cases handled (0 holds, missing data)
 
 **Before deploying Phase 1b**:
 

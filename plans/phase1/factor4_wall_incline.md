@@ -236,25 +236,26 @@ def calculate_segmented_wall_score(wall_segments: list) -> float:
 
 ## Implementation Notes
 
-### Phase 1a (MVP)
+### Phase 1a (MVP) - IMPLEMENTED ✅
 
-1. Add wall angle dropdown to route upload form
-2. Store wall angle in database (`wall_incline` field)
-3. Calculate wall incline score using direct mapping
-4. Combine with Factors 1-3 using 20% weight
+1. [x] Add wall angle dropdown to route upload form (`src/main.py`)
+2. [x] Store wall angle in database (`wall_incline` field in Analysis model)
+3. [x] Calculate wall incline score using direct mapping (`src/grade_prediction_mvp.py`)
+4. [x] Combine with Factors 1-3 using 20% weight
+5. [x] Wall incline validation with `WallInclineType` enum
 
-### Phase 1b (Calibration)
+### Phase 1b (Calibration) - PENDING
 
-1. Analyze user feedback by wall angle
-2. Adjust difficulty scores (3.0, 6.0, 7.5, 9.0, 11.0)
-3. Optionally adjust wall angle weight (20%)
-4. Monitor slab vs overhang prediction accuracy separately
+1. [ ] Analyze user feedback by wall angle
+2. [ ] Adjust difficulty scores (3.0, 6.0, 7.5, 9.0, 11.0) based on feedback
+3. [ ] Optionally adjust wall angle weight (20%)
+4. [ ] Monitor slab vs overhang prediction accuracy separately
 
-### Phase 1c (Advanced Features)
+### Phase 1c (Advanced Features) - PENDING
 
-1. Implement wall segment support
-2. Add wall transition complexity multiplier
-3. Test automatic wall angle detection (optional)
+1. [ ] Implement wall segment support (multiple angles per route)
+2. [ ] Add wall transition complexity multiplier
+3. [ ] Test automatic wall angle detection (optional)
 
 ### Data Model
 
@@ -308,10 +309,10 @@ wall_segments = Column(JSON, nullable=True)
 
 Factor 4 evaluates wall angle impact through:
 
-1. ✅ **Wall angle categories** - Slab to steep overhang
-2. ✅ **Biomechanical difficulty scaling** - 0.75x to 1.85x multipliers
-3. ✅ **Manual user input** - Simple dropdown selection
-4. ✅ **Future: Segment support** - Routes with multiple angles
+1. [x] **Wall angle categories** - Slab to steep overhang (5 categories) - IMPLEMENTED
+2. [x] **Biomechanical difficulty scaling** - Score-based mapping (3.0 to 11.0) - IMPLEMENTED
+3. [x] **Manual user input** - Simple dropdown selection - IMPLEMENTED
+4. [ ] **Segment support** - Routes with multiple angles - DEFERRED to Phase 1c
 
 **Result**: Wall incline difficulty score (range 1-12) or multiplier (0.75-1.85) reflecting biomechanical demands.
 

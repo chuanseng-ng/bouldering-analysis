@@ -234,19 +234,20 @@ def calculate_factor2_score(
 
 ### Minimum Viable Implementation
 
-**Phase 1a:**
+**Phase 1a** - IMPLEMENTED ✅ (see `src/grade_prediction_mvp.py`):
 
-1. Count handholds and footholds separately
-2. Apply density formulas
-3. Combine with wall-angle weights
-4. Log predictions and feedback
+1. [x] Count handholds and footholds separately
+2. [x] Apply density formulas (logarithmic for handholds, tiered for footholds)
+3. [x] Combine with constant 60/40 weights (wall-angle-dependent deferred to Phase 1b)
+4. [x] Log predictions with score breakdown
 
-**Phase 1b (Calibration):**
+**Phase 1b (Calibration)** - PENDING:
 
-1. Analyze prediction accuracy by hold count
-2. Adjust logarithmic multiplier (2.5) if needed
-3. Refine foothold density thresholds (2, 4, 6, 10)
-4. Calibrate wall-angle weights independently if helpful
+1. [ ] Analyze prediction accuracy by hold count
+2. [ ] Adjust logarithmic multiplier (2.5) if needed
+3. [ ] Refine foothold density thresholds (2, 5, 8)
+4. [ ] Implement wall-angle-dependent weights (40/60 for slabs, 75/25 for overhangs)
+5. [ ] Calibrate wall-angle weights independently if helpful
 
 ### Data Collection for Calibration
 
@@ -309,10 +310,10 @@ def calculate_factor2_score(
 
 Factor 2 evaluates hold availability through:
 
-1. ✅ **Handhold density** - Logarithmic penalty for sparse holds
-2. ✅ **Foothold density** - Steeper penalty for missing footholds
-3. ✅ **Wall-angle weighting** - Importance varies by terrain
-4. ✅ **Campusing detection** - Maximum penalty for zero footholds
+1. [x] **Handhold density** - Logarithmic penalty for sparse holds - IMPLEMENTED
+2. [x] **Foothold density** - Steeper penalty for missing footholds - IMPLEMENTED
+3. [ ] **Wall-angle weighting** - Importance varies by terrain - DEFERRED to Phase 1b (using constant 60/40 in MVP)
+4. [x] **Campusing detection** - Maximum penalty for zero footholds - IMPLEMENTED
 
 **Result**: Hold density score (range ~1-12) reflecting movement options and balance constraints.
 

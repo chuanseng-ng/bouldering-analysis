@@ -4,7 +4,7 @@
 
 Phase 1 implements a sophisticated, multi-factor algorithm to predict climbing route difficulty (V0-V12) from detected route characteristics.
 
-**Status**: Core implementation - highest priority
+**Status**: Phase 1a MVP implemented ✅ - Calibration and testing in progress
 
 **Objective**: Replace the current simplified grade prediction with a climbing domain-aware algorithm that considers multiple difficulty factors.
 
@@ -186,27 +186,27 @@ phase1/
 
 ## Success Criteria
 
-### Minimum Viable (Phase 1a)
+### Minimum Viable (Phase 1a) - IMPLEMENTED ✅
 
-- ✅ All 4 factors implemented
-- ✅ Basic prediction working (even if accuracy moderate)
-- ✅ Prediction time < 100ms
-- ✅ User feedback collection operational
-- ✅ Detailed logging for calibration
+- [x] All 4 factors implemented
+- [x] Basic prediction working (even if accuracy moderate)
+- [x] Prediction time < 100ms
+- [ ] User feedback collection operational
+- [x] Detailed logging for calibration
 
-### Target Accuracy (Phase 1b)
+### Target Accuracy (Phase 1b) - PENDING
 
-- ✅ Exact match: ≥60%
-- ✅ Within ±1 grade: ≥80%
-- ✅ No regressions from current system
-- ✅ Clear explanations for predictions
+- [ ] Exact match: ≥60%
+- [ ] Within ±1 grade: ≥80%
+- [ ] No regressions from current system
+- [x] Clear explanations for predictions
 
-### Advanced Features (Phase 1c)
+### Advanced Features (Phase 1c) - PENDING
 
-- ✅ Complexity multipliers integrated
-- ✅ Exact match: ≥70%
-- ✅ Within ±1 grade: ≥85%
-- ✅ User satisfaction >3.5/5.0
+- [ ] Complexity multipliers integrated
+- [ ] Exact match: ≥70%
+- [ ] Within ±1 grade: ≥85%
+- [ ] User satisfaction >3.5/5.0
 
 ## Next Steps
 
