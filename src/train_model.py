@@ -174,12 +174,8 @@ def validate_classification_dataset(
         )
 
     # Get class names from training directory (subdirectories = classes)
-    train_classes = sorted(
-        [d.name for d in train_dir.iterdir() if d.is_dir()]
-    )
-    val_classes = sorted(
-        [d.name for d in val_dir.iterdir() if d.is_dir()]
-    )
+    train_classes = sorted([d.name for d in train_dir.iterdir() if d.is_dir()])
+    val_classes = sorted([d.name for d in val_dir.iterdir() if d.is_dir()])
 
     if not train_classes:
         raise TrainingError(
@@ -859,8 +855,7 @@ def main(
     # Validate model type
     if model_type not in VALID_MODEL_TYPES:
         raise TrainingError(
-            f"Invalid model type: {model_type}. "
-            f"Valid types: {VALID_MODEL_TYPES}"
+            f"Invalid model type: {model_type}. Valid types: {VALID_MODEL_TYPES}"
         )
 
     is_classification = model_type == MODEL_TYPE_HOLD_CLASSIFICATION
@@ -886,9 +881,7 @@ def main(
             if is_classification:
                 # Classification-specific defaults
                 if img_size is None:
-                    img_size = get_config_value(
-                        "training.classification_img_size", 224
-                    )
+                    img_size = get_config_value("training.classification_img_size", 224)
                 if data_path is None:
                     data_path = str(  # pragma: no cover
                         get_data_path("hold_classification_dataset")
@@ -906,7 +899,9 @@ def main(
                         get_data_path("hold_dataset") / "data.yaml"
                     )
                 if base_weights is None:
-                    base_weights = str(get_model_path("base_yolov8"))  # pragma: no cover
+                    base_weights = str(
+                        get_model_path("base_yolov8")
+                    )  # pragma: no cover
 
         except ConfigurationError as e:
             logger.warning("Configuration loading warning: %s", e)
@@ -928,7 +923,9 @@ def main(
         # Ensure epochs, batch_size, and img_size are not None at this point
         final_epochs = epochs if epochs is not None else 100
         final_batch_size = batch_size if batch_size is not None else 16
-        final_img_size = img_size if img_size is not None else (224 if is_classification else 640)
+        final_img_size = (
+            img_size if img_size is not None else (224 if is_classification else 640)
+        )
 
         if is_classification:
             # Classification training pipeline
