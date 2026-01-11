@@ -399,8 +399,11 @@ Slab routes (n=35):
 
 1. [x] Count handholds and footholds separately
 2. [x] Apply density formulas (logarithmic for handholds, tiered for footholds)
-3. [x] Combine with constant 60/40 weights (wall-angle-dependent deferred to Phase 1b)
-4. [x] Log predictions with score breakdown
+3. [x] Combine with constant 60% handholds / 40% footholds weights (wall-angle-dependent weights deferred to Phase 1b)
+4. [x] Log predictions with score breakdown (technical logging via `features_extracted` JSON in Analysis records)
+5. [ ] Collect feedback on predictions (user-facing feedback system - pending)
+
+**Note**: Item 4 (logging) is a technical implementation that stores prediction data for later analysis. Item 5 (feedback collection) is a user-facing feature that requires UI/UX for users to submit grade corrections. Both are necessary for Phase 1b calibration.
 
 **Phase 1b (Calibration)** - PENDING:
 
@@ -473,7 +476,7 @@ Factor 2 evaluates hold availability through:
 
 1. [x] **Handhold density** - Logarithmic penalty for sparse holds - IMPLEMENTED
 2. [x] **Foothold density** - Steeper penalty for missing footholds - IMPLEMENTED
-3. [ ] **Wall-angle weighting** - Importance varies by terrain - DEFERRED to Phase 1b (using constant 60/40 in MVP)
+3. [ ] **Wall-angle weighting** - Importance varies by terrain - DEFERRED to Phase 1b (MVP uses constant 60% handholds / 40% footholds)
 4. [x] **Campusing detection** - Maximum penalty for zero footholds - IMPLEMENTED
 
 **Result**: Hold density score (range ~1-12) reflecting movement options and balance constraints.

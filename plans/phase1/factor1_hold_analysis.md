@@ -477,7 +477,7 @@ def calculate_factor1_score(
 
 1. [x] Implement handhold and foothold size-based scoring (`src/grade_prediction_mvp.py`)
 2. [x] Use neutral slant multiplier (1.0) for all holds
-3. [x] Apply constant 60/40 weighting (wall-angle-dependent deferred to Phase 1b)
+3. [x] Apply constant 60% handholds / 40% footholds weighting (wall-angle-dependent weights deferred to Phase 1b)
 4. [ ] Collect feedback on predictions
 
 **Phase 1b (Slant Integration)** - PENDING:
@@ -492,13 +492,15 @@ def calculate_factor1_score(
 
 **Phase 1b Starting Values** (shared with Factor 2):
 
-| Wall Angle | Handhold Weight | Foothold Weight |
-| :--------: | :-------------: | :-------------: |
-| Slab | 0.40 | 0.60 |
-| Vertical | 0.55 | 0.45 |
-| Slight Overhang | 0.60 | 0.40 |
-| Moderate Overhang | 0.70 | 0.30 |
-| Steep Overhang | 0.75 | 0.25 |
+| Wall Angle | Handhold Weight | Foothold Weight | Sum |
+| :--------: | :-------------: | :-------------: | :-: |
+| Slab | 0.40 | 0.60 | 1.0 |
+| Vertical | 0.55 | 0.45 | 1.0 |
+| Slight Overhang | 0.60 | 0.40 | 1.0 |
+| Moderate Overhang | 0.70 | 0.30 | 1.0 |
+| Steep Overhang | 0.75 | 0.25 | 1.0 |
+
+**Critical Invariant**: For each wall angle, `handhold_weight + foothold_weight` **MUST equal 1.0**. This ensures the combined score formula produces correctly normalized results. Any deviation from this invariant will cause scoring errors.
 
 **Key Points**:
 
@@ -510,9 +512,40 @@ def calculate_factor1_score(
 **Configuration Access**:
 
 ```python
-# Factor 1 reads from shared config
+# Factor 1 reads from shared config with validation
 hand_weight, foot_weight = get_wall_angle_weights(wall_angle)
+
+# IMPORTANT: Weights must sum to 1.0 - enforce during config parsing
+assert abs((hand_weight + foot_weight) - 1.0) < 0.001, (
+    f"Wall angle weights must sum to 1.0, got {hand_weight + foot_weight}"
+)
+
 factor1_score = (handhold_score * hand_weight) + (foothold_score * foot_weight)
+```
+
+**Validation Requirements**:
+
+Config parsing/loading MUST validate this invariant at startup:
+
+1. **On config load**: Check that each wall angle entry has weights summing to 1.0
+2. **Tolerance**: Use `abs(sum - 1.0) < 0.001` to allow for floating-point precision
+3. **Fail fast**: Raise `ConfigurationError` before runtime if validation fails
+4. **Log warnings**: If weights are missing for any wall angle, log and use defaults
+
+Example validation in `config.py`:
+
+```python
+def validate_wall_angle_weights(config: dict) -> None:
+    """Validate wall angle weights sum to 1.0 for each angle."""
+    weights = config.get("grade_prediction", {}).get("wall_angle_weights", {})
+    for angle, values in weights.items():
+        hand = values.get("handhold", 0.0)
+        foot = values.get("foothold", 0.0)
+        if abs((hand + foot) - 1.0) >= 0.001:
+            raise ConfigurationError(
+                f"Wall angle '{angle}' weights must sum to 1.0, "
+                f"got handhold={hand} + foothold={foot} = {hand + foot}"
+            )
 ```
 
 **Cross-Reference**: See [Factor 2 Hold Density - Wall-Angle Weight Calibration Strategy](factor2_hold_density.md#wall-angle-weight-calibration-strategy) for:
@@ -580,14 +613,17 @@ Factor 1 evaluates hold difficulty through:
 2. [x] **Size adjustments** (smaller = harder) - IMPLEMENTED
 3. [ ] **Slant angle multipliers** (downward harder, upward easier) - DEFERRED to Phase 1b
 4. [x] **Foothold quality** (size, scarcity) - IMPLEMENTED (slant deferred)
-5. [ ] **Wall-angle weighting** (60% footholds on slabs, 25% on overhangs) - DEFERRED to Phase 1b (using constant 60/40 in MVP, shared config with Factor 2)
+5. [ ] **Wall-angle weighting** (65% footholds on slabs, 25% on steep overhangs) - DEFERRED to Phase 1b (MVP uses constant 60% handholds / 40% footholds regardless of wall angle; shared config with Factor 2)
 
 **Result**: Comprehensive hold difficulty score (range ~1-13) that properly accounts for hands, feet, and orientation.
 
 **Configuration Note**:
 
-- **Phase 1a (MVP)**: Uses hardcoded constant 60/40 handhold/foothold weights (wall-angle-independent)
-- **Phase 1b**: Will read wall-angle-dependent weights from `grade_prediction.wall_angle_weights` config, shared with Factor 2
+- **Phase 1a (MVP)**: Uses constant **60% handholds / 40% footholds** weighting for all wall angles (wall-angle-independent). This approximates vertical wall biomechanics.
+- **Phase 1b**: Will read wall-angle-dependent weights from `grade_prediction.wall_angle_weights` config, shared with Factor 2:
+  - Slab: 40% handholds / 60% footholds (footwork-dominant)
+  - Vertical: 55% handholds / 45% footholds (balanced)
+  - Steep Overhang: 75% handholds / 25% footholds (upper-body-dominant)
 
 See [Implementation Notes](implementation_notes.md#wall-angle-weight-configuration) for full configuration details.
 

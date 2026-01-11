@@ -56,7 +56,7 @@ def create_test_image() -> io.BytesIO:
 class TestWallInclineValidation:
     """Test wall_incline validation in API endpoints."""
 
-    def test_analyze_with_valid_wall_inclines(self, test_client, test_app):
+    def test_analyze_with_valid_wall_inclines(self, test_client):
         """Test /analyze accepts all valid wall_incline values."""
         valid_inclines = [
             "slab",
@@ -100,7 +100,7 @@ class TestWallInclineValidation:
         json_data = response.get_json()
         assert "Invalid wall incline" in json_data["error"]
 
-    def test_analyze_defaults_to_vertical(self, test_client, test_app):
+    def test_analyze_defaults_to_vertical(self, test_client):
         """Test /analyze defaults to 'vertical' when wall_incline not provided."""
         with patch("src.main.hold_detection_model") as mock_model:
             with patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"}):
@@ -168,7 +168,7 @@ class TestGradeVariesWithWallAngle:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_steeper_angles_produce_higher_scores(
-        self, mock_model, _mock_get_hold_types, test_client, test_app
+        self, mock_model, _mock_get_hold_types, test_client
     ):
         """Test that wall incline scores increase: slab < vertical < steep_overhang."""
         mock_model.return_value = [create_mock_yolo_result(num_boxes=8)]
@@ -197,10 +197,17 @@ class TestGradeVariesWithWallAngle:
 
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    def test_wall_incline_score_monotonicity(
-        self, mock_model, _mock_get_hold_types, test_client, test_app
+    def test_factor4_wall_incline_component_monotonicity(
+        self, mock_model, _mock_get_hold_types, test_client
     ):
-        """Test that wall_incline scores increase monotonically with steeper angles.
+        """Test that Factor 4 (wall_incline) component score increases monotonically.
+
+        This test verifies the wall_incline component score from the score breakdown
+        (i.e., score_breakdown["wall_incline"]), NOT the final combined grade.
+        The Factor 4 component represents the isolated wall angle difficulty
+        contribution before weighting and combination with other factors.
+
+        Expected ordering: slab (3.0) < vertical (6.0) < ... < steep_overhang (11.0)
 
         Note: Tests relative ordering rather than exact values to allow for
         Phase 1b calibration adjustments without breaking tests.
@@ -305,7 +312,7 @@ class TestScoreBreakdownValidation:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_breakdown_has_all_required_fields(
-        self, mock_model, _mock_get_hold_types, test_client, test_app
+        self, mock_model, _mock_get_hold_types, test_client
     ):
         """Test breakdown includes all 4 factors and metadata."""
         mock_model.return_value = [create_mock_yolo_result()]
@@ -341,7 +348,7 @@ class TestScoreBreakdownValidation:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_weighted_sum_calculation(
-        self, mock_model, _mock_get_hold_types, test_client, test_app
+        self, mock_model, _mock_get_hold_types, test_client
     ):
         """Test that final_score equals weighted sum of factors."""
         mock_model.return_value = [create_mock_yolo_result()]
@@ -383,7 +390,7 @@ class TestPerformance:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_prediction_under_500ms(
-        self, mock_model, _mock_get_hold_types, test_client, test_app
+        self, mock_model, _mock_get_hold_types, test_client
     ):
         """Test that full E2E request completes within 500ms.
 
@@ -422,9 +429,7 @@ class TestEdgeCases:
 
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    def test_no_holds_detected(
-        self, mock_model, _mock_get_hold_types, test_client, test_app
-    ):
+    def test_no_holds_detected(self, mock_model, _mock_get_hold_types, test_client):
         """Test handling when no holds are detected."""
         # Return empty detection result
         mock_result = Mock()
@@ -445,9 +450,7 @@ class TestEdgeCases:
 
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    def test_many_holds_detected(
-        self, mock_model, _mock_get_hold_types, test_client, test_app
-    ):
+    def test_many_holds_detected(self, mock_model, _mock_get_hold_types, test_client):
         """Test handling when many holds are detected."""
         mock_model.return_value = [create_mock_yolo_result(num_boxes=50)]
 
