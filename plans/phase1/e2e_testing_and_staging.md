@@ -226,7 +226,7 @@ def test_e2e_upload_and_analyze(test_client, mocker):
         assert 'predicted_grade' in data
         assert 'confidence' in data
         assert 'breakdown' in data
-        assert data['breakdown']['wall_angle'] == wall_incline
+        assert data['breakdown']['wall_incline'] == wall_incline
 
         img_bytes.seek(0)  # Reset for next iteration
 
