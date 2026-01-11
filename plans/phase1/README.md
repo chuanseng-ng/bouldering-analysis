@@ -4,7 +4,7 @@
 
 Phase 1 implements a sophisticated, multi-factor algorithm to predict climbing route difficulty (V0-V12) from detected route characteristics.
 
-**Status**: Core implementation - highest priority
+**Status**: Phase 1a MVP implemented ✅ - Calibration and testing in progress
 
 **Objective**: Replace the current simplified grade prediction with a climbing domain-aware algorithm that considers multiple difficulty factors.
 
@@ -176,37 +176,40 @@ See [`factor1_hold_analysis.md`](factor1_hold_analysis.md) for wall-angle-depend
 ```text
 phase1/
 ├── README.md                          (this file - overview)
+├── phase1a_mvp_specification.md       (MVP implementation spec)
 ├── factor1_hold_analysis.md           (hold types, sizes, slant angles)
 ├── factor2_hold_density.md            (hold count and spacing)
 ├── factor3_hold_distances.md          (inter-hold distances, reaches)
 ├── factor4_wall_incline.md            (wall angle impact)
 ├── complexity_multipliers.md          (transitions and variability)
-└── implementation_notes.md            (technical guidance, calibration)
+├── implementation_notes.md            (technical guidance, calibration)
+└── e2e_testing_and_staging.md         (E2E testing & deployment guide) [NEW]
 ```
 
 ## Success Criteria
 
-### Minimum Viable (Phase 1a)
+### Minimum Viable (Phase 1a) - IMPLEMENTED ✅
 
-- ✅ All 4 factors implemented
-- ✅ Basic prediction working (even if accuracy moderate)
-- ✅ Prediction time < 100ms
-- ✅ User feedback collection operational
-- ✅ Detailed logging for calibration
+- [x] All 4 factors implemented
+- [x] Basic prediction working (even if accuracy moderate)
+- [x] Prediction time < 100ms
+- [x] Clear explanations for predictions (score breakdown)
+- [x] Detailed logging for calibration
+- [ ] User feedback collection operational (deferred to Phase 1b)
 
-### Target Accuracy (Phase 1b)
+### Target Accuracy (Phase 1b) - PENDING
 
-- ✅ Exact match: ≥60%
-- ✅ Within ±1 grade: ≥80%
-- ✅ No regressions from current system
-- ✅ Clear explanations for predictions
+- [ ] User feedback mechanism deployed
+- [ ] Exact match: ≥60%
+- [ ] Within ±1 grade: ≥80%
+- [ ] No regressions from current system
 
-### Advanced Features (Phase 1c)
+### Advanced Features (Phase 1c) - PENDING
 
-- ✅ Complexity multipliers integrated
-- ✅ Exact match: ≥70%
-- ✅ Within ±1 grade: ≥85%
-- ✅ User satisfaction >3.5/5.0
+- [ ] Complexity multipliers integrated
+- [ ] Exact match: ≥70%
+- [ ] Within ±1 grade: ≥85%
+- [ ] User satisfaction >3.5/5.0
 
 ## Next Steps
 

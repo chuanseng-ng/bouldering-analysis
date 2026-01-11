@@ -145,7 +145,168 @@ def calculate_factor2_score(
 - **Vertical**: Balanced importance (45% foothold weight)
 - **Overhangs**: Handhold density matters more (25% foothold weight)
 
-**Note**: These weights are similar to Factor 1 but can be independently calibrated if needed.
+## Wall-Angle Weight Calibration Strategy
+
+### Shared-First Approach
+
+**Principle**: Factor 1 (Hold Difficulty) and Factor 2 (Hold Density) share the same wall-angle weights from a single configuration source during initial deployment.
+
+**Rationale**:
+
+- Both factors use handhold/foothold weighting that varies by wall angle
+- Maintaining consistency simplifies initial calibration
+- Reduces configuration complexity and potential for conflicting adjustments
+- Follows the "validate-then-diverge" principle: prove shared weights are insufficient before splitting
+
+**Configuration Source** (Phase 1b):
+
+```yaml
+# src/cfg/user_config.yaml
+grade_prediction:
+  wall_angle_weights:
+    slab:              { handhold: 0.40, foothold: 0.60 }
+    vertical:          { handhold: 0.55, foothold: 0.45 }
+    slight_overhang:   { handhold: 0.60, foothold: 0.40 }
+    moderate_overhang: { handhold: 0.70, foothold: 0.30 }
+    steep_overhang:    { handhold: 0.75, foothold: 0.25 }
+```
+
+Both `calculate_factor1_score()` and `calculate_factor2_score()` read from `wall_angle_weights`.
+
+### Decision Criteria for Independent Calibration
+
+Independent calibration (separate weights for Factor 1 vs Factor 2) should **only** be considered when empirical data shows factor-specific patterns that shared weights cannot address.
+
+#### Prerequisites Before Considering Independent Weights
+
+| Requirement | Threshold | Rationale |
+| :---------: | :-------: | :-------: |
+| Sample size | ≥100 analyzed routes | Statistical significance |
+| Data collection period | ≥2 weeks | Capture diverse route types |
+| Wall angle coverage | ≥3 angle categories with 20+ samples each | Ensure angle-specific patterns are real |
+| Systematic bias identified | Consistent directional error | Not random noise |
+
+#### Factor-Specific Bias Thresholds
+
+Consider independent weights when **both** conditions are met:
+
+1. **Shared weights cause conflicting optimization**:
+   - Adjusting weights to improve Factor 1 accuracy degrades Factor 2 accuracy (or vice versa)
+   - Example: Increasing slab foothold weight fixes Factor 1 over-prediction but causes Factor 2 under-prediction
+
+2. **Factor-specific bias exceeds threshold**:
+   - ≥15% deviation in prediction accuracy between Factor 1 and Factor 2 for a specific wall angle
+   - Example: Slab routes show 75% Factor 1 accuracy but only 58% Factor 2 accuracy
+
+#### Decision Workflow
+
+```text
+1. Collect 100+ samples with user feedback
+2. Calculate prediction accuracy by wall angle
+3. Check: Do Factor 1 and Factor 2 show similar accuracy patterns?
+   ├── YES → Keep shared weights, adjust values together
+   └── NO → Analyze factor-specific bias
+            ├── Bias < 15% → Continue with shared weights
+            └── Bias ≥ 15% → Document pattern and consider split
+                             └── Test independent weights on subset
+                                 └── Validate improvement before deploying
+```
+
+#### When NOT to Split Weights
+
+- Sample size too small (<100 routes)
+- Bias patterns are random (no consistent direction)
+- Adjustment to shared weights resolves both factors
+- Complexity cost outweighs marginal accuracy gain
+
+**Cross-Reference**: See [Factor 1 Hold Analysis](factor1_hold_analysis.md) for shared wall-angle weight documentation and [Implementation Notes](implementation_notes.md) for calibration workflow.
+
+## Detecting Weight Adjustment Needs
+
+### Observable Bias Patterns
+
+When collecting user feedback, specific patterns indicate wall-angle weight adjustments are needed:
+
+| Prediction Pattern | Likely Cause | Weight Adjustment |
+| :----------------: | :----------: | :---------------: |
+| Slab routes consistently over-predicted | Foothold importance underweighted | Increase slab foothold weight (e.g., 0.60 → 0.65) |
+| Slab routes consistently under-predicted | Foothold importance overweighted | Decrease slab foothold weight (e.g., 0.60 → 0.55) |
+| Overhang routes consistently over-predicted | Handhold importance underweighted | Increase overhang handhold weight (e.g., 0.75 → 0.80) |
+| Overhang routes consistently under-predicted | Handhold importance overweighted | Decrease overhang handhold weight (e.g., 0.75 → 0.70) |
+| Vertical routes show high variance | Weights may be correct, check other factors | No weight change; investigate Factor 1/3/4 |
+
+### Systematic Bias Thresholds
+
+**When to act on observed patterns:**
+
+1. **Direction consistency**: ≥60% of routes for an angle category show the same error direction (over or under)
+2. **Magnitude threshold**: Mean Absolute Error (MAE) ≥ 0.5 grades for that angle category
+3. **Sample requirement**: ≥20 routes in that angle category
+
+**Example Analysis:**
+
+```text
+Slab routes (n=35):
+- Over-predicted: 24 (69%)  ← Exceeds 60% threshold
+- Under-predicted: 8 (23%)
+- Accurate: 3 (8%)
+- MAE: 0.7 grades  ← Exceeds 0.5 threshold
+→ ACTION: Increase slab foothold weight
+```
+
+### Differential Diagnosis: Factor vs Wall-Angle Weight Issues
+
+**Before adjusting wall-angle weights, rule out factor-level issues:**
+
+| Symptom | Factor Issue (Not Weight) | Weight Issue |
+| :-----: | :-----------------------: | :----------: |
+| All angles show similar bias | Factor formula needs adjustment | Unlikely weight issue |
+| One angle shows unique bias | Check that angle's routes | Likely weight issue |
+| Bias correlates with hold count | Density formula issue | Unlikely weight issue |
+| Bias correlates with hold type distribution | Factor 1 base scores issue | Unlikely weight issue |
+| Bias correlates with angle only | Weight issue | Adjust wall-angle weights |
+
+### Concrete Adjustment Scenarios
+
+#### Scenario 1: Slab Over-Prediction
+
+**Observation**: Slab routes predicted V4 on average, users report V3 on average.
+
+**Diagnosis**:
+
+- Check if Factor 1 (hold difficulty) is over-scoring slab holds → No, hold scores reasonable
+- Check if density formula is harsh → No, other angles are accurate
+- Conclusion: Foothold weight too low for slabs (their ease isn't captured)
+
+**Adjustment**: Increase slab foothold weight from 0.60 to 0.65
+
+- More foothold influence → Lower Factor 2 score → Lower final prediction
+
+#### Scenario 2: Steep Overhang Under-Prediction
+
+**Observation**: Steep overhang routes predicted V6 on average, users report V8 on average.
+
+**Diagnosis**:
+
+- Check Factor 4 (wall incline score) → Correct at 11.0
+- Check handhold density → Reasonable
+- Conclusion: Handhold difficulty not weighted enough on overhangs
+
+**Adjustment**: Increase steep overhang handhold weight from 0.75 to 0.80
+
+- More handhold influence → Higher Factor 1/2 scores → Higher final prediction
+
+#### Scenario 3: Mixed Results (No Clear Pattern)
+
+**Observation**: Some slabs over-predicted, some under-predicted, no pattern.
+
+**Diagnosis**:
+
+- Variance is random, not systematic
+- Sample size may be too small
+- Individual route variation (not weight issue)
+
+**Action**: No weight adjustment. Continue collecting data.
 
 ## Context and Exceptions
 
@@ -234,19 +395,23 @@ def calculate_factor2_score(
 
 ### Minimum Viable Implementation
 
-**Phase 1a:**
+**Phase 1a** - IMPLEMENTED ✅ (see `src/grade_prediction_mvp.py`):
 
-1. Count handholds and footholds separately
-2. Apply density formulas
-3. Combine with wall-angle weights
-4. Log predictions and feedback
+1. [x] Count handholds and footholds separately
+2. [x] Apply density formulas (logarithmic for handholds, tiered for footholds)
+3. [x] Combine with constant 60% handholds / 40% footholds weights (wall-angle-dependent weights deferred to Phase 1b)
+4. [x] Log predictions with score breakdown (technical logging via `features_extracted` JSON in Analysis records)
+5. [ ] Collect feedback on predictions (user-facing feedback system - pending)
 
-**Phase 1b (Calibration):**
+**Note**: Item 4 (logging) is a technical implementation that stores prediction data for later analysis. Item 5 (feedback collection) is a user-facing feature that requires UI/UX for users to submit grade corrections. Both are necessary for Phase 1b calibration.
 
-1. Analyze prediction accuracy by hold count
-2. Adjust logarithmic multiplier (2.5) if needed
-3. Refine foothold density thresholds (2, 4, 6, 10)
-4. Calibrate wall-angle weights independently if helpful
+**Phase 1b (Calibration)** - PENDING:
+
+1. [ ] Analyze prediction accuracy by hold count
+2. [ ] Adjust logarithmic multiplier (2.5) if needed
+3. [ ] Refine foothold density thresholds (2, 5, 8)
+4. [ ] Implement wall-angle-dependent weights (40/60 for slabs, 75/25 for overhangs)
+5. [ ] Calibrate wall-angle weights independently if helpful
 
 ### Data Collection for Calibration
 
@@ -309,10 +474,10 @@ def calculate_factor2_score(
 
 Factor 2 evaluates hold availability through:
 
-1. ✅ **Handhold density** - Logarithmic penalty for sparse holds
-2. ✅ **Foothold density** - Steeper penalty for missing footholds
-3. ✅ **Wall-angle weighting** - Importance varies by terrain
-4. ✅ **Campusing detection** - Maximum penalty for zero footholds
+1. [x] **Handhold density** - Logarithmic penalty for sparse holds - IMPLEMENTED
+2. [x] **Foothold density** - Steeper penalty for missing footholds - IMPLEMENTED
+3. [ ] **Wall-angle weighting** - Importance varies by terrain - DEFERRED to Phase 1b (MVP uses constant 60% handholds / 40% footholds)
+4. [x] **Campusing detection** - Maximum penalty for zero footholds - IMPLEMENTED
 
 **Result**: Hold density score (range ~1-12) reflecting movement options and balance constraints.
 

@@ -9,6 +9,7 @@ Evaluate how wall angle affects climbing difficulty based on biomechanical princ
 ## Core Principle
 
 **Wall angle fundamentally changes climbing biomechanics:**
+
 - **Slabs** (< 90°): Footwork-dominant, balance-critical, technical
 - **Vertical** (90°): Balanced between hands and feet, standard baseline
 - **Overhangs** (> 90°): Upper body dominant, power and core strength
@@ -20,30 +21,35 @@ Evaluate how wall angle affects climbing difficulty based on biomechanical princ
 ### Classification
 
 **Slab**
+
 - **Angle**: 70° - 89° (leaning back from climber)
 - **Biomechanics**: Weight over feet, friction climbing, balance-critical
 - **Primary skills**: Footwork, balance, body positioning
 - **Difficulty modifier**: **0.65 - 0.80** (easier than vertical)
 
 **Vertical**
+
 - **Angle**: 90° (perfectly upright)
 - **Biomechanics**: Balanced load, standard climbing
 - **Primary skills**: All-around technique
 - **Difficulty modifier**: **1.0** (baseline)
 
 **Slight Overhang**
+
 - **Angle**: 91° - 105° (leaning toward climber)
 - **Biomechanics**: Increased upper body load, core engagement
 - **Primary skills**: Pulling strength, core tension
 - **Difficulty modifier**: **1.15 - 1.30**
 
 **Moderate Overhang**
+
 - **Angle**: 106° - 120° (significant overhang)
 - **Biomechanics**: Upper body dominant, sustained core tension
 - **Primary skills**: Power, lock-offs, core strength
 - **Difficulty modifier**: **1.40 - 1.60**
 
 **Steep Overhang (Roof)**
+
 - **Angle**: 121° - 135°+ (approaching horizontal)
 - **Biomechanics**: Nearly horizontal, extreme upper body and core demands
 - **Primary skills**: Campus strength, lock-offs, coordination
@@ -104,6 +110,7 @@ def get_wall_incline_multiplier(wall_angle_category: str) -> float:
 **Approach**: User selects wall angle from dropdown during route upload.
 
 **UI Options:**
+
 - Slab (< 90°)
 - Vertical (90°)
 - Slight Overhang (90° - 105°)
@@ -111,11 +118,13 @@ def get_wall_incline_multiplier(wall_angle_category: str) -> float:
 - Steep Overhang / Roof (> 120°)
 
 **Pros**:
+
 - Simple, accurate
 - No computer vision needed
 - User knows wall angle when climbing
 
 **Cons**:
+
 - Requires user input (minor friction)
 - May be forgotten or mis-selected
 
@@ -124,6 +133,7 @@ def get_wall_incline_multiplier(wall_angle_category: str) -> float:
 **Approach**: Use computer vision to detect wall angle from image.
 
 **Challenges**:
+
 - Requires reference lines or known geometry
 - Camera angle affects perception
 - Multiple wall angles in one image (transitions)
@@ -135,15 +145,18 @@ def get_wall_incline_multiplier(wall_angle_category: str) -> float:
 ### Example 1: V4 Slab Route
 
 **Setup:**
+
 - Wall angle: Slab
 - Factors 1-3 combined base score: 8.5
 
 **Calculation (Direct Mapping):**
+
 - Wall incline score: **3.0**
 - Factor 4 weight: 20%
 - Contribution: 3.0 × 0.20 = **0.60**
 
 **Calculation (Multiplier Approach):**
+
 - Base score (Factors 1-3, weight 80%): 8.5 × 0.80 = 6.8
 - Wall multiplier: 0.75
 - Final: 6.8 × 0.75 = **5.1**
@@ -153,15 +166,18 @@ def get_wall_incline_multiplier(wall_angle_category: str) -> float:
 ### Example 2: V8 Steep Overhang
 
 **Setup:**
+
 - Wall angle: Steep overhang
 - Factors 1-3 combined base score: 7.5
 
 **Calculation (Direct Mapping):**
+
 - Wall incline score: **11.0**
 - Factor 4 weight: 20%
 - Contribution: 11.0 × 0.20 = **2.20**
 
 **Calculation (Multiplier Approach):**
+
 - Base score (Factors 1-3, weight 80%): 7.5 × 0.80 = 6.0
 - Wall multiplier: 1.85
 - Final: 6.0 × 1.85 = **11.1**
@@ -173,6 +189,7 @@ def get_wall_incline_multiplier(wall_angle_category: str) -> float:
 ### Foothold Importance (Factor 1)
 
 Wall angle determines foothold weighting:
+
 - **Slabs**: Footholds contribute 65% to Factor 1 score
 - **Steep overhangs**: Footholds contribute 25% to Factor 1 score
 
@@ -181,6 +198,7 @@ See [Factor 1: Hold Analysis](factor1_hold_analysis.md) for weighting details.
 ### Dynamic Threshold (Factor 3)
 
 Wall angle affects when reaches become dynamic:
+
 - **Slabs**: Balance enables longer static reaches
 - **Overhangs**: Core tension limits static reach distance
 
@@ -195,6 +213,7 @@ Wall angle transitions (changing angles within route) apply additional complexit
 ### Single Wall Angle (Simple Case)
 
 Most routes have one dominant wall angle:
+
 - Entire route on slab wall
 - Entire route on overhang feature
 
@@ -203,6 +222,7 @@ Most routes have one dominant wall angle:
 ### Multiple Wall Angles (Complex Case)
 
 Some routes traverse multiple wall angles:
+
 - Start on vertical, finish on overhang
 - Slab section followed by vertical section
 
@@ -215,7 +235,7 @@ def calculate_segmented_wall_score(wall_segments: list) -> float:
 
     Args:
         wall_segments: List of (angle_category, proportion) tuples
-            Example: [('vertical', 0.6), ('overhang', 0.4)]
+            Example: [('vertical', 0.6), ('moderate_overhang', 0.4)]
 
     Returns:
         Weighted average wall score
@@ -229,6 +249,7 @@ def calculate_segmented_wall_score(wall_segments: list) -> float:
 ```
 
 **Example**:
+
 - 60% vertical (score 6.0), 40% moderate overhang (score 9.0)
 - Weighted: (6.0 × 0.6) + (9.0 × 0.4) = 3.6 + 3.6 = **7.2**
 
@@ -236,25 +257,26 @@ def calculate_segmented_wall_score(wall_segments: list) -> float:
 
 ## Implementation Notes
 
-### Phase 1a (MVP)
+### Phase 1a (MVP) - IMPLEMENTED ✅
 
-1. Add wall angle dropdown to route upload form
-2. Store wall angle in database (`wall_incline` field)
-3. Calculate wall incline score using direct mapping
-4. Combine with Factors 1-3 using 20% weight
+1. [x] Add wall angle dropdown to route upload form (`src/main.py`)
+2. [x] Store wall angle in database (`wall_incline` field in Analysis model)
+3. [x] Calculate wall incline score using direct mapping (`src/grade_prediction_mvp.py`)
+4. [x] Combine with Factors 1-3 using 20% weight
+5. [x] Wall incline validation with `WallInclineType` enum
 
-### Phase 1b (Calibration)
+### Phase 1b (Calibration) - PENDING
 
-1. Analyze user feedback by wall angle
-2. Adjust difficulty scores (3.0, 6.0, 7.5, 9.0, 11.0)
-3. Optionally adjust wall angle weight (20%)
-4. Monitor slab vs overhang prediction accuracy separately
+1. [ ] Analyze user feedback by wall angle
+2. [ ] Adjust difficulty scores (3.0, 6.0, 7.5, 9.0, 11.0) based on feedback
+3. [ ] Optionally adjust wall angle weight (20%)
+4. [ ] Monitor slab vs overhang prediction accuracy separately
 
-### Phase 1c (Advanced Features)
+### Phase 1c (Advanced Features) - PENDING
 
-1. Implement wall segment support
-2. Add wall transition complexity multiplier
-3. Test automatic wall angle detection (optional)
+1. [ ] Implement wall segment support (multiple angles per route)
+2. [ ] Add wall transition complexity multiplier
+3. [ ] Test automatic wall angle detection (optional)
 
 ### Data Model
 
@@ -293,14 +315,17 @@ wall_segments = Column(JSON, nullable=True)
 ## Edge Cases
 
 **Unknown wall angle:**
+
 - Default to "vertical" (1.0 multiplier / 6.0 score)
 - Log as missing data for calibration review
 
 **Extreme angles (> 135°):**
+
 - Treat as "steep overhang" category
 - Very rare in practice
 
 **Slight variations within category:**
+
 - 88° vs 85° slab: Both use same "slab" score
 - Category-based approach is sufficiently granular
 
@@ -308,14 +333,13 @@ wall_segments = Column(JSON, nullable=True)
 
 Factor 4 evaluates wall angle impact through:
 
-1. ✅ **Wall angle categories** - Slab to steep overhang
-2. ✅ **Biomechanical difficulty scaling** - 0.75x to 1.85x multipliers
-3. ✅ **Manual user input** - Simple dropdown selection
-4. ✅ **Future: Segment support** - Routes with multiple angles
+1. [x] **Wall angle categories** - Slab to steep overhang (5 categories) - IMPLEMENTED
+2. [x] **Biomechanical difficulty scaling** - Score-based mapping (3.0 to 11.0) - IMPLEMENTED
+3. [x] **Manual user input** - Simple dropdown selection - IMPLEMENTED
+4. [ ] **Segment support** - Routes with multiple angles - DEFERRED to Phase 1c
 
 **Result**: Wall incline difficulty score (range 1-12) or multiplier (0.75-1.85) reflecting biomechanical demands.
 
 **Integration**: Wall angle also determines foothold weighting in Factor 1 and affects dynamic threshold in Factor 3.
 
 **Next**: Combine all 4 factors in weighted scoring model. Optionally add [Complexity Multipliers](complexity_multipliers.md) in refinement phase.
-

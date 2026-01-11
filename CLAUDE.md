@@ -1,8 +1,8 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
 **Version**: 2026.01
-**Last Updated**: 2026-01-05
-**Last Reviewed**: 2026-01-05
+**Last Updated**: 2026-01-11
+**Last Reviewed**: 2026-01-11
 **Review Cadence**: Quarterly (every 3 months)
 **Repository**: bouldering-analysis
 **Purpose**: Guide AI assistants working with this computer vision-based bouldering route grading application
@@ -21,6 +21,7 @@
 8. [Common Tasks](#common-tasks)
 9. [Configuration Management](#configuration-management)
 10. [Quality Standards](#quality-standards)
+11. [Allowed Commands Whitelist](#allowed-commands-whitelist)
 
 ---
 
@@ -52,26 +53,29 @@ This is a Flask-based web application that uses YOLOv8 computer vision to analyz
 
 ```text
 bouldering-analysis/
-├── src/                          # Main application code (~2,921 lines)
+├── src/                          # Main application code (~3,672 lines)
 │   ├── cfg/                      # Configuration files
 │   │   └── user_config.yaml      # App settings (model paths, thresholds)
 │   ├── templates/                # HTML templates
 │   │   └── index.html            # Web UI
-│   ├── main.py                   # Flask app + routes (775 lines)
+│   ├── main.py                   # Flask app + routes (883 lines)
 │   ├── config.py                 # Configuration loader with caching (323 lines)
-│   ├── models.py                 # SQLAlchemy ORM models (265 lines)
+│   ├── models.py                 # SQLAlchemy ORM models (290 lines)
 │   ├── constants.py              # Shared constants (HOLD_TYPES)
+│   ├── grade_prediction_mvp.py   # Grade prediction algorithm (618 lines)
 │   ├── train_model.py            # YOLOv8 fine-tuning pipeline (752 lines)
 │   ├── manage_models.py          # Model version management CLI (630 lines)
 │   ├── setup.py                  # Database + directory initialization
 │   └── setup_dev.py              # Dev environment setup script
 │
-├── tests/                        # Test suite (~4,567 lines)
+├── tests/                        # Test suite (~5,479 lines)
 │   ├── conftest.py               # pytest fixtures and configuration
-│   ├── test_main.py              # Flask app + route tests
+│   ├── test_main.py              # Flask app + route tests (1,253 lines)
 │   ├── test_config.py            # Configuration tests
 │   ├── test_models.py            # Database model tests
 │   ├── test_train_model.py       # Training pipeline tests
+│   ├── test_grade_prediction_mvp.py  # Grade prediction tests
+│   ├── test_e2e_grade_prediction.py  # End-to-end grade prediction tests
 │   └── ...                       # Additional test modules
 │
 ├── scripts/                      # Utility scripts
@@ -106,12 +110,13 @@ bouldering-analysis/
 
 | File | Purpose | Lines | Key Info |
 | ------ | --------- | ------- | ---------- |
-| `src/main.py` | Flask app + routes | 775 | Main entry point, all API endpoints |
-| `src/models.py` | Database models | 265 | 6 SQLAlchemy models (Analysis, Feedback, HoldType, etc.) |
+| `src/main.py` | Flask app + routes | 883 | Main entry point, all API endpoints |
+| `src/models.py` | Database models | 290 | 7 SQLAlchemy models (Analysis, Feedback, HoldType, WallInclineType, etc.) |
 | `src/config.py` | Config management | 323 | Thread-safe YAML config loading |
+| `src/grade_prediction_mvp.py` | Grade prediction | 618 | MVP algorithm with 4-factor scoring |
 | `src/train_model.py` | ML training pipeline | 752 | YOLOv8 fine-tuning, versioning |
 | `src/manage_models.py` | Model version mgmt | 630 | CLI for model activation/deactivation |
-| `tests/conftest.py` | pytest fixtures | - | 20+ fixtures for isolated testing |
+| `tests/conftest.py` | pytest fixtures | 341 | 20+ fixtures for isolated testing |
 | `run_qa.csh` | QA automation | 101 | Runs mypy, ruff, pytest, pylint |
 
 ---
@@ -1152,6 +1157,136 @@ pip install -r requirements.txt
 python src/setup_dev.py
 ./run.sh
 ```
+
+---
+
+## Allowed Commands Whitelist
+
+The following commands are pre-approved for AI assistants to execute without additional confirmation. These are safe, commonly-used development commands.
+
+### Quality Assurance Commands
+
+```bash
+# Type checking
+mypy src/
+mypy tests/
+mypy src/ tests/
+
+# Linting
+ruff check .
+ruff check src/
+ruff check tests/
+ruff check --fix .
+
+# Code formatting
+ruff format .
+ruff format --check .
+ruff format src/
+ruff format tests/
+
+# Code quality
+pylint src/
+pylint src/ --output-format=colorized
+
+# Testing
+pytest
+pytest tests/
+pytest tests/ -v
+pytest tests/ --tb=short
+pytest tests/ --cov=src/
+pytest tests/ --cov-report=term-missing --cov=src/
+pytest tests/test_main.py -v
+pytest tests/test_models.py -v
+pytest -x  # Stop on first failure
+pytest -k "test_name"  # Run specific test by name pattern
+```
+
+### File System Commands
+
+```bash
+# Directory navigation and listing
+cd src/
+cd tests/
+cd ..
+ls
+ls -la
+ls src/
+ls tests/
+ls -la src/
+ls -la tests/
+
+# Directory creation
+mkdir -p data/uploads
+mkdir -p models/hold_detection
+
+# File operations (read-only)
+cat pyproject.toml
+cat requirements.txt
+cat mypy.ini
+cat .pylintrc
+head -50 src/main.py
+tail -50 src/main.py
+wc -l src/*.py
+wc -l tests/*.py
+```
+
+### Git Commands
+
+```bash
+# Status and information (read-only)
+git status
+git log --oneline -10
+git log --oneline -20
+git diff
+git diff --staged
+git branch
+git branch -a
+git show HEAD
+
+# Safe git operations
+git add .
+git add src/
+git add tests/
+git checkout -b feature/branch-name
+git fetch origin
+git pull origin main
+```
+
+### Python Commands
+
+```bash
+# Running scripts
+python src/main.py
+python src/setup_dev.py
+python src/train_model.py --help
+python src/manage_models.py list
+python src/manage_models.py --help
+
+# Package management (read-only)
+pip list
+pip show flask
+pip freeze
+```
+
+### Project-Specific Scripts
+
+```bash
+# Development scripts
+./run.sh
+./run_setup_dev.sh
+./run_qa.csh
+```
+
+### Dangerous Commands (Require Confirmation)
+
+The following commands should NOT be run without explicit user confirmation:
+
+- `rm -rf` - Recursive deletion
+- `git push --force` - Force push
+- `git reset --hard` - Hard reset
+- `DROP TABLE` / `DELETE FROM` - Database destructive operations
+- `pip uninstall` - Package removal
+- Any command modifying production data or configs
 
 ---
 
