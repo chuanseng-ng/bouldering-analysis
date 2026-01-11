@@ -162,8 +162,38 @@ Create automated E2E tests using the test client:
 # tests/test_e2e_grade_prediction.py
 
 import io
+from unittest.mock import Mock
 from PIL import Image
 import pytest
+
+
+def create_mock_yolo_result(num_boxes: int = 5) -> Mock:
+    """Create a mock YOLO detection result with specified number of boxes.
+
+    Returns a Mock object matching the structure expected by the analyze endpoint:
+    - result.boxes: list of box objects
+    - box.xyxy[0].cpu().numpy(): [x1, y1, x2, y2] coordinates
+    - box.conf[0].cpu().numpy(): confidence score (0-1)
+    - box.cls[0].cpu().numpy(): class index (0=crimp, 1=jug, etc.)
+    """
+    mock_result = Mock()
+    boxes = []
+
+    for i in range(num_boxes):
+        box = Mock()
+        box.xyxy = [Mock()]
+        box.xyxy[0].cpu.return_value.numpy.return_value = [
+            i * 50, i * 100, i * 50 + 40, i * 100 + 40
+        ]
+        box.conf = [Mock()]
+        box.conf[0].cpu.return_value.numpy.return_value = 0.85
+        box.cls = [Mock()]
+        box.cls[0].cpu.return_value.numpy.return_value = i % 2  # Alternate crimp/jug
+        boxes.append(box)
+
+    mock_result.boxes = boxes
+    return mock_result
+
 
 def test_e2e_upload_and_analyze(test_client, mocker):
     """E2E test: Upload image and get grade prediction."""
@@ -258,7 +288,7 @@ export FLASK_ENV=production
 export DATABASE_URL=sqlite:///staging_bouldering.db
 
 # 4. Initialize staging database
-python src/setup.py
+python src/setup_dev.py
 
 # 5. Run with production server (gunicorn)
 pip install gunicorn
@@ -293,8 +323,17 @@ COPY data/ ./data/
 ENV FLASK_ENV=production
 ENV DATABASE_URL=sqlite:///data/staging_bouldering.db
 
+# Create entrypoint script to initialize DB before starting app
+RUN echo '#!/bin/bash\n\
+set -e\n\
+echo "Initializing database..."\n\
+python src/setup_dev.py\n\
+echo "Starting gunicorn..."\n\
+exec "$@"' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
 # Initialize and run
 EXPOSE 5000
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "src.main:app"]
 ```
 
@@ -316,7 +355,7 @@ Example for **Render.com**:
      - type: web
        name: bouldering-staging
        env: python
-       buildCommand: pip install -r requirements.txt
+       buildCommand: pip install -r requirements.txt && pip install gunicorn && python src/setup_dev.py
        startCommand: gunicorn -w 4 src.main:app
        envVars:
          - key: FLASK_ENV
@@ -382,17 +421,47 @@ Run these tests on the staging environment:
 
 If staging deployment fails:
 
+**Option 1: Platform Rollback (Preferred)**
+
+Use your deployment platform's built-in rollback feature:
+
+- **Render**: Dashboard → Service → "Manual Deploy" → Select previous commit
+- **Heroku**: `heroku rollback` or Dashboard → Activity → "Roll back to here"
+- **Docker**: Redeploy the previous tagged image
+
 ```bash
-# 1. Revert to previous version
-git checkout main
-git push origin main --force-with-lease  # Only if needed
-
-# 2. For Docker deployments
-docker run -p 5000:5000 bouldering:previous-tag
-
-# 3. For cloud deployments
-# Use platform's rollback feature (Render, Heroku, etc.)
+# Docker rollback - redeploy previous tag
+docker run -p 5000:5000 bouldering:v1.0.0  # Use your release tag
 ```
+
+**Option 2: Git Revert (Safe Git-Based Rollback)**
+
+Create a revert commit and push normally (never force-push main):
+
+```bash
+# 1. Create a revert commit for the problematic changes
+git revert HEAD --no-edit  # Reverts the last commit
+# Or revert a specific commit:
+git revert <commit-hash> --no-edit
+
+# 2. Push the revert commit normally
+git push origin main
+```
+
+**Option 3: Redeploy Previous Release Tag**
+
+If you tagged releases before deployment (recommended practice):
+
+```bash
+# List available release tags
+git tag -l "v*"
+
+# Deploy the previous stable tag
+git checkout v1.0.0
+# Then trigger deployment from this tag
+```
+
+**Important**: Force-pushing to `main` is prohibited. Force-push is only acceptable on personal feature branches that have not been shared. Always use revert commits or platform rollback features for production/staging branches.
 
 **Post-Rollback Verification Checklist:**
 

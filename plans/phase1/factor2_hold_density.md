@@ -228,7 +228,7 @@ Consider independent weights when **both** conditions are met:
 When collecting user feedback, specific patterns indicate wall-angle weight adjustments are needed:
 
 | Prediction Pattern | Likely Cause | Weight Adjustment |
-|--------------------|--------------|-------------------|
+| :----------------: | :----------: | :---------------: |
 | Slab routes consistently over-predicted | Foothold importance underweighted | Increase slab foothold weight (e.g., 0.60 → 0.65) |
 | Slab routes consistently under-predicted | Foothold importance overweighted | Decrease slab foothold weight (e.g., 0.60 → 0.55) |
 | Overhang routes consistently over-predicted | Handhold importance underweighted | Increase overhang handhold weight (e.g., 0.75 → 0.80) |

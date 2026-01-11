@@ -92,17 +92,79 @@ This document provides practical technical guidance for implementing the Phase 1
 
 ##### Step 3: Bias Analysis
 
+**Prerequisites**: Create the `calibration_logs` view before running calibration queries.
+
+The view joins `analyses` with `feedback`, extracts factor scores from the `features_extracted` JSON column (populated by `src/grade_prediction_mvp.py`), and converts V-grades to numeric values.
+
+**Migration: Create calibration_logs View**
+
+```sql
+-- scripts/migrations/create_calibration_logs_view.sql
+-- Grade-to-numeric conversion function (SQLite)
+-- V0=0, V1=1, ..., V12=12
+
+CREATE VIEW IF NOT EXISTS calibration_logs AS
+SELECT
+    a.id AS analysis_id,
+    a.wall_incline,
+    a.predicted_grade,
+    f.user_grade,
+    a.confidence_score,
+    a.created_at,
+
+    -- Extract factor scores from features_extracted JSON
+    -- Note: features_extracted stores the score_breakdown from grade_prediction_mvp.py
+    CAST(json_extract(a.features_extracted, '$.hold_difficulty') AS REAL) AS factor1_score,
+    CAST(json_extract(a.features_extracted, '$.hold_density') AS REAL) AS factor2_score,
+    CAST(json_extract(a.features_extracted, '$.distance') AS REAL) AS factor3_score,
+    CAST(json_extract(a.features_extracted, '$.wall_incline') AS REAL) AS factor4_score,
+    CAST(json_extract(a.features_extracted, '$.final_score') AS REAL) AS final_score,
+
+    -- Convert predicted_grade (V0-V12) to numeric
+    CAST(REPLACE(a.predicted_grade, 'V', '') AS INTEGER) AS predicted_grade_num,
+
+    -- Convert user_grade (V0-V12) to numeric (NULL if not provided)
+    CASE
+        WHEN f.user_grade IS NOT NULL AND f.user_grade LIKE 'V%'
+        THEN CAST(REPLACE(f.user_grade, 'V', '') AS INTEGER)
+        ELSE NULL
+    END AS user_grade_num,
+
+    -- Prediction error (positive = over-predicted, negative = under-predicted)
+    CASE
+        WHEN f.user_grade IS NOT NULL AND f.user_grade LIKE 'V%'
+        THEN CAST(REPLACE(a.predicted_grade, 'V', '') AS INTEGER) -
+             CAST(REPLACE(f.user_grade, 'V', '') AS INTEGER)
+        ELSE NULL
+    END AS error,
+
+    f.is_accurate,
+    f.comments
+
+FROM analyses a
+LEFT JOIN feedback f ON a.id = f.analysis_id
+WHERE a.features_extracted IS NOT NULL;
+```
+
+**Apply the migration:**
+
+```bash
+sqlite3 bouldering_analysis.db < scripts/migrations/create_calibration_logs_view.sql
+```
+
+**Calibration Queries** (using the view):
+
 ```sql
 -- Error distribution by wall angle
--- Note: Uses calibration_logs table (joined analyses + feedback data)
 SELECT
     wall_incline,
     COUNT(*) as total,
-    SUM(CASE WHEN predicted_grade > user_grade THEN 1 ELSE 0 END) as over_predicted,
-    SUM(CASE WHEN predicted_grade < user_grade THEN 1 ELSE 0 END) as under_predicted,
-    SUM(CASE WHEN predicted_grade = user_grade THEN 1 ELSE 0 END) as accurate,
-    AVG(ABS(predicted_grade_num - user_grade_num)) as mae
+    SUM(CASE WHEN error > 0 THEN 1 ELSE 0 END) as over_predicted,
+    SUM(CASE WHEN error < 0 THEN 1 ELSE 0 END) as under_predicted,
+    SUM(CASE WHEN error = 0 THEN 1 ELSE 0 END) as accurate,
+    AVG(ABS(error)) as mae
 FROM calibration_logs
+WHERE user_grade_num IS NOT NULL
 GROUP BY wall_incline;
 
 -- Factor-specific accuracy by angle
@@ -110,10 +172,17 @@ SELECT
     wall_incline,
     AVG(factor1_score) as avg_hold_difficulty,
     AVG(factor2_score) as avg_hold_density,
-    STDDEV(final_score - user_grade_num) as prediction_stddev
+    AVG(factor3_score) as avg_distance,
+    AVG(factor4_score) as avg_wall_incline
 FROM calibration_logs
+WHERE user_grade_num IS NOT NULL
 GROUP BY wall_incline;
 ```
+
+**Schema Dependencies:**
+
+- `analyses.features_extracted`: JSON field populated by `src/grade_prediction_mvp.py` with keys: `hold_difficulty`, `hold_density`, `distance`, `wall_incline`, `final_score`
+- `feedback.user_grade`: V-grade string (e.g., "V5") provided by user
 
 ##### Step 4: Identify Adjustment Targets
 
@@ -320,6 +389,8 @@ logger.info("CALIBRATION_LOG: %s", json.dumps(calibration_log))
 
 #### Aggregation Queries for Calibration
 
+**Note**: These queries use the `calibration_logs` view created in Step 3. The view extracts factor scores from `features_extracted` JSON and converts V-grades to numeric values.
+
 **Error Distribution by Angle**:
 
 ```sql
@@ -332,7 +403,7 @@ SELECT
     SUM(CASE WHEN error < 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as pct_under,
     SUM(CASE WHEN error = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as pct_exact
 FROM calibration_logs
-WHERE user_grade IS NOT NULL
+WHERE user_grade_num IS NOT NULL
 GROUP BY wall_incline
 ORDER BY mae DESC;
 ```
@@ -340,14 +411,18 @@ ORDER BY mae DESC;
 **Factor-Specific Accuracy by Angle**:
 
 ```sql
+-- Note: SQLite doesn't have CORR(). Use this simplified query for factor averages.
+-- For correlation analysis, export to Python/pandas.
 SELECT
     wall_incline,
     AVG(factor1_score) as avg_f1,
     AVG(factor2_score) as avg_f2,
-    CORR(factor1_score, error) as f1_error_correlation,
-    CORR(factor2_score, error) as f2_error_correlation
+    AVG(factor3_score) as avg_f3,
+    AVG(factor4_score) as avg_f4,
+    AVG(final_score) as avg_final,
+    AVG(error) as avg_error
 FROM calibration_logs
-WHERE user_grade IS NOT NULL
+WHERE user_grade_num IS NOT NULL
 GROUP BY wall_incline;
 ```
 
@@ -365,7 +440,7 @@ SELECT
     AVG(error) as mean_error,
     COUNT(*) as sample_count
 FROM calibration_logs
-WHERE user_grade IS NOT NULL
+WHERE user_grade_num IS NOT NULL
 GROUP BY wall_incline
 HAVING COUNT(*) >= 20;  -- Minimum sample size
 ```

@@ -56,7 +56,7 @@ def create_test_image() -> io.BytesIO:
 class TestWallInclineValidation:
     """Test wall_incline validation in API endpoints."""
 
-    def test_analyze_with_valid_wall_inclines(self, test_client, _test_app):
+    def test_analyze_with_valid_wall_inclines(self, test_client, test_app):
         """Test /analyze accepts all valid wall_incline values."""
         valid_inclines = [
             "slab",
@@ -80,9 +80,9 @@ class TestWallInclineValidation:
                         content_type="multipart/form-data",
                     )
 
-                    assert (
-                        response.status_code == 200
-                    ), f"Failed for wall_incline={incline}"
+                    assert response.status_code == 200, (
+                        f"Failed for wall_incline={incline}"
+                    )
                     json_data = response.get_json()
                     assert json_data["score_breakdown"]["wall_angle"] == incline
 
@@ -100,7 +100,7 @@ class TestWallInclineValidation:
         json_data = response.get_json()
         assert "Invalid wall incline" in json_data["error"]
 
-    def test_analyze_defaults_to_vertical(self, test_client, _test_app):
+    def test_analyze_defaults_to_vertical(self, test_client, test_app):
         """Test /analyze defaults to 'vertical' when wall_incline not provided."""
         with patch("src.main.hold_detection_model") as mock_model:
             with patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"}):
@@ -168,7 +168,7 @@ class TestGradeVariesWithWallAngle:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_steeper_angles_produce_higher_scores(
-        self, mock_model, _mock_get_hold_types, test_client, _test_app
+        self, mock_model, _mock_get_hold_types, test_client, test_app
     ):
         """Test that wall incline scores increase: slab < vertical < steep_overhang."""
         mock_model.return_value = [create_mock_yolo_result(num_boxes=8)]
@@ -187,9 +187,9 @@ class TestGradeVariesWithWallAngle:
             scores[incline] = json_data["score_breakdown"]["final_score"]
 
         # Verify ordering: slab < vertical < steep_overhang
-        assert (
-            scores["slab"] < scores["vertical"]
-        ), f"Slab ({scores['slab']}) should be less than vertical ({scores['vertical']})"
+        assert scores["slab"] < scores["vertical"], (
+            f"Slab ({scores['slab']}) should be less than vertical ({scores['vertical']})"
+        )
         assert scores["vertical"] < scores["steep_overhang"], (
             f"Vertical ({scores['vertical']}) should be less than "
             f"steep_overhang ({scores['steep_overhang']})"
@@ -198,7 +198,7 @@ class TestGradeVariesWithWallAngle:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_wall_incline_score_monotonicity(
-        self, mock_model, _mock_get_hold_types, test_client, _test_app
+        self, mock_model, _mock_get_hold_types, test_client, test_app
     ):
         """Test that wall_incline scores increase monotonically with steeper angles.
 
@@ -294,9 +294,9 @@ class TestDatabasePersistence:
 
                 analysis = db.session.get(Analysis, json_data["analysis_id"])
                 assert analysis is not None, "Analysis record not found"
-                assert (
-                    analysis.wall_incline == incline
-                ), f"Expected {incline}, got {analysis.wall_incline}"
+                assert analysis.wall_incline == incline, (
+                    f"Expected {incline}, got {analysis.wall_incline}"
+                )
 
 
 class TestScoreBreakdownValidation:
@@ -305,7 +305,7 @@ class TestScoreBreakdownValidation:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_breakdown_has_all_required_fields(
-        self, mock_model, _mock_get_hold_types, test_client, _test_app
+        self, mock_model, _mock_get_hold_types, test_client, test_app
     ):
         """Test breakdown includes all 4 factors and metadata."""
         mock_model.return_value = [create_mock_yolo_result()]
@@ -341,7 +341,7 @@ class TestScoreBreakdownValidation:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_weighted_sum_calculation(
-        self, mock_model, _mock_get_hold_types, test_client, _test_app
+        self, mock_model, _mock_get_hold_types, test_client, test_app
     ):
         """Test that final_score equals weighted sum of factors."""
         mock_model.return_value = [create_mock_yolo_result()]
@@ -382,10 +382,19 @@ class TestPerformance:
     @pytest.mark.slow
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
-    def test_prediction_under_100ms(
-        self, mock_model, _mock_get_hold_types, test_client, _test_app
+    def test_prediction_under_500ms(
+        self, mock_model, _mock_get_hold_types, test_client, test_app
     ):
-        """Test that prediction completes within 100ms (excluding I/O).
+        """Test that full E2E request completes within 500ms.
+
+        The 500ms threshold accounts for:
+        - Flask test client HTTP overhead
+        - File upload processing
+        - JSON serialization/deserialization
+        - Test framework overhead
+
+        The underlying prediction algorithm targets <100ms, but this E2E test
+        measures the complete request cycle with mocked YOLO detection.
 
         Note: This test is skipped on CI due to variable runner performance.
         Run locally with: pytest -m slow
@@ -404,9 +413,8 @@ class TestPerformance:
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         assert response.status_code == 200
-        # Note: This includes mocked YOLO, so actual prediction should be faster
-        # Set generous limit since test includes HTTP overhead
-        assert elapsed_ms < 500, f"Prediction took {elapsed_ms:.2f}ms (>500ms limit)"
+        # 500ms threshold for full E2E request (prediction algorithm itself is <100ms)
+        assert elapsed_ms < 500, f"E2E request took {elapsed_ms:.2f}ms (>500ms limit)"
 
 
 class TestEdgeCases:
@@ -415,7 +423,7 @@ class TestEdgeCases:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_no_holds_detected(
-        self, mock_model, _mock_get_hold_types, test_client, _test_app
+        self, mock_model, _mock_get_hold_types, test_client, test_app
     ):
         """Test handling when no holds are detected."""
         # Return empty detection result
@@ -438,7 +446,7 @@ class TestEdgeCases:
     @patch("src.main.get_hold_types", return_value={0: "crimp", 1: "jug"})
     @patch("src.main.hold_detection_model")
     def test_many_holds_detected(
-        self, mock_model, _mock_get_hold_types, test_client, _test_app
+        self, mock_model, _mock_get_hold_types, test_client, test_app
     ):
         """Test handling when many holds are detected."""
         mock_model.return_value = [create_mock_yolo_result(num_boxes=50)]
