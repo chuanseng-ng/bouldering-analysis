@@ -219,7 +219,7 @@ unknown
   - Confusion matrix
   - Calibration error (ECE)
 - Success criteria:
-  - ≥70% Top-1 accuracy
+  - ≥80% Top-1 accuracy
   - Reasonable calibration (ECE < 0.1)
 
 ### 6.7 Output Artifacts
@@ -250,8 +250,8 @@ def classify_hold(crop: np.ndarray) -> HoldTypeResult:
 - Pretrained models are read-only in production
 - No training code in API container
 - Model updates require:
-- New version folder
-- Explicit backend config change
+  - New version folder
+  - Explicit backend config change
 
 ## 8. Integration Guarantees
 
@@ -293,4 +293,5 @@ def classify_hold(crop: np.ndarray) -> HoldTypeResult:
   - Leverages existing datasets efficiently
   - Produces reusable, explainable models
   - Enables rapid iteration downstream
-  - Pretrain perception once. Build intelligence on top.
+
+Pretrain perception once. Build intelligence on top.
