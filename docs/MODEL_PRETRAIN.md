@@ -196,7 +196,7 @@ unknown
 - Baseline
   - ResNet-18 or MobileNetV3
   - Input: 224×224 RGB
-  - Training Heads
+- Training Heads
   - Softmax output
   - Label smoothing enabled
 
@@ -226,7 +226,7 @@ unknown
 
 Saved to:
 
-```pgsql
+```text
 models/classification/
   ├── weights.pt
   ├── classes.json
