@@ -1,3 +1,12 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+norecursedirs = ["archive", "legacy", ".git", "__pycache__", "venv"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
 [tool.coverage.report]
 exclude_also = [
     'def __repr__',
@@ -19,6 +28,7 @@ omit = [
     "tests/*",
     "*/__init__.py",
     "src/setup.py",
+    "src/archive/*",
 ]
 
 [tool.pytest.ini_options]

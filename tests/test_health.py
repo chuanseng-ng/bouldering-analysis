@@ -1,0 +1,82 @@
+"""Tests for health check endpoint and response model."""
+
+from datetime import datetime, timezone
+
+import pytest
+from pydantic import ValidationError
+
+from src.routes.health import HealthResponse
+
+
+class TestHealthResponse:
+    """Tests for HealthResponse model."""
+
+    def test_health_response_valid_healthy(self) -> None:
+        """Should accept 'healthy' status."""
+        response = HealthResponse(
+            status="healthy",
+            version="1.0.0",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert response.status == "healthy"
+
+    def test_health_response_valid_degraded(self) -> None:
+        """Should accept 'degraded' status."""
+        response = HealthResponse(
+            status="degraded",
+            version="1.0.0",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert response.status == "degraded"
+
+    def test_health_response_valid_unhealthy(self) -> None:
+        """Should accept 'unhealthy' status."""
+        response = HealthResponse(
+            status="unhealthy",
+            version="1.0.0",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert response.status == "unhealthy"
+
+    def test_health_response_invalid_status(self) -> None:
+        """Should reject invalid status values."""
+        with pytest.raises(ValidationError):
+            HealthResponse(
+                status="invalid",  # type: ignore[arg-type]
+                version="1.0.0",
+                timestamp=datetime.now(timezone.utc),
+            )
+
+    def test_health_response_requires_version(self) -> None:
+        """Version field should be required."""
+        with pytest.raises(ValidationError):
+            HealthResponse(
+                status="healthy",
+                timestamp=datetime.now(timezone.utc),
+            )  # type: ignore[call-arg]
+
+    def test_health_response_requires_timestamp(self) -> None:
+        """Timestamp field should be required."""
+        with pytest.raises(ValidationError):
+            HealthResponse(
+                status="healthy",
+                version="1.0.0",
+            )  # type: ignore[call-arg]
+
+    def test_health_response_json_serialization(self) -> None:
+        """Response should serialize to JSON correctly."""
+        now = datetime.now(timezone.utc)
+        response = HealthResponse(
+            status="healthy",
+            version="1.0.0",
+            timestamp=now,
+        )
+        json_data = response.model_dump_json()
+        assert "healthy" in json_data
+        assert "1.0.0" in json_data
+
+    def test_health_response_schema_example(self) -> None:
+        """Model should have JSON schema example."""
+        schema = HealthResponse.model_json_schema()
+        assert "example" in schema
+        assert schema["example"]["status"] == "healthy"

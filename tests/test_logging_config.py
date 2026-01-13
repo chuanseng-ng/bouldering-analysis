@@ -3,9 +3,7 @@
 import json
 import logging
 from io import StringIO
-from unittest.mock import patch
 
-import pytest
 
 from src.logging_config import (
     CustomJsonFormatter,
@@ -41,7 +39,8 @@ class TestConfigureLogging:
         # Add a dummy handler
         dummy_handler = logging.StreamHandler()
         root_logger.addHandler(dummy_handler)
-        initial_count = len(root_logger.handlers)
+        # Verify we have more than one handler before configure
+        assert len(root_logger.handlers) > 0
 
         configure_logging("INFO")
 
@@ -75,9 +74,7 @@ class TestCustomJsonFormatter:
 
         stream = StringIO()
         handler = logging.StreamHandler(stream)
-        handler.setFormatter(
-            CustomJsonFormatter("%(timestamp)s %(level)s %(message)s")
-        )
+        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
         logger.addHandler(handler)
 
         logger.info("Test message")
@@ -96,9 +93,7 @@ class TestCustomJsonFormatter:
 
         stream = StringIO()
         handler = logging.StreamHandler(stream)
-        handler.setFormatter(
-            CustomJsonFormatter("%(timestamp)s %(level)s %(message)s")
-        )
+        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
         logger.addHandler(handler)
 
         logger.info("Test message")
@@ -115,9 +110,7 @@ class TestCustomJsonFormatter:
 
         stream = StringIO()
         handler = logging.StreamHandler(stream)
-        handler.setFormatter(
-            CustomJsonFormatter("%(timestamp)s %(level)s %(message)s")
-        )
+        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
         logger.addHandler(handler)
 
         logger.info("Test message")
@@ -134,9 +127,7 @@ class TestCustomJsonFormatter:
 
         stream = StringIO()
         handler = logging.StreamHandler(stream)
-        handler.setFormatter(
-            CustomJsonFormatter("%(timestamp)s %(level)s %(message)s")
-        )
+        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
         logger.addHandler(handler)
 
         logger.info("Test message")
@@ -153,9 +144,7 @@ class TestCustomJsonFormatter:
 
         stream = StringIO()
         handler = logging.StreamHandler(stream)
-        handler.setFormatter(
-            CustomJsonFormatter("%(timestamp)s %(level)s %(message)s")
-        )
+        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
         logger.addHandler(handler)
 
         logger.warning("Warning message")

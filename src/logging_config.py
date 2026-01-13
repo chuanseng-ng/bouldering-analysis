@@ -68,6 +68,7 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(numeric_level)
 
+    formatter: logging.Formatter
     if json_output:
         # JSON format for production
         formatter = CustomJsonFormatter(
