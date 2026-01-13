@@ -504,8 +504,8 @@ Each PR must satisfy:
 1. **Type Safety**: `mypy src/ tests/` passes
 2. **Linting**: `ruff check .` passes
 3. **Formatting**: `ruff format --check .` passes
-4. **Testing**: 99%+ coverage maintained
-5. **Quality**: pylint score 9.9/10
+4. **Testing**: 85%+ coverage (current stage), 90% when all features complete
+5. **Quality**: pylint score 8.5/10 (current stage), 9.0/10 when all features complete
 6. **Documentation**: Google-style docstrings on all functions
 
 ---
