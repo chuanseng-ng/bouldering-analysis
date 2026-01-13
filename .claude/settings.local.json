@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(ls:*)",
+      "Bash(python scripts/migrations/add_wall_incline_column.py:*)",
+      "Bash(python -m mypy:*)",
+      "Bash(python -m ruff check:*)",
+      "Bash(python -m ruff format:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m pylint:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api:*)",
+      "Bash(where gh:*)",
+      "Bash(/c/Program Files/GitHub CLI/gh.exe pr view 31 --json title,body,url,state,headRefName,baseRefName)",
+      "Bash(/c/Program Files \\\\\\(x86\\\\\\)/GitHub CLI/gh.exe pr view 31 --json title,body,url,state,headRefName,baseRefName)",
+      "Bash(mypy:*)",
+      "Bash(pytest:*)",
+      "Bash(wc:*)",
+      "Bash(tree:*)",
+      "Bash(pip install:*)"
+    ]
+  }
+}
