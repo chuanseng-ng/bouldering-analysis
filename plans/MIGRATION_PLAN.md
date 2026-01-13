@@ -15,7 +15,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 ## Current State vs Target State
 
 | Aspect | Current State | Target State |
-|--------|---------------|--------------|
+| :----: | :-----------: | :----------: |
 | **Backend Framework** | Flask 3.1.2 | FastAPI |
 | **Database** | SQLite/SQLAlchemy | Supabase (Postgres + Storage) |
 | **Hold Types (Detection)** | 8 types (crimp, jug, sloper, etc.) | 2 types (hold, volume) |
@@ -32,7 +32,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 ### Source Code (`src/` → `src/archive/legacy/`)
 
 | File | Lines | Reason for Archive |
-|------|-------|-------------------|
+| :--: | :---: | :---------------: |
 | `main.py` | 883 | Flask → FastAPI migration |
 | `models.py` | 290 | SQLAlchemy → Supabase migration |
 | `config.py` | 323 | May partially reuse config pattern |
@@ -48,7 +48,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 ### Tests (`tests/` → `tests/archive/legacy/`)
 
 | Test File | Lines | Notes |
-|-----------|-------|-------|
+| :-------: | :---: | :---: |
 | `test_main.py` | 1,253 | Reference for new FastAPI tests |
 | `test_train_model.py` | 840 | Reference for new training tests |
 | `test_manage_models.py` | 702 | Reference for new model management |
@@ -69,6 +69,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Establish FastAPI backend with Supabase connectivity
 
 #### PR-1.1: FastAPI Bootstrap
+
 - **Function**: `create_app()`
 - **Tasks**:
   1. Create `src/app.py` with FastAPI application factory
@@ -80,6 +81,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-1.2: Supabase Client
+
 - **Function**: `get_supabase_client()`
 - **Tasks**:
   1. Install supabase-py dependency
@@ -97,6 +99,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Enable image upload and storage in Supabase
 
 #### PR-2.1: Upload Route Image
+
 - **Function**: `upload_route_image(file)`
 - **Tasks**:
   1. Create `src/routes/upload.py`
@@ -109,6 +112,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-2.2: Create Route Record
+
 - **Function**: `create_route_record(image_url)`
 - **Tasks**:
   1. Create `routes` table in Supabase
@@ -126,6 +130,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Train reusable hold/volume detection model
 
 #### PR-3.1: Detection Dataset Schema
+
 - **Function**: `load_hold_detection_dataset()`
 - **Tasks**:
   1. Define dataset structure (YOLOv8 format)
@@ -137,6 +142,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-3.2: Detection Model Definition
+
 - **Function**: `build_hold_detector()`
 - **Tasks**:
   1. Create `src/training/detection_model.py`
@@ -147,6 +153,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-3.3: Detection Training Loop
+
 - **Function**: `train_hold_detector(dataset)`
 - **Tasks**:
   1. Create `src/training/train_detection.py`
@@ -160,6 +167,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Medium
 
 #### PR-3.4: Detection Inference
+
 - **Function**: `detect_holds(image) -> list[DetectedHold]`
 - **Tasks**:
   1. Create `src/inference/detection.py`
@@ -177,6 +185,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Classify detected holds into semantic types
 
 #### PR-4.1: Hold Crop Generator
+
 - **Function**: `extract_hold_crops(image, boxes)`
 - **Tasks**:
   1. Create `src/inference/crop_extractor.py`
@@ -187,6 +196,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-4.2: Classification Dataset Loader
+
 - **Function**: `load_hold_classification_dataset()`
 - **Tasks**:
   1. Create `src/training/classification_dataset.py`
@@ -197,6 +207,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-4.3: Hold Classifier Model
+
 - **Function**: `build_hold_classifier()`
 - **Tasks**:
   1. Create `src/training/classification_model.py`
@@ -207,6 +218,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-4.4: Classification Training
+
 - **Function**: `train_hold_classifier(dataset)`
 - **Tasks**:
   1. Create `src/training/train_classification.py`
@@ -219,6 +231,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Medium
 
 #### PR-4.5: Hold Type Inference
+
 - **Function**: `classify_hold(crop) -> HoldTypeResult`
 - **Tasks**:
   1. Create `src/inference/classification.py`
@@ -234,6 +247,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Build movement graph from detected holds
 
 #### PR-5.1: Graph Builder
+
 - **Function**: `build_route_graph(holds, wall_angle)`
 - **Tasks**:
   1. Create `src/graph/route_graph.py`
@@ -245,6 +259,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Medium
 
 #### PR-5.2: Start/Finish Constraints
+
 - **Function**: `apply_route_constraints(graph, start_ids, finish_id)`
 - **Tasks**:
   1. Create `src/graph/constraints.py`
@@ -262,6 +277,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Extract interpretable features for grade estimation
 
 #### PR-6.1: Geometry Features
+
 - **Function**: `extract_geometry_features(graph)`
 - **Tasks**:
   1. Create `src/features/geometry.py`
@@ -273,6 +289,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Medium
 
 #### PR-6.2: Hold Composition Features
+
 - **Function**: `extract_hold_features(holds)`
 - **Tasks**:
   1. Create `src/features/holds.py`
@@ -284,6 +301,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Small
 
 #### PR-6.3: Feature Vector Assembly
+
 - **Function**: `build_feature_vector(route)`
 - **Tasks**:
   1. Create `src/features/assembler.py`
@@ -301,6 +319,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Predict route grade with uncertainty
 
 #### PR-7.1: Heuristic Estimator
+
 - **Function**: `estimate_grade_heuristic(features)`
 - **Tasks**:
   1. Create `src/grading/heuristic.py`
@@ -312,6 +331,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Estimated Effort**: Medium
 
 #### PR-7.2: Ordinal ML Estimator
+
 - **Function**: `estimate_grade_ml(features)`
 - **Tasks**:
   1. Create `src/grading/ml_estimator.py`
@@ -329,6 +349,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 **Goal**: Generate human-readable explanations
 
 #### PR-8.1: Explanation Engine
+
 - **Function**: `generate_explanation(features, prediction)`
 - **Tasks**:
   1. Create `src/explanation/engine.py`
@@ -348,6 +369,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 #### Schema Design
 
 **Table: routes**
+
 ```sql
 CREATE TABLE routes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -359,6 +381,7 @@ CREATE TABLE routes (
 ```
 
 **Table: holds**
+
 ```sql
 CREATE TABLE holds (
     id SERIAL PRIMARY KEY,
@@ -372,6 +395,7 @@ CREATE TABLE holds (
 ```
 
 **Table: features**
+
 ```sql
 CREATE TABLE features (
     id SERIAL PRIMARY KEY,
@@ -382,6 +406,7 @@ CREATE TABLE features (
 ```
 
 **Table: predictions**
+
 ```sql
 CREATE TABLE predictions (
     id SERIAL PRIMARY KEY,
@@ -396,6 +421,7 @@ CREATE TABLE predictions (
 ```
 
 **Table: feedback**
+
 ```sql
 CREATE TABLE feedback (
     id SERIAL PRIMARY KEY,
@@ -416,6 +442,7 @@ CREATE TABLE feedback (
 **Goal**: API contract for Lovable frontend
 
 #### Frontend Responsibilities (not implemented in backend)
+
 - Image upload UI
 - Start/finish annotation interface
 - Grade + explanation display
@@ -423,7 +450,7 @@ CREATE TABLE feedback (
 #### Backend API Endpoints
 
 | Endpoint | Method | Purpose |
-|----------|--------|---------|
+| :------: | :----: | :-----: |
 | `POST /api/v1/routes/upload` | POST | Upload image |
 | `GET /api/v1/routes/{id}` | GET | Get route details |
 | `POST /api/v1/routes/{id}/analyze` | POST | Trigger analysis |
@@ -435,7 +462,7 @@ CREATE TABLE feedback (
 
 ## Implementation Order
 
-```
+```text
 Phase 1: Foundation (M1 + M2)
 ├── PR-1.1: FastAPI Bootstrap
 ├── PR-1.2: Supabase Client
@@ -486,7 +513,7 @@ Each PR must satisfy:
 ## Risks & Mitigations
 
 | Risk | Mitigation |
-|------|------------|
+| :--: | :--------: |
 | Supabase latency | Use connection pooling, batch operations |
 | Model size for serverless | Consider ONNX conversion for inference |
 | Feature extraction complexity | Start with heuristic, iterate with ML |
