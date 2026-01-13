@@ -86,6 +86,154 @@ class TrainingError(Exception):
     """Raised when there are issues during the training process."""
 
 
+# Model type constants
+MODEL_TYPE_HOLD_DETECTION = "hold_detection"
+MODEL_TYPE_HOLD_CLASSIFICATION = "hold_classification"
+VALID_MODEL_TYPES = [MODEL_TYPE_HOLD_DETECTION, MODEL_TYPE_HOLD_CLASSIFICATION]
+
+# Default hold classes for classification
+DEFAULT_HOLD_CLASSES = [
+    "crimp",
+    "jug",
+    "sloper",
+    "pinch",
+    "pocket",
+    "foot-hold",
+    "start-hold",
+    "top-out-hold",
+]
+
+
+def validate_classification_dataset(
+    data_path: Path,
+) -> dict[str, Any]:
+    """
+    Validate the YOLO classification dataset directory structure.
+
+    YOLOv8 classification datasets use folder-based structure where each class
+    has its own subdirectory containing images of that class.
+
+    Expected structure:
+        data_path/
+        ├── train/
+        │   ├── crimp/
+        │   │   ├── img1.jpg
+        │   │   └── ...
+        │   ├── jug/
+        │   └── ...
+        └── val/
+            ├── crimp/
+            ├── jug/
+            └── ...
+
+    Args:
+        data_path: Path to the classification dataset root directory.
+
+    Returns:
+        Dict containing dataset configuration with keys:
+            - train: Path to training directory
+            - val: Path to validation directory
+            - nc: Number of classes
+            - names: List of class names
+
+    Raises:
+        TrainingError: If the dataset is invalid or improperly formatted.
+    """
+    logger.info("Validating classification dataset: %s", data_path)
+
+    if not data_path.exists():
+        raise TrainingError(
+            f"Classification dataset directory not found: {data_path}\n"
+            f"Please create a directory with train/ and val/ subdirectories."
+        )
+
+    # Validate train and val directories exist
+    train_dir = data_path / "train"
+    val_dir = data_path / "val"
+
+    if not train_dir.exists():
+        raise TrainingError(
+            f"Training directory not found: {train_dir}\n"
+            f"Expected structure: {data_path}/train/<class_name>/images"
+        )
+
+    if not val_dir.exists():
+        raise TrainingError(
+            f"Validation directory not found: {val_dir}\n"
+            f"Expected structure: {data_path}/val/<class_name>/images"
+        )
+
+    # Get class names from training directory (subdirectories = classes)
+    train_classes = sorted([d.name for d in train_dir.iterdir() if d.is_dir()])
+    val_classes = sorted([d.name for d in val_dir.iterdir() if d.is_dir()])
+
+    if not train_classes:
+        raise TrainingError(
+            f"No class subdirectories found in {train_dir}\n"
+            f"Expected structure: train/<class_name>/images"
+        )
+
+    # Warn if train and val have different classes
+    if set(train_classes) != set(val_classes):
+        missing_in_val = set(train_classes) - set(val_classes)
+        missing_in_train = set(val_classes) - set(train_classes)
+        logger.warning(
+            "Class mismatch between train and val sets. "
+            "Missing in val: %s, Missing in train: %s",
+            missing_in_val,
+            missing_in_train,
+        )
+
+    # Validate each class directory has images
+    total_train_images = 0
+    total_val_images = 0
+
+    for class_name in train_classes:
+        class_dir = train_dir / class_name
+        images = (
+            list(class_dir.glob("*.jpg"))
+            + list(class_dir.glob("*.jpeg"))
+            + list(class_dir.glob("*.png"))
+            + list(class_dir.glob("*.txt"))
+        )
+        if not images:
+            raise TrainingError(
+                f"No images found in training class directory: {class_dir}\n"
+                f"Supported formats: .jpg, .jpeg, .png"
+            )
+        total_train_images += len(images)
+        logger.info("  Train class '%s': %d images", class_name, len(images))
+
+    for class_name in val_classes:
+        class_dir = val_dir / class_name
+        images = (
+            list(class_dir.glob("*.jpg"))
+            + list(class_dir.glob("*.jpeg"))
+            + list(class_dir.glob("*.png"))
+            + list(class_dir.glob("*.txt"))
+        )
+        if not images:
+            logger.warning(
+                "No images found in validation class directory: %s", class_dir
+            )
+        total_val_images += len(images)
+        logger.info("  Val class '%s': %d images", class_name, len(images))
+
+    logger.info(
+        "Classification dataset validated: %d classes, %d train images, %d val images",
+        len(train_classes),
+        total_train_images,
+        total_val_images,
+    )
+
+    return {
+        "train": str(train_dir),
+        "val": str(val_dir),
+        "nc": len(train_classes),
+        "names": train_classes,
+    }
+
+
 def validate_dataset(
     data_yaml_path: Path,
 ) -> dict[str, Any]:  # pylint: disable=too-many-locals,too-many-branches
