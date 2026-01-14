@@ -49,7 +49,7 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 - **Backend**: FastAPI 0.115.6 with Pydantic Settings
 - **ML/CV**: PyTorch 2.9.1 + Ultralytics YOLOv8 8.3.233
 - **Database**: Supabase (Postgres + Storage) - planned
-- **Testing**: pytest 9.0.1 with 85% coverage (current), 90% (final)
+- **Testing**: pytest 8.3.5 with 85% coverage (current), 90% (final)
 - **Quality**: mypy, ruff, pylint (8.5/10 current, 9.0/10 final)
 
 ---
@@ -177,8 +177,8 @@ numpy==2.2.6
 PyYAML==6.0.2
 
 # Testing
-pytest==9.0.1
-pytest-cov==7.0.0
+pytest==8.3.5
+pytest-cov==6.0.0
 pytest-asyncio==0.25.2
 
 # Quality
