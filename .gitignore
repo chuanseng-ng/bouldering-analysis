@@ -201,3 +201,7 @@ cython_debug/
 *.jpg
 *.pt
 *_metadata.yaml
+
+# YOLO 
+data/hold_classification
+runs/
