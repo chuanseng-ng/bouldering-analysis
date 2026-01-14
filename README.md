@@ -54,13 +54,17 @@ The API will be available at [http://localhost:8000](http://localhost:8000)
 
 ## Development
 
+**Current Project Stage**: Backend Foundation (Milestone 1)
+**Quality Targets**: Coverage ≥85%, Pylint ≥8.5/10 (will increase to 90%/9.0 when all features complete)
+
 ### Running Tests
 
 ```bash
 # Run all tests with coverage
 pytest tests/ --cov=src --cov-report=term-missing
 
-# Target: 85% coverage (current stage), 90% when all features complete
+# Current requirement: 85% minimum coverage
+# Final target (all features): 90% minimum coverage
 ```
 
 ### Quality Checks
@@ -75,8 +79,10 @@ ruff check src/ tests/
 # Format check
 ruff format --check src/ tests/
 
-# Code quality (minimum 8.5/10 current, 9.0/10 when complete)
+# Code quality
 pylint src/ --ignore=archive
+# Current requirement: 8.5/10 minimum
+# Final target (all features): 9.0/10 minimum
 ```
 
 ### Environment Variables

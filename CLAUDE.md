@@ -49,8 +49,8 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 - **Backend**: FastAPI 0.115.6 with Pydantic Settings
 - **ML/CV**: PyTorch 2.9.1 + Ultralytics YOLOv8 8.3.233
 - **Database**: Supabase (Postgres + Storage) - planned
-- **Testing**: pytest 8.3.5 with 85% coverage (current), 90% (final)
-- **Quality**: mypy, ruff, pylint (8.5/10 current, 9.0/10 final)
+- **Testing**: pytest 8.3.5 with staged coverage requirements (≥85% now, ≥90% final)
+- **Quality**: mypy, ruff, pylint with staged requirements (≥8.5/10 now, ≥9.0/10 final)
 
 ---
 
@@ -246,7 +246,7 @@ ruff format --check src/ tests/
 # Tests with coverage
 pytest tests/ --cov=src --cov-report=term-missing
 
-# Code quality (minimum 8.5/10 current, 9.0/10 final)
+# Code quality (≥8.5/10 required now, ≥9.0/10 when all features complete)
 pylint src/ --ignore=archive
 ```
 
@@ -333,10 +333,12 @@ from src.routes import health_router
 
 ### Testing Philosophy
 
-- **Coverage Target**: 85% minimum (current stage), 90% when all features complete
+- **Coverage Target (Staged)**:
+  - **Current Stage**: 85% minimum required
+  - **Final Stage**: 90% minimum required (when all features complete)
 - **Framework**: pytest with comprehensive fixtures
 - **Isolation**: Each test uses fresh app instance
-- **Current Coverage**: 100%
+- **Current Actual Coverage**: 98%+
 
 ### Running Tests
 
@@ -347,8 +349,10 @@ pytest tests/ --cov=src --cov-report=term-missing
 # Run specific test file
 pytest tests/test_app.py -v
 
-# Run with coverage threshold enforcement
+# Run with coverage threshold enforcement (current stage requirement)
 pytest tests/ --cov=src --cov-fail-under=85
+
+# Future: When all features complete, use --cov-fail-under=90
 ```
 
 ### Key Test Fixtures (from conftest.py)
@@ -438,24 +442,32 @@ test_settings = get_settings_override({"testing": True})
 
 ## Quality Standards
 
+**IMPORTANT**: Quality targets are staged based on project completion:
+- **Current Stage (Backend Foundation)**: 85% coverage, 8.5/10 pylint
+- **Final Stage (All Features Complete)**: 90% coverage, 9.0/10 pylint
+
 ### Quality Gates
 
-| Check | Tool | Current | Final |
-|-------|------|---------|-------|
+| Check | Tool | Current Stage (Now) | Final Stage (Complete) |
+|-------|------|---------------------|------------------------|
 | Type Safety | mypy | No errors | No errors |
 | Linting | ruff check | No errors | No errors |
 | Formatting | ruff format | All files formatted | All files formatted |
-| Coverage | pytest-cov | 85% minimum | 90% minimum |
-| Code Quality | pylint | 8.5/10 minimum | 9.0/10 minimum |
+| Coverage | pytest-cov | **≥85% required** | **≥90% required** |
+| Code Quality | pylint | **≥8.5/10 required** | **≥9.0/10 required** |
 
 ### Pre-Commit Checklist
 
+Use these thresholds based on current project stage:
+
 - [ ] All tests pass: `pytest tests/`
-- [ ] Coverage ≥ 85%: `pytest tests/ --cov=src/`
+- [ ] Coverage ≥ 85% (current): `pytest tests/ --cov=src/ --cov-fail-under=85`
 - [ ] Type checking passes: `mypy src/ tests/`
 - [ ] Linting passes: `ruff check .`
 - [ ] Formatting passes: `ruff format --check .`
-- [ ] Pylint score ≥ 8.5: `pylint src/`
+- [ ] Pylint score ≥ 8.5 (current): `pylint src/`
+
+**Note**: When all features are complete, thresholds increase to 90% coverage and 9.0/10 pylint.
 
 ---
 
@@ -503,7 +515,7 @@ class HealthResponse(BaseModel):
 2. **Check specifications**: Review docs/DESIGN.md and plans/MIGRATION_PLAN.md
 3. **Follow conventions**: Match existing code style and patterns
 4. **Write tests first**: Add tests for new functionality
-5. **Maintain coverage**: Ensure 85%+ coverage after changes (90% final)
+5. **Maintain coverage**: Meet current stage requirement (≥85% now, will increase to ≥90%)
 6. **Run QA suite**: Execute all quality checks before committing
 7. **Update documentation**: Keep CLAUDE.md and specs current
 
@@ -513,8 +525,8 @@ class HealthResponse(BaseModel):
 - [ ] Google-style docstrings on all public functions
 - [ ] Error handling for edge cases
 - [ ] Tests added for new functionality
-- [ ] Coverage remains ≥ 85% (90% final)
-- [ ] Pylint score ≥ 8.5 (9.0 final)
+- [ ] Coverage meets current requirement: ≥85% (increases to ≥90% when all features complete)
+- [ ] Pylint score meets current requirement: ≥8.5/10 (increases to ≥9.0/10 when all features complete)
 - [ ] All QA checks pass
 - [ ] No imports from archive directories
 
@@ -523,7 +535,7 @@ class HealthResponse(BaseModel):
 1. **Don't import from archive/** - Use only for reference
 2. **Don't bypass QA checks** - All code must pass
 3. **Don't ignore type errors** - Fix mypy issues
-4. **Don't skip tests** - 85% coverage minimum (90% final)
+4. **Don't skip tests** - Meet current coverage requirement (≥85% now, ≥90% final)
 5. **Don't use print()** - Use logging module
 6. **Don't commit .pt files** - Model weights are gitignored
 
