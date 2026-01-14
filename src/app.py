@@ -82,7 +82,7 @@ def create_app(config_override: dict[str, Any] | None = None) -> FastAPI:
         description="Bouldering route analysis and grade prediction API",
         docs_url="/docs" if settings.debug or settings.testing else None,
         redoc_url="/redoc" if settings.debug or settings.testing else None,
-        openapi_url="/openapi.json",
+        openapi_url="/openapi.json" if settings.debug or settings.testing else None,
         lifespan=lifespan,
     )
 
@@ -148,10 +148,10 @@ def _register_routes(app: FastAPI) -> None:
         app: FastAPI application instance.
     """
     # Root-level health check
-    app.include_router(health_router)
+    app.include_router(health_router, tags=["health"])
 
     # Versioned API routes
-    app.include_router(health_router, prefix="/api/v1")
+    app.include_router(health_router, prefix="/api/v1", tags=["health-v1"])
 
 
 # Create default app instance for uvicorn

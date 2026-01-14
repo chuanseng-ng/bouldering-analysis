@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from src.routes.health import HealthResponse
@@ -80,3 +81,39 @@ class TestHealthResponse:
         schema = HealthResponse.model_json_schema()
         assert "example" in schema
         assert schema["example"]["status"] == "healthy"
+
+
+class TestHealthEndpoint:
+    """Integration tests for health check endpoints."""
+
+    def test_health_endpoint_returns_200(self, client: TestClient) -> None:
+        """Health endpoint should return 200 OK."""
+        response = client.get("/health")
+        assert response.status_code == 200
+
+    def test_health_endpoint_response_structure(self, client: TestClient) -> None:
+        """Health response should contain required fields."""
+        response = client.get("/health")
+        data = response.json()
+        assert "status" in data
+        assert "version" in data
+        assert "timestamp" in data
+
+    def test_health_endpoint_status_healthy(self, client: TestClient) -> None:
+        """Health status should be 'healthy'."""
+        response = client.get("/health")
+        data = response.json()
+        assert data["status"] == "healthy"
+
+    def test_health_endpoint_version(self, client: TestClient) -> None:
+        """Health response should include version."""
+        response = client.get("/health")
+        data = response.json()
+        assert data["version"] == "0.1.0"
+
+    def test_health_endpoint_versioned_api(self, client: TestClient) -> None:
+        """Versioned health endpoint should return 200 OK."""
+        response = client.get("/api/v1/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"

@@ -42,7 +42,7 @@ pip install -r requirements.txt
 uvicorn src.app:application --reload
 ```
 
-The API will be available at http://localhost:8000
+The API will be available at [http://localhost:8000](http://localhost:8000)
 
 ### API Endpoints
 
@@ -89,7 +89,7 @@ pylint src/ --ignore=archive
 
 ## Project Structure
 
-```
+```text
 bouldering-analysis/
 ├── src/                    # Application code
 │   ├── app.py              # FastAPI application

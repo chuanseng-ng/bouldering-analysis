@@ -3,13 +3,39 @@
 import json
 import logging
 from io import StringIO
+from typing import Generator
 
+import pytest
 
 from src.logging_config import (
     CustomJsonFormatter,
     configure_logging,
     get_logger,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_logging() -> Generator[None, None, None]:
+    """Reset logging configuration before and after each test.
+
+    This fixture prevents test pollution by saving and restoring
+    the root logger state.
+
+    Yields:
+        None during test execution.
+    """
+    # Save original state
+    root_logger = logging.getLogger()
+    original_level = root_logger.level
+    original_handlers = root_logger.handlers.copy()
+
+    yield
+
+    # Restore original state
+    root_logger.setLevel(original_level)
+    root_logger.handlers.clear()
+    for handler in original_handlers:
+        root_logger.addHandler(handler)
 
 
 class TestConfigureLogging:

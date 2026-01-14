@@ -677,7 +677,7 @@ python src/manage_models.py --help
 
 # Package management (read-only)
 pip list
-pip show flask
+pip show fastapi
 pip freeze
 ```
 

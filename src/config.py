@@ -58,8 +58,13 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             # Handle JSON array string or comma-separated
             if v.startswith("["):
-                result: list[str] = json.loads(v)
-                return result
+                try:
+                    result: list[str] = json.loads(v)
+                    return result
+                except json.JSONDecodeError as e:
+                    raise ValueError(
+                        f"Invalid JSON format for cors_origins: {e.msg}"
+                    ) from e
             return [origin.strip() for origin in v.split(",")]
         if isinstance(v, list):
             return list(v)
