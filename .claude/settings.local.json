@@ -23,7 +23,8 @@
       "WebFetch(domain:github.com)",
       "Bash(ruff check:*)",
       "Bash(ruff format:*)",
-      "Bash(pylint:*)"
+      "Bash(pylint:*)",
+      "Bash(git push)"
     ]
   }
 }

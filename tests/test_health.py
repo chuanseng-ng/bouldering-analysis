@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from src.config import Settings
 from src.routes.health import HealthResponse
 
 
@@ -105,11 +106,13 @@ class TestHealthEndpoint:
         data = response.json()
         assert data["status"] == "healthy"
 
-    def test_health_endpoint_version(self, client: TestClient) -> None:
+    def test_health_endpoint_version(
+        self, client: TestClient, app_settings: Settings
+    ) -> None:
         """Health response should include version."""
         response = client.get("/health")
         data = response.json()
-        assert data["version"] == "0.1.0"
+        assert data["version"] == app_settings.app_version
 
     def test_health_endpoint_versioned_api(self, client: TestClient) -> None:
         """Versioned health endpoint should return 200 OK."""

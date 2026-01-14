@@ -38,6 +38,35 @@ def reset_logging() -> Generator[None, None, None]:
         root_logger.addHandler(handler)
 
 
+@pytest.fixture
+def json_logger_stream(
+    request: pytest.FixtureRequest,
+) -> Generator[tuple[logging.Logger, StringIO], None, None]:
+    """Create a logger with JSON formatter and StringIO stream.
+
+    This fixture provides a consistent logger setup for testing
+    CustomJsonFormatter behavior.
+
+    Args:
+        request: Pytest request object to get test name.
+
+    Yields:
+        Tuple of (logger, stream) for testing JSON output.
+    """
+    # Use test name as logger name for isolation
+    logger_name = f"test_{request.node.name}"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
+
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
+    logger.addHandler(handler)
+
+    yield logger, stream
+
+
 class TestConfigureLogging:
     """Tests for configure_logging function."""
 
@@ -91,90 +120,65 @@ class TestConfigureLogging:
 class TestCustomJsonFormatter:
     """Tests for CustomJsonFormatter class."""
 
-    def test_json_formatter_outputs_valid_json(self) -> None:
+    def test_json_formatter_outputs_valid_json(
+        self, json_logger_stream: tuple[logging.Logger, StringIO]
+    ) -> None:
         """Formatter should output valid JSON."""
-        # Create a logger with our formatter
-        logger = logging.getLogger("test_json")
-        logger.setLevel(logging.DEBUG)
-        logger.handlers.clear()
-
-        stream = StringIO()
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
-        logger.addHandler(handler)
+        logger, stream = json_logger_stream
 
         logger.info("Test message")
-        handler.flush()
+        logger.handlers[0].flush()
 
         output = stream.getvalue()
         # Should be valid JSON
         data = json.loads(output)
         assert "message" in data
 
-    def test_json_formatter_includes_level(self) -> None:
+    def test_json_formatter_includes_level(
+        self, json_logger_stream: tuple[logging.Logger, StringIO]
+    ) -> None:
         """JSON output should include log level."""
-        logger = logging.getLogger("test_level")
-        logger.setLevel(logging.DEBUG)
-        logger.handlers.clear()
-
-        stream = StringIO()
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
-        logger.addHandler(handler)
+        logger, stream = json_logger_stream
 
         logger.info("Test message")
-        handler.flush()
+        logger.handlers[0].flush()
 
         data = json.loads(stream.getvalue())
         assert data["level"] == "INFO"
 
-    def test_json_formatter_includes_logger_name(self) -> None:
+    def test_json_formatter_includes_logger_name(
+        self, json_logger_stream: tuple[logging.Logger, StringIO]
+    ) -> None:
         """JSON output should include logger name."""
-        logger = logging.getLogger("my_test_logger")
-        logger.setLevel(logging.DEBUG)
-        logger.handlers.clear()
-
-        stream = StringIO()
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
-        logger.addHandler(handler)
+        logger, stream = json_logger_stream
 
         logger.info("Test message")
-        handler.flush()
+        logger.handlers[0].flush()
 
         data = json.loads(stream.getvalue())
-        assert data["logger"] == "my_test_logger"
+        # Logger name includes test name for isolation
+        assert "test_" in data["logger"]
 
-    def test_json_formatter_includes_timestamp(self) -> None:
+    def test_json_formatter_includes_timestamp(
+        self, json_logger_stream: tuple[logging.Logger, StringIO]
+    ) -> None:
         """JSON output should include timestamp."""
-        logger = logging.getLogger("test_timestamp")
-        logger.setLevel(logging.DEBUG)
-        logger.handlers.clear()
-
-        stream = StringIO()
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
-        logger.addHandler(handler)
+        logger, stream = json_logger_stream
 
         logger.info("Test message")
-        handler.flush()
+        logger.handlers[0].flush()
 
         data = json.loads(stream.getvalue())
         assert "timestamp" in data
 
-    def test_json_formatter_includes_location_for_warnings(self) -> None:
+    def test_json_formatter_includes_location_for_warnings(
+        self, json_logger_stream: tuple[logging.Logger, StringIO]
+    ) -> None:
         """JSON output should include location for WARNING and above."""
-        logger = logging.getLogger("test_location")
-        logger.setLevel(logging.DEBUG)
-        logger.handlers.clear()
-
-        stream = StringIO()
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(message)s"))
-        logger.addHandler(handler)
+        logger, stream = json_logger_stream
 
         logger.warning("Warning message")
-        handler.flush()
+        logger.handlers[0].flush()
 
         data = json.loads(stream.getvalue())
         assert "location" in data

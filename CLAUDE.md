@@ -468,7 +468,7 @@ test_settings = get_settings_override({"testing": True})
 | GET | `/health` | Health check (root level) | HealthResponse |
 | GET | `/api/v1/health` | Health check (versioned) | HealthResponse |
 | GET | `/docs` | Swagger UI (debug only) | HTML |
-| GET | `/openapi.json` | OpenAPI schema | JSON |
+| GET | `/openapi.json` | OpenAPI schema (debug only) | JSON |
 
 ### Example Usage
 

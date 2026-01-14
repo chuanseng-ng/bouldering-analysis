@@ -6,7 +6,7 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 
 This application analyzes bouldering route images to:
 
-- **Detect holds** using pre-trained YOLOv8 models
+- **Detect holds** using pretrained YOLOv8 models
 - **Classify hold types** (jug, crimp, sloper, pinch, volume)
 - **Construct movement graphs** from hold positions
 - **Extract interpretable features** for grade estimation
