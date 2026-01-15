@@ -162,7 +162,11 @@ class TestUploadToStorage:
                 == "https://test.supabase.co/storage/v1/object/public/bucket/file.jpg"
             )
             mock_client.storage.from_.assert_called_with("test-bucket")
-            mock_bucket.upload.assert_called_once()
+            mock_bucket.upload.assert_called_once_with(
+                path="path/to/file.jpg",
+                file=file_data,
+                file_options={"content-type": "image/jpeg"},
+            )
             mock_bucket.get_public_url.assert_called_once_with("path/to/file.jpg")
 
     def test_upload_to_storage_without_content_type(self) -> None:
@@ -191,7 +195,11 @@ class TestUploadToStorage:
             url = upload_to_storage("test-bucket", "file.jpg", file_data)
 
             assert url == "https://test.url/file.jpg"
-            mock_bucket.upload.assert_called_once()
+            mock_bucket.upload.assert_called_once_with(
+                path="file.jpg",
+                file=file_data,
+                file_options=None,
+            )
 
     def test_upload_to_storage_handles_errors(self) -> None:
         """Upload errors should be wrapped in SupabaseClientError."""
@@ -400,7 +408,7 @@ class TestListStorageFiles:
 
             files = list_storage_files("test-bucket")
 
-            assert files == []
+            assert not files
             mock_bucket.list.assert_called_once_with("")
 
     def test_list_storage_files_handles_errors(self) -> None:
