@@ -96,7 +96,7 @@ def upload_to_storage(
         client.storage.from_(bucket).upload(
             path=file_path,
             file=file_data,
-            file_options=options if options else None,
+            file_options=options if options else None,  # type: ignore[arg-type]
         )
 
         # Get public URL
