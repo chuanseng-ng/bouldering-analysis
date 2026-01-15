@@ -204,6 +204,7 @@ def validate_classification_dataset(
             list(class_dir.glob("*.jpg"))
             + list(class_dir.glob("*.jpeg"))
             + list(class_dir.glob("*.png"))
+            + list(class_dir.glob("*.txt"))
         )
         if not images:
             raise TrainingError(
@@ -219,6 +220,7 @@ def validate_classification_dataset(
             list(class_dir.glob("*.jpg"))
             + list(class_dir.glob("*.jpeg"))
             + list(class_dir.glob("*.png"))
+            + list(class_dir.glob("*.txt"))
         )
         if not images:
             logger.warning(

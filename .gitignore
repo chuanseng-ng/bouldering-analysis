@@ -205,3 +205,6 @@ cython_debug/
 # YOLO 
 data/hold_classification
 runs/
+
+# Claude AI
+tmpclaude*
