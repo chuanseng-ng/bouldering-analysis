@@ -22,7 +22,7 @@ This document explains what FastAPI is used for in this application and how it o
 - Receives requests from the frontend (web interface)
 - Orchestrates all the ML/CV processing
 - Manages data persistence to Supabase
-- Returns results back to the frontend
+- Returns results to the frontend
 
 Think of it as the **"brain" of the application** - it coordinates all the different components (ML models, database, storage) to analyze a bouldering route from start to finish.
 
@@ -30,7 +30,7 @@ Think of it as the **"brain" of the application** - it coordinates all the diffe
 
 ## The Big Picture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        USER (Web Browser)                        │
 │                      ↓                    ↑                      │
@@ -95,13 +95,15 @@ Think of it as the **"brain" of the application** - it coordinates all the diffe
 - ✅ API versioning structure (`/api/v1/...`)
 
 **Current Endpoints:**
-```
+
+```text
 GET  /health              - Health check
 GET  /api/v1/health       - Versioned health check
 GET  /docs                - API documentation (debug mode)
 ```
 
 **What You Can Do Now:**
+
 ```python
 # The backend is running and ready
 uvicorn src.app:application --reload
@@ -116,6 +118,7 @@ uvicorn src.app:application --reload
 **What Will Be Added:**
 
 #### Milestone 2: Image Upload & Persistence
+
 ```python
 POST /api/v1/routes/upload
 {
@@ -127,6 +130,7 @@ POST /api/v1/routes/upload
 ```
 
 #### Milestone 3-4: Hold Detection & Classification
+
 ```python
 POST /api/v1/routes/{route_id}/detect-holds
 → Runs ML models to find and classify holds
@@ -139,6 +143,7 @@ POST /api/v1/routes/{route_id}/detect-holds
 ```
 
 #### Milestone 5-6: Route Graph & Features
+
 ```python
 POST /api/v1/routes/{route_id}/build-graph
 {
@@ -157,6 +162,7 @@ POST /api/v1/routes/{route_id}/build-graph
 ```
 
 #### Milestone 7-8: Grade Estimation & Explanation
+
 ```python
 POST /api/v1/routes/{route_id}/estimate-grade
 → Predicts route difficulty with explanation
@@ -176,6 +182,7 @@ POST /api/v1/routes/{route_id}/estimate-grade
 ```
 
 #### Milestone 9: Complete Route Analysis
+
 ```python
 GET /api/v1/routes/{route_id}
 → Returns complete route analysis:
@@ -237,6 +244,7 @@ Here's the complete API that will be built:
 FastAPI was chosen for this project because:
 
 ### 1. **Async Support for ML Models**
+
 ```python
 @app.post("/api/v1/routes/{route_id}/detect-holds")
 async def detect_holds(route_id: str):
@@ -246,6 +254,7 @@ async def detect_holds(route_id: str):
 ```
 
 ### 2. **Automatic API Documentation**
+
 ```python
 # FastAPI automatically generates interactive docs
 # Visit: http://localhost:8000/docs
@@ -253,6 +262,7 @@ async def detect_holds(route_id: str):
 ```
 
 ### 3. **Type Safety with Pydantic**
+
 ```python
 class RouteUploadRequest(BaseModel):
     wall_angle: float = Field(ge=0, le=90, description="Wall angle in degrees")
@@ -266,11 +276,13 @@ def upload_route(request: RouteUploadRequest):
 ```
 
 ### 4. **High Performance**
+
 - FastAPI is one of the fastest Python frameworks
 - Built on Starlette (async) and Pydantic (validation)
 - Can handle many concurrent ML inference requests
 
 ### 5. **Modern Python Features**
+
 - Python 3.10+ type hints
 - Async/await syntax
 - Dependency injection
@@ -285,6 +297,7 @@ Here's how a complete route analysis works:
 ### Step 1: User Uploads Route Image
 
 **Frontend:**
+
 ```javascript
 // User selects image and clicks "Analyze Route"
 const formData = new FormData();
@@ -298,6 +311,7 @@ fetch('http://localhost:8000/api/v1/routes/analyze', {
 ```
 
 **FastAPI Backend:**
+
 ```python
 @app.post("/api/v1/routes/analyze")
 async def analyze_route(
@@ -371,7 +385,8 @@ async def analyze_route(
 ### Step 2: Frontend Displays Results
 
 **What the user sees:**
-```
+
+```text
 ┌─────────────────────────────────────────────┐
 │  Your Route Analysis                        │
 │                                             │
@@ -395,6 +410,7 @@ async def analyze_route(
 ### Step 3: User Provides Feedback
 
 **Frontend:**
+
 ```javascript
 // User clicks "Too Hard" - actual grade is V4
 fetch('http://localhost:8000/api/v1/feedback', {
@@ -409,6 +425,7 @@ fetch('http://localhost:8000/api/v1/feedback', {
 ```
 
 **FastAPI Backend:**
+
 ```python
 @app.post("/api/v1/feedback")
 async def submit_feedback(feedback: FeedbackRequest):
@@ -433,10 +450,23 @@ async def submit_feedback(feedback: FeedbackRequest):
 ```python
 # src/app.py - The Main Application
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from src.routes import health, routes, analysis
 from src.database import get_supabase_client
 from src.ml import load_models
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan - startup and shutdown."""
+    # Startup: Load ML models and initialize resources
+    app.state.hold_detector = load_hold_detector()
+    app.state.hold_classifier = load_hold_classifier()
+    app.state.grade_estimator = load_grade_estimator()
+    app.state.db = get_supabase_client()
+    yield
+    # Shutdown: Clean up resources (if needed)
+    # e.g., close model connections, cleanup temporary files
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
@@ -444,7 +474,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Bouldering Route Analysis API",
         description="Estimate route difficulty using computer vision",
-        version="0.1.0"
+        version="0.1.0",
+        lifespan=lifespan
     )
 
     # Configure middleware
@@ -456,20 +487,12 @@ def create_app() -> FastAPI:
     app.include_router(routes.router, prefix="/api/v1/routes")
     app.include_router(analysis.router, prefix="/api/v1/analysis")
 
-    # Load ML models on startup
-    @app.on_event("startup")
-    async def startup():
-        app.state.hold_detector = load_hold_detector()
-        app.state.hold_classifier = load_hold_classifier()
-        app.state.grade_estimator = load_grade_estimator()
-        app.state.db = get_supabase_client()
-
     return app
 ```
 
 ### Request Flow Through FastAPI
 
-```
+```text
 1. HTTP Request arrives
    ↓
 2. CORS Middleware (allow frontend origin)
@@ -508,6 +531,7 @@ def create_app() -> FastAPI:
 10. **Manages ML model lifecycle** (loading, caching)
 
 ### What's Working Now (Milestone 1)
+
 - ✅ FastAPI server running
 - ✅ Configuration management
 - ✅ Supabase connection
@@ -515,6 +539,7 @@ def create_app() -> FastAPI:
 - ✅ API documentation at `/docs`
 
 ### What's Coming Next (Milestones 2-10)
+
 - 🚧 Image upload endpoints
 - 🚧 ML model integration
 - 🚧 Route analysis pipeline

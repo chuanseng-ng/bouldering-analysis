@@ -142,7 +142,8 @@ python test_supabase_connection.py
 ```
 
 Expected output:
-```
+
+```text
 ============================================================
 Testing Supabase Connection
 ============================================================
@@ -222,7 +223,7 @@ Testing Supabase Connection
 - ❌ Never expose `service_role` key in client code
 - ❌ Never commit keys to version control
 
-### Row Level Security (RLS)
+### Row-Level Security (RLS)
 
 When you add database tables (Milestone 9), enable RLS:
 

@@ -8,7 +8,6 @@ Usage:
 """
 
 import sys
-from typing import Any
 
 from src.database import get_supabase_client
 from src.database.supabase_client import SupabaseClientError
@@ -32,7 +31,8 @@ def test_connection() -> bool:
         print("2. Check that BA_SUPABASE_KEY is set in your .env file")
         print("3. Verify your Supabase project is active")
         return False
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
+        # Catch any unexpected errors (network, import, etc.) for diagnostic purposes
         print(f"[FAIL] Unexpected error: {e}")
         return False
 
@@ -64,8 +64,9 @@ def test_storage() -> bool:
                     visibility = "public" if is_public else "private"
                     print(f"       - {bucket_name} ({visibility})")
                 return True
-        except Exception:
-            pass  # Fall through to direct bucket check
+        except Exception:  # pylint: disable=broad-except
+            # Anon keys often can't list all buckets - fall through to direct check
+            pass
 
         # If list_buckets returns empty or fails, try direct bucket access
         # This is normal for anon keys (they can't list all buckets)
@@ -83,7 +84,8 @@ def test_storage() -> bool:
                 bucket_proxy.list()  # This will raise if bucket doesn't exist
                 found_buckets.append(bucket_name)
                 print(f"       [OK] {bucket_name} - accessible")
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
+                # Catch any bucket access errors for diagnostic reporting
                 error_msg = str(e).lower()
                 if "not found" in error_msg or "does not exist" in error_msg:
                     missing_buckets.append(bucket_name)
@@ -103,7 +105,8 @@ def test_storage() -> bool:
 
         return len(found_buckets) > 0
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
+        # Catch any storage access failures for diagnostic reporting
         print(f"\n[FAIL] Storage access failed: {e}")
         print("\nThis may be due to:")
         print("1. API key permissions (ensure you're using anon or service_role key)")
