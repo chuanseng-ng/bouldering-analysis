@@ -44,7 +44,7 @@ class TestHealthResponse:
         """Should reject invalid status values."""
         with pytest.raises(ValidationError):
             HealthResponse(
-                status="invalid",  # type: ignore[arg-type]
+                status="invalid",
                 version="1.0.0",
                 timestamp=datetime.now(timezone.utc),
             )
@@ -55,7 +55,7 @@ class TestHealthResponse:
             HealthResponse(
                 status="healthy",
                 timestamp=datetime.now(timezone.utc),
-            )  # type: ignore[call-arg]
+            )
 
     def test_health_response_requires_timestamp(self) -> None:
         """Timestamp field should be required."""
@@ -63,7 +63,7 @@ class TestHealthResponse:
             HealthResponse(
                 status="healthy",
                 version="1.0.0",
-            )  # type: ignore[call-arg]
+            )
 
     def test_health_response_json_serialization(self) -> None:
         """Response should serialize to JSON correctly."""
