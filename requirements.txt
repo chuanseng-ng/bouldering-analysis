@@ -24,7 +24,7 @@ numpy==2.2.6
 PyYAML==6.0.2
 
 # Database (Supabase)
-supabase==2.14.0
+supabase==2.27.2
 
 # Data Versioning
 dvc==3.64.0

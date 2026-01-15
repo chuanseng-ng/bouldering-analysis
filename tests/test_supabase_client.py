@@ -311,6 +311,34 @@ class TestGetStorageUrl:
             mock_client.storage.from_.assert_called_with("test-bucket")
             mock_bucket.get_public_url.assert_called_once_with("path/to/file.jpg")
 
+    def test_get_storage_url_handles_errors(self) -> None:
+        """URL retrieval errors should be wrapped in SupabaseClientError."""
+        get_supabase_client.cache_clear()
+
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+
+        mock_client.storage.from_.return_value = mock_bucket
+        mock_bucket.get_public_url.side_effect = Exception("URL retrieval failed")
+
+        with (
+            patch("src.database.supabase_client.get_settings") as mock_get_settings,
+            patch("src.database.supabase_client.create_client") as mock_create_client,
+        ):
+            mock_get_settings.return_value = get_settings_override(
+                {
+                    "supabase_url": "https://test.supabase.co",
+                    "supabase_key": "test-key",
+                }
+            )
+            mock_create_client.return_value = mock_client
+
+            with pytest.raises(
+                SupabaseClientError,
+                match="Failed to get URL for file in bucket 'test-bucket'",
+            ):
+                get_storage_url("test-bucket", "file.jpg")
+
 
 class TestListStorageFiles:
     """Tests for list_storage_files function."""

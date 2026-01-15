@@ -27,7 +27,7 @@ def get_supabase_client() -> Client:
         Configured Supabase client ready for database and storage operations.
 
     Raises:
-        SupabaseClientError: If SUPABASE_URL or SUPABASE_KEY are not configured.
+        SupabaseClientError: If BA_SUPABASE_URL or BA_SUPABASE_KEY are not configured.
 
     Example:
         >>> client = get_supabase_client()
@@ -142,12 +142,21 @@ def get_storage_url(bucket: str, file_path: str) -> str:
     Returns:
         Public URL of the file.
 
+    Raises:
+        SupabaseClientError: If URL retrieval fails.
+
     Example:
         >>> url = get_storage_url("route-images", "2024/01/route.jpg")
     """
     client = get_supabase_client()
-    url: str = str(client.storage.from_(bucket).get_public_url(file_path))
-    return url
+
+    try:
+        url: str = str(client.storage.from_(bucket).get_public_url(file_path))
+        return url
+    except Exception as e:
+        raise SupabaseClientError(
+            f"Failed to get URL for file in bucket '{bucket}': {e!s}"
+        ) from e
 
 
 def list_storage_files(bucket: str, path: str = "") -> list[dict[str, Any]]:
