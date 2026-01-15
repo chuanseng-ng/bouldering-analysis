@@ -113,7 +113,9 @@ bouldering-analysis/
 ## Documentation
 
 - [Design Specification](docs/DESIGN.md) - Architecture and milestones
+- [FastAPI Role Explained](docs/FASTAPI_ROLE.md) - What FastAPI does in this app
 - [Model Pretraining](docs/MODEL_PRETRAIN.md) - ML model specifications
+- [Supabase Setup Guide](docs/SUPABASE_SETUP.md) - Database configuration
 - [Migration Plan](plans/MIGRATION_PLAN.md) - Implementation roadmap
 - [AI Assistant Guide](CLAUDE.md) - Development guidelines
 
