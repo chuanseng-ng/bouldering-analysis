@@ -23,8 +23,8 @@ ultralytics==8.3.233
 numpy==2.2.6
 PyYAML==6.0.2
 
-# Database (Supabase - to be added in PR-1.2)
-# supabase==2.x.x
+# Database (Supabase)
+supabase==2.27.2
 
 # Data Versioning
 dvc==3.64.0

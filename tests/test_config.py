@@ -42,6 +42,16 @@ class TestSettings:
         settings = Settings()
         assert settings.log_level == "INFO"
 
+    def test_default_supabase_url(self) -> None:
+        """Supabase URL should default to empty string."""
+        settings = Settings()
+        assert settings.supabase_url == ""
+
+    def test_default_supabase_key(self) -> None:
+        """Supabase key should default to empty string."""
+        settings = Settings()
+        assert settings.supabase_key == ""
+
     def test_settings_from_env_vars(self) -> None:
         """Settings should load from environment variables."""
         with patch.dict(os.environ, {"BA_APP_NAME": "test-app"}):
@@ -61,6 +71,18 @@ class TestSettings:
         with patch.dict(os.environ, {"BA_LOG_LEVEL": "DEBUG"}):
             settings = Settings()
             assert settings.log_level == "DEBUG"
+
+    def test_settings_supabase_url_from_env(self) -> None:
+        """Supabase URL should load from BA_SUPABASE_URL env var."""
+        with patch.dict(os.environ, {"BA_SUPABASE_URL": "https://test.supabase.co"}):
+            settings = Settings()
+            assert settings.supabase_url == "https://test.supabase.co"
+
+    def test_settings_supabase_key_from_env(self) -> None:
+        """Supabase key should load from BA_SUPABASE_KEY env var."""
+        with patch.dict(os.environ, {"BA_SUPABASE_KEY": "test-key-12345"}):
+            settings = Settings()
+            assert settings.supabase_key == "test-key-12345"
 
 
 class TestLogLevelValidation:

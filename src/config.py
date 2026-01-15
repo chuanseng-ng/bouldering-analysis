@@ -25,6 +25,8 @@ class Settings(BaseSettings):
         testing: Enable testing mode.
         cors_origins: List of allowed CORS origins.
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        supabase_url: Supabase project URL (required for database operations).
+        supabase_key: Supabase API key (required for database operations).
     """
 
     app_name: str = "bouldering-analysis"
@@ -33,6 +35,8 @@ class Settings(BaseSettings):
     testing: bool = False
     cors_origins: list[str] = ["*"]
     log_level: str = "INFO"
+    supabase_url: str = ""
+    supabase_key: str = ""
 
     model_config = SettingsConfigDict(
         env_prefix="BA_",
