@@ -7,10 +7,15 @@ Usage:
     python test_supabase_connection.py
 """
 
+import logging
 import sys
 
 from src.database import get_supabase_client
 from src.database.supabase_client import SupabaseClientError
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
 def test_connection() -> bool:
@@ -37,7 +42,7 @@ def test_connection() -> bool:
         return False
 
 
-def test_storage() -> bool:
+def test_storage() -> bool:  # pylint: disable=too-many-branches,too-many-statements
     """Test Supabase Storage access.
 
     Returns:
@@ -53,20 +58,18 @@ def test_storage() -> bool:
                 print("\n[OK] Storage access successful!")
                 print(f"     Found {len(buckets)} storage bucket(s):")
                 for bucket in buckets:
-                    # Extract bucket details
-                    bucket_dict = bucket.__dict__ if hasattr(bucket, '__dict__') else bucket
-                    if isinstance(bucket_dict, dict):
-                        bucket_name = bucket_dict.get("name", "unknown")
-                        is_public = bucket_dict.get("public", False)
-                    else:
-                        bucket_name = getattr(bucket, 'name', 'unknown')
-                        is_public = getattr(bucket, 'public', False)
+                    # Extract bucket details using direct attribute access
+                    bucket_name = getattr(bucket, "name", "unknown")
+                    is_public = getattr(bucket, "public", False)
                     visibility = "public" if is_public else "private"
                     print(f"       - {bucket_name} ({visibility})")
                 return True
-        except Exception:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except
             # Anon keys often can't list all buckets - fall through to direct check
-            pass
+            # Log the error for debugging purposes before using fallback
+            logger.debug(
+                "Failed to list all buckets (expected for anon keys): %s", str(e)
+            )
 
         # If list_buckets returns empty or fails, try direct bucket access
         # This is normal for anon keys (they can't list all buckets)
@@ -86,8 +89,28 @@ def test_storage() -> bool:
                 print(f"       [OK] {bucket_name} - accessible")
             except Exception as e:  # pylint: disable=broad-except
                 # Catch any bucket access errors for diagnostic reporting
-                error_msg = str(e).lower()
-                if "not found" in error_msg or "does not exist" in error_msg:
+                # Check HTTP status code first (404 = not found)
+                is_missing = False
+
+                # Try to get status code from exception
+                status_code = getattr(e, "status_code", None)
+                if status_code is None and hasattr(e, "response"):
+                    status_code = getattr(e.response, "status_code", None)  # pylint: disable=no-member
+
+                if status_code == 404:
+                    is_missing = True
+                # Check Supabase error code if available
+                elif hasattr(e, "error") and hasattr(e.error, "code"):  # pylint: disable=no-member
+                    error_code = e.error.code  # pylint: disable=no-member
+                    if error_code in ("NoSuchBucket", "BucketNotFound", "NotFound"):
+                        is_missing = True
+                # Fall back to string matching as last resort
+                else:
+                    error_msg = str(e).lower()
+                    if "not found" in error_msg or "does not exist" in error_msg:
+                        is_missing = True
+
+                if is_missing:
                     missing_buckets.append(bucket_name)
                     print(f"       [MISSING] {bucket_name} - not found")
                 else:
