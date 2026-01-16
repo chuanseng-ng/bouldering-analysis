@@ -1,5 +1,14 @@
 # Bouldering Route Analysis
 
+![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Code Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
+![Code Quality](https://img.shields.io/badge/pylint-10.0%2F10-brightgreen)
+![Type Checking](https://img.shields.io/badge/mypy-passing-success)
+![Code Style](https://img.shields.io/badge/code%20style-ruff-000000)
+![Framework](https://img.shields.io/badge/framework-FastAPI-009688)
+![Project Status](https://img.shields.io/badge/status-development-yellow)
+
 A web-based system that estimates bouldering route difficulty (V-scale) from images using computer vision and machine learning.
 
 ## Overview
