@@ -24,7 +24,8 @@
       "Bash(ruff check:*)",
       "Bash(ruff format:*)",
       "Bash(pylint:*)",
-      "Bash(git push)"
+      "Bash(git push:*)",
+      "Bash(echo:*)"
     ]
   }
 }
