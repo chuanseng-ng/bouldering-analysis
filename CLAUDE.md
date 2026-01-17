@@ -224,7 +224,7 @@ uvicorn src.app:create_app --factory --reload
 
 ```bash
 # Run all QA checks
-mypy src/ tests/ --ignore-missing-imports && \
+mypy src/ tests/ && \
 ruff check src/ tests/ --ignore E501 && \
 ruff format --check src/ tests/ && \
 pytest tests/ --cov=src --cov-fail-under=85 && \
@@ -235,7 +235,7 @@ pylint src/ --ignore=archive
 
 ```bash
 # Type checking
-mypy src/ tests/ --ignore-missing-imports
+mypy src/ tests/
 
 # Linting
 ruff check src/ tests/ --ignore E501
@@ -560,7 +560,7 @@ uvicorn src.app:application --reload
 pytest tests/ --cov=src --cov-report=term-missing
 
 # Type checking
-mypy src/ tests/ --ignore-missing-imports
+mypy src/ tests/
 
 # Linting
 ruff check src/ tests/ --ignore E501

@@ -80,7 +80,7 @@ pytest tests/ --cov=src --cov-report=term-missing
 
 ```bash
 # Type checking
-mypy src/ tests/ --ignore-missing-imports
+mypy src/ tests/
 
 # Linting
 ruff check src/ tests/
