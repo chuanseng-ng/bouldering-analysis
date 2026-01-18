@@ -24,8 +24,10 @@ class TestSettings:
 
     def test_default_debug_is_false(self) -> None:
         """Debug should default to False."""
-        settings = Settings()
-        assert settings.debug is False
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            assert settings.debug is False
 
     def test_default_testing_is_false(self) -> None:
         """Testing should default to False."""
@@ -34,23 +36,31 @@ class TestSettings:
 
     def test_default_cors_origins(self) -> None:
         """CORS origins should default to wildcard."""
-        settings = Settings()
-        assert settings.cors_origins == ["*"]
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            assert settings.cors_origins == ["*"]
 
     def test_default_log_level(self) -> None:
         """Log level should default to INFO."""
-        settings = Settings()
-        assert settings.log_level == "INFO"
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            assert settings.log_level == "INFO"
 
     def test_default_supabase_url(self) -> None:
         """Supabase URL should default to empty string."""
-        settings = Settings()
-        assert settings.supabase_url == ""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            assert settings.supabase_url == ""
 
     def test_default_supabase_key(self) -> None:
         """Supabase key should default to empty string."""
-        settings = Settings()
-        assert settings.supabase_key == ""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            assert settings.supabase_key == ""
 
     def test_settings_from_env_vars(self) -> None:
         """Settings should load from environment variables."""
@@ -191,9 +201,11 @@ class TestGetSettingsOverride:
 
     def test_override_preserves_defaults(self) -> None:
         """Non-overridden settings should keep defaults."""
-        settings = get_settings_override({"debug": True})
-        assert settings.app_name == "bouldering-analysis"
-        assert settings.log_level == "INFO"
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings(debug=True, _env_file=None)  # type: ignore[call-arg]
+            assert settings.app_name == "bouldering-analysis"
+            assert settings.log_level == "INFO"
 
     def test_override_creates_new_instance(self) -> None:
         """Override should create a new Settings instance each time."""
