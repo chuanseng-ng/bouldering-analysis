@@ -128,7 +128,7 @@ hold_area = (bbox_x2 - bbox_x1) * (bbox_y2 - bbox_y1)
 def get_size_modifier(hold_type: str, area: float) -> float:
     """
     Simplified size modifier - only 3 categories.
-    
+
     Returns modifier to add to base score.
     """
     if hold_type in ['crimp', 'pocket']:
@@ -138,19 +138,19 @@ def get_size_modifier(hold_type: str, area: float) -> float:
             return 1
         else:              # Large
             return 0
-    
+
     elif hold_type == 'sloper':
         if area < 2000:    # Small
             return 2
         else:              # Large
             return 0
-    
+
     elif hold_type == 'jug':
         if area < 2000:    # Small jug
             return 1
         else:              # True jug
             return 0
-    
+
     else:  # pinch, start, top-out
         return 0
 ```
@@ -161,21 +161,21 @@ def get_size_modifier(hold_type: str, area: float) -> float:
 def calculate_handhold_difficulty(handholds: list) -> float:
     """
     Calculate handhold difficulty score.
-    
+
     SIMPLIFIED: No hard_hold_ratio multiplier for MVP.
     """
     if len(handholds) == 0:
         return 6.0  # Default neutral
-    
+
     total_score = 0
     for hold in handholds:
         base_score = HANDHOLD_BASE_SCORES.get(hold.type, 5)
         size_modifier = get_size_modifier(hold.type, hold.area)
         total_score += (base_score + size_modifier)
-    
+
     # Normalize by count
     avg_difficulty = total_score / len(handholds)
-    
+
     # Clamp to 1-13 range
     return max(1.0, min(13.0, avg_difficulty))
 ```
@@ -186,13 +186,13 @@ def calculate_handhold_difficulty(handholds: list) -> float:
 def calculate_foothold_difficulty(footholds: list) -> float:
     """
     Calculate foothold difficulty score.
-    
+
     SIMPLIFIED: Basic size categories, simple scarcity multiplier.
     """
     if len(footholds) == 0:
         # NO FOOTHOLDS = CAMPUSING
         return 12.0
-    
+
     # Size-based scoring
     total_score = 0
     for fh in footholds:
@@ -202,9 +202,9 @@ def calculate_foothold_difficulty(footholds: list) -> float:
             total_score += 5
         else:                  # Large
             total_score += 2
-    
+
     avg_difficulty = total_score / len(footholds)
-    
+
     # Simplified scarcity multiplier
     if len(footholds) <= 2:
         scarcity = 1.4
@@ -212,7 +212,7 @@ def calculate_foothold_difficulty(footholds: list) -> float:
         scarcity = 1.2
     else:
         scarcity = 1.0
-    
+
     return avg_difficulty * scarcity
 ```
 
@@ -224,18 +224,18 @@ def calculate_foothold_difficulty(footholds: list) -> float:
 def calculate_combined_hold_difficulty(handholds: list, footholds: list) -> float:
     """
     Combine handhold and foothold difficulty.
-    
+
     SIMPLIFIED MVP: Use constant 60/40 weighting.
     """
     handhold_score = calculate_handhold_difficulty(handholds)
     foothold_score = calculate_foothold_difficulty(footholds)
-    
+
     # Constant weights for MVP
     HANDHOLD_WEIGHT = 0.60
     FOOTHOLD_WEIGHT = 0.40
-    
+
     combined = (handhold_score * HANDHOLD_WEIGHT) + (foothold_score * FOOTHOLD_WEIGHT)
-    
+
     return combined
 ```
 
@@ -253,12 +253,12 @@ Assess difficulty based on number of available holds.
 def calculate_handhold_density_score(handhold_count: int) -> float:
     """
     Logarithmic relationship: fewer holds = harder.
-    
+
     Same as full spec.
     """
     if handhold_count == 0:
         return 12.0
-    
+
     score = 12 - (math.log2(handhold_count) * 2.5)
     return max(0, min(12, score))
 ```
@@ -269,7 +269,7 @@ def calculate_handhold_density_score(handhold_count: int) -> float:
 def calculate_foothold_density_score(foothold_count: int) -> float:
     """
     Foothold scarcity scoring.
-    
+
     SIMPLIFIED: Coarse categories instead of fine-grained.
     """
     if foothold_count == 0:
@@ -292,15 +292,15 @@ def calculate_foothold_density_score(foothold_count: int) -> float:
 def calculate_combined_hold_density(handhold_count: int, foothold_count: int) -> float:
     """
     Combine handhold and foothold density.
-    
+
     SIMPLIFIED MVP: Use constant 60/40 weighting.
     """
     handhold_density = calculate_handhold_density_score(handhold_count)
     foothold_density = calculate_foothold_density_score(foothold_count)
-    
+
     # Constant weights for MVP
     combined = (handhold_density * 0.60) + (foothold_density * 0.40)
-    
+
     return combined
 ```
 
@@ -318,7 +318,7 @@ Measure spacing between holds to assess reach difficulty.
 def calculate_hold_distances(holds: list, image_height: float) -> dict:
     """
     Calculate sequential distances between holds.
-    
+
     Same as full spec - this part is simple enough.
     """
     if len(holds) < 2:
@@ -328,27 +328,27 @@ def calculate_hold_distances(holds: list, image_height: float) -> dict:
             'normalized_avg': 0,
             'normalized_max': 0
         }
-    
+
     # Sort by y-coordinate
     sorted_holds = sorted(holds, key=lambda h: h.bbox_y1)
-    
+
     distances = []
     for i in range(len(sorted_holds) - 1):
         h1, h2 = sorted_holds[i], sorted_holds[i + 1]
-        
+
         # Calculate centers
         x1 = (h1.bbox_x1 + h1.bbox_x2) / 2
         y1 = (h1.bbox_y1 + h1.bbox_y2) / 2
         x2 = (h2.bbox_x1 + h2.bbox_x2) / 2
         y2 = (h2.bbox_y1 + h2.bbox_y2) / 2
-        
+
         # Euclidean distance
         dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         distances.append(dist)
-    
+
     avg_dist = statistics.mean(distances)
     max_dist = max(distances)
-    
+
     return {
         'avg_distance': avg_dist,
         'max_distance': max_dist,
@@ -363,15 +363,15 @@ def calculate_hold_distances(holds: list, image_height: float) -> dict:
 def calculate_distance_score(distance_metrics: dict) -> float:
     """
     Score based on hold spacing.
-    
+
     SIMPLIFIED: Coarse thresholds, simple formula.
     """
     if len(distance_metrics.get('distances', [])) == 0:
         return 12.0  # No holds to measure = campusing
-    
+
     normalized_avg = distance_metrics['normalized_avg']
     normalized_max = distance_metrics['normalized_max']
-    
+
     # Average distance component (0-8)
     if normalized_avg < 0.12:
         avg_component = 1
@@ -381,7 +381,7 @@ def calculate_distance_score(distance_metrics: dict) -> float:
         avg_component = 5
     else:
         avg_component = 8
-    
+
     # Max distance component (crux bonus: 0-4)
     if normalized_max < 0.25:
         max_component = 0
@@ -389,7 +389,7 @@ def calculate_distance_score(distance_metrics: dict) -> float:
         max_component = 2
     else:
         max_component = 4
-    
+
     return min(avg_component + max_component, 12)
 ```
 
@@ -401,18 +401,18 @@ def calculate_distance_score(distance_metrics: dict) -> float:
 def calculate_combined_distance_score(handholds: list, footholds: list, image_height: float) -> float:
     """
     Combine handhold and foothold distance scores.
-    
+
     SIMPLIFIED MVP: Use constant 60/40 weighting.
     """
     handhold_distances = calculate_hold_distances(handholds, image_height)
     foothold_distances = calculate_hold_distances(footholds, image_height)
-    
+
     handhold_score = calculate_distance_score(handhold_distances)
     foothold_score = calculate_distance_score(foothold_distances)
-    
+
     # Constant weights for MVP
     combined = (handhold_score * 0.60) + (foothold_score * 0.40)
-    
+
     return combined
 ```
 
@@ -442,13 +442,13 @@ WALL_INCLINE_CATEGORIES = {
 def calculate_wall_incline_score(wall_incline: str) -> float:
     """
     Score based on wall angle.
-    
+
     SIMPLIFIED: Manual input, single angle only (no segments).
     """
     base_score = 6.0  # Neutral baseline
-    
+
     multiplier = WALL_INCLINE_CATEGORIES.get(wall_incline, 1.0)
-    
+
     return base_score * multiplier
 ```
 
@@ -474,25 +474,25 @@ def predict_grade_v2_mvp(
 ) -> tuple[str, float, dict]:
     """
     MVP grade prediction - simplified Phase 1a.
-    
+
     Args:
         detected_holds: List of DetectedHold objects
         wall_incline: One of 5 categories (manual input)
         image_height: Image height for distance normalization
-    
+
     Returns:
         tuple: (predicted_grade, confidence, score_breakdown)
     """
     # Separate handholds and footholds
     handholds = [h for h in detected_holds if h.hold_type not in ['foot-hold']]
     footholds = [h for h in detected_holds if h.hold_type == 'foot-hold']
-    
+
     # Calculate 4 factor scores
     hold_difficulty_score = calculate_combined_hold_difficulty(handholds, footholds)
     hold_density_score = calculate_combined_hold_density(len(handholds), len(footholds))
     distance_score = calculate_combined_distance_score(handholds, footholds, image_height)
     wall_incline_score = calculate_wall_incline_score(wall_incline)
-    
+
     # Weighted combination
     base_score = (
         hold_difficulty_score * 0.35 +
@@ -500,17 +500,17 @@ def predict_grade_v2_mvp(
         distance_score * 0.20 +
         wall_incline_score * 0.20
     )
-    
+
     # NO MULTIPLIERS IN MVP - keep it simple
     final_score = base_score
-    
+
     # Confidence based on detection quality
     confidence_avg = statistics.mean([h.confidence for h in detected_holds])
     confidence = min(confidence_avg / 0.7, 1.0)
-    
+
     # Map to grade
     predicted_grade = map_score_to_grade(final_score)
-    
+
     # Score breakdown
     breakdown = {
         'hold_difficulty': hold_difficulty_score,
@@ -523,7 +523,7 @@ def predict_grade_v2_mvp(
         'foothold_count': len(footholds),
         'wall_angle': wall_incline
     }
-    
+
     return predicted_grade, confidence, breakdown
 ```
 
@@ -533,7 +533,7 @@ def predict_grade_v2_mvp(
 def map_score_to_grade(score: float) -> str:
     """
     Map score (0-12) to V-grade.
-    
+
     Same as full spec.
     """
     if score < 1.0:
@@ -595,18 +595,18 @@ def upgrade():
 ```yaml
 grade_prediction:
   algorithm_version: "v2_mvp"
-  
+
   # Factor weights
   weights:
     hold_difficulty: 0.35
     hold_density: 0.25
     distance: 0.20
     wall_incline: 0.20
-  
+
   # Hold/foot weighting (constant for MVP)
   handhold_weight: 0.60
   foothold_weight: 0.40
-  
+
   # Size thresholds (pixels²)
   size_thresholds:
     crimp_small: 1000
@@ -615,7 +615,7 @@ grade_prediction:
     jug_small: 2000
     foothold_small: 1000
     foothold_large: 2000
-  
+
   # Distance thresholds (normalized by image height)
   distance_thresholds:
     close: 0.12
@@ -623,7 +623,7 @@ grade_prediction:
     wide: 0.30
     crux_small: 0.25
     crux_large: 0.40
-  
+
   # Wall incline multipliers
   wall_incline_multipliers:
     slab: 0.70
@@ -631,7 +631,7 @@ grade_prediction:
     slight_overhang: 1.20
     moderate_overhang: 1.50
     steep_overhang: 1.80
-  
+
   # Performance settings
   confidence_threshold: 0.5
   default_wall_incline: "vertical"
@@ -763,11 +763,11 @@ def test_predict_grade_mvp_integration():
     """Test full prediction pipeline."""
     holds = create_mock_route(handhold_count=10, foothold_count=6)
     grade, confidence, breakdown = predict_grade_v2_mvp(
-        holds, 
+        holds,
         wall_incline='vertical',
         image_height=1080
     )
-    assert grade in ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 
+    assert grade in ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6',
                      'V7', 'V8', 'V9', 'V10', 'V11', 'V12']
     assert 0 <= confidence <= 1.0
     assert 'hold_difficulty' in breakdown

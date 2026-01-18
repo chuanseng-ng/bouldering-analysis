@@ -19,7 +19,7 @@ This document analyzes the feasibility and design approach for adding **user per
 **Current Algorithm Structure** (from [`grade_prediction_algorithm.md`](grade_prediction_algorithm.md)):
 
 ```text
-Base Score = f(Hold Difficulty, Hold Density, Distance, Wall Incline) 
+Base Score = f(Hold Difficulty, Hold Density, Distance, Wall Incline)
             with weights [0.35, 0.25, 0.20, 0.20]
 
 Final Score = Base Score × Wall Transition Multiplier × Hold Variability Multiplier
@@ -638,7 +638,7 @@ def classify_route_characteristics(features: dict) -> dict:
         'hold_count_category': None,  # few, moderate, many
         'complexity_level': None      # low, medium, high
     }
-    
+
     # Classify wall angle
     wall_incline = features.get('wall_incline', 'vertical')
     if wall_incline in ['slab']:
@@ -649,16 +649,16 @@ def classify_route_characteristics(features: dict) -> dict:
         characteristics['wall_angle_category'] = 'overhang'
     else:
         characteristics['wall_angle_category'] = 'steep'
-    
+
     # Classify dominant hold type
     hold_types = features.get('hold_types', {})
     total_handholds = sum(hold_types.get(ht, 0) for ht in ['crimp', 'jug', 'sloper', 'pinch', 'pocket'])
-    
+
     if total_handholds > 0:
         crimp_ratio = hold_types.get('crimp', 0) / total_handholds
         sloper_ratio = hold_types.get('sloper', 0) / total_handholds
         jug_ratio = hold_types.get('jug', 0) / total_handholds
-        
+
         if crimp_ratio > 0.5:
             characteristics['hold_type_dominant'] = 'crimp'
         elif sloper_ratio > 0.4:
@@ -667,18 +667,18 @@ def classify_route_characteristics(features: dict) -> dict:
             characteristics['hold_type_dominant'] = 'jug'
         else:
             characteristics['hold_type_dominant'] = 'mixed'
-    
+
     # Classify distance
     distance_metrics = features.get('distance_metrics', {})
     avg_normalized_distance = distance_metrics.get('normalized_avg', 0.2)
-    
+
     if avg_normalized_distance < 0.15:
         characteristics['distance_category'] = 'close'
     elif avg_normalized_distance < 0.30:
         characteristics['distance_category'] = 'moderate'
     else:
         characteristics['distance_category'] = 'wide'
-    
+
     # Classify hold count
     total_holds = features.get('total_holds', 10)
     if total_holds < 6:
@@ -687,12 +687,12 @@ def classify_route_characteristics(features: dict) -> dict:
         characteristics['hold_count_category'] = 'moderate'
     else:
         characteristics['hold_count_category'] = 'many'
-    
+
     # Classify complexity
     complexity = features.get('complexity_analysis', {})
     transitions = complexity.get('wall_transitions', {}).get('count', 0)
     entropy = complexity.get('hold_variability', {}).get('entropy', 0)
-    
+
     complexity_score = (transitions * 0.3) + (entropy * 0.7)
     if complexity_score < 0.5:
         characteristics['complexity_level'] = 'low'
@@ -700,7 +700,7 @@ def classify_route_characteristics(features: dict) -> dict:
         characteristics['complexity_level'] = 'medium'
     else:
         characteristics['complexity_level'] = 'high'
-    
+
     return characteristics
 ```
 
@@ -716,7 +716,7 @@ def get_persona_adjustments(persona: str, route_chars: dict) -> dict:
     """
     # Load persona profiles from configuration
     persona_profiles = load_persona_profiles()
-    
+
     if persona not in persona_profiles:
         # Default to balanced persona
         return {
@@ -727,24 +727,24 @@ def get_persona_adjustments(persona: str, route_chars: dict) -> dict:
             'transition_multiplier': 1.0,
             'variability_multiplier': 1.0
         }
-    
+
     profile = persona_profiles[persona]
-    adjustments = {'hold_difficulty': 1.0, 'hold_density': 1.0, 
+    adjustments = {'hold_difficulty': 1.0, 'hold_density': 1.0,
                    'distance': 1.0, 'wall_incline': 1.0,
                    'transition_multiplier': 1.0, 'variability_multiplier': 1.0}
-    
+
     # Apply adjustments based on route characteristics
     wall_angle = route_chars['wall_angle_category']
     hold_type = route_chars['hold_type_dominant']
     distance_cat = route_chars['distance_category']
     hold_count = route_chars['hold_count_category']
-    
+
     # Example: Slab specialist on slab route
     if persona == 'slab_specialist' and wall_angle == 'slab':
         adjustments['wall_incline'] = 0.65
         adjustments['distance'] = 0.85
         adjustments['hold_density'] = 0.90
-    
+
     # Example: Power climber on overhang with wide spacing
     if persona == 'power_climber' and wall_angle in ['overhang', 'steep']:
         adjustments['wall_incline'] = 0.75
@@ -752,9 +752,9 @@ def get_persona_adjustments(persona: str, route_chars: dict) -> dict:
         adjustments['hold_difficulty'] = 0.85
         if distance_cat == 'wide':
             adjustments['distance'] = 0.65  # Even easier
-    
+
     # Add more persona-specific logic...
-    
+
     return adjustments
 ```
 
@@ -777,43 +777,43 @@ def predict_grade_v2_personalized(
     base_grade, base_confidence, base_breakdown = predict_grade_v2(
         features, detected_holds, wall_segments, wall_incline
     )
-    
+
     # If no persona selected, return baseline
     if not user_persona or user_persona.get('persona') == 'balanced':
         return base_grade, base_confidence, base_breakdown
-    
+
     # Classify route characteristics
     route_chars = classify_route_characteristics(features)
-    
+
     # Get persona adjustments
     persona_name = user_persona.get('persona', 'balanced')
     persona_strength = user_persona.get('strength', 'medium')  # light/medium/strong
-    
+
     adjustments = get_persona_adjustments(persona_name, route_chars)
-    
+
     # Apply strength scaling (light=50%, medium=100%, strong=150% adjustment)
     strength_scales = {'light': 0.5, 'medium': 1.0, 'strong': 1.5}
     scale = strength_scales.get(persona_strength, 1.0)
-    
+
     scaled_adjustments = {}
     for factor, multiplier in adjustments.items():
         # Scale adjustment toward 1.0 (neutral) based on strength
         deviation = multiplier - 1.0
         scaled_adjustments[factor] = 1.0 + (deviation * scale)
-    
+
     # Recalculate with adjusted factor scores
     personalized_score = calculate_personalized_score(
         base_breakdown, scaled_adjustments
     )
-    
+
     # Map to grade
     personalized_grade = map_score_to_grade(personalized_score)
-    
+
     # Calculate confidence (lower when grade differs significantly)
     grade_diff = abs(grade_to_numeric(personalized_grade) - grade_to_numeric(base_grade))
     confidence_penalty = min(grade_diff * 0.1, 0.3)
     personalized_confidence = base_confidence * (1 - confidence_penalty)
-    
+
     # Prepare response
     result_breakdown = {
         **base_breakdown,
@@ -825,7 +825,7 @@ def predict_grade_v2_personalized(
         'personalized_grade': personalized_grade,
         'personalized_score': personalized_score
     }
-    
+
     return personalized_grade, personalized_confidence, result_breakdown
 ```
 
@@ -942,10 +942,10 @@ def combine_persona_adjustments(primary_adj, secondary_adj, weights):
     for factor in primary_adj.keys():
         primary_val = primary_adj[factor]
         secondary_val = secondary_adj.get(factor, 1.0)
-        
+
         # Weighted average (geometric mean for multipliers)
         combined[factor] = (
-            primary_val ** weights['primary'] * 
+            primary_val ** weights['primary'] *
             secondary_val ** weights['secondary']
         )
     return combined
@@ -1068,10 +1068,10 @@ class Analysis(Base):
 class UserProfile(Base):
     """Stores user preferences and persona settings."""
     __tablename__ = 'user_profiles'
-    
+
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = db.Column(db.String(36), db.ForeignKey('user_sessions.session_id'))
-    
+
     # Persona configuration
     persona_config = db.Column(db.JSON, nullable=True)
     # Format:
@@ -1082,7 +1082,7 @@ class UserProfile(Base):
     #   "strength": "medium",
     #   "enabled": true
     # }
-    
+
     # User preferences
     preferences = db.Column(db.JSON, nullable=True)
     # Format:
@@ -1090,7 +1090,7 @@ class UserProfile(Base):
     #   "show_both_grades": true,
     #   "default_persona_strength": "medium"
     # }
-    
+
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 ```
@@ -1121,7 +1121,7 @@ personas:
   enabled: true  # Feature flag
   default: "balanced"
   strength_levels: ["light", "medium", "strong"]
-  
+
   # Persona definitions
   profiles:
     slab_specialist:
@@ -1141,15 +1141,15 @@ personas:
           distance: 1.15
           hold_difficulty: 1.10
           hold_density: 1.05
-    
+
     power_climber:
       name: "Power/Campus Climber"
       description: "Excels at powerful, dynamic movements and steep terrain"
       icon: "💪"
       # ... etc
-    
+
     # ... all 7 personas ...
-  
+
   # Compatibility matrix
   incompatible_pairs:
     - ["slab_specialist", "power_climber"]
@@ -1174,7 +1174,7 @@ def upgrade():
         sa.Column('created_at', sa.DateTime, default=datetime.utcnow),
         sa.Column('updated_at', sa.DateTime, default=datetime.utcnow)
     )
-    
+
     # Add persona field to analyses table
     op.add_column('analyses', sa.Column('user_persona_applied', sa.JSON, nullable=True))
 ```
@@ -1814,10 +1814,10 @@ def test_personalized_prediction_slab():
     """Test full pipeline with slab persona."""
     features = create_slab_route_features()
     persona = {'persona': 'slab_specialist', 'strength': 'medium'}
-    
+
     base_grade, _, _ = predict_grade_v2(features, ...)
     pers_grade, _, breakdown = predict_grade_v2_personalized(features, ..., persona)
-    
+
     # Slab specialist should find slab routes easier
     assert grade_to_numeric(pers_grade) <= grade_to_numeric(base_grade)
     assert breakdown['persona_applied'] == 'slab_specialist'
@@ -1832,7 +1832,7 @@ def test_multi_persona_blend():
         'primary': {'persona': 'technical_climber', 'weight': 0.7},
         'secondary': {'persona': 'crimp_specialist', 'weight': 0.3}
     }
-    
+
     adjustments = get_combined_adjustments(persona, route_chars)
     # Should be weighted blend
     assert 0.5 < adjustments['hold_difficulty'] < 1.0
@@ -1857,12 +1857,12 @@ def test_grade_shift_reasonable():
     for _ in range(100):
         features = generate_random_route()
         base_grade = predict_grade_v2(features, ...)[0]
-        
+
         for persona in ALL_PERSONAS:
             pers_grade = predict_grade_v2_personalized(
                 features, ..., {'persona': persona}
             )[0]
-            
+
             diff = abs(grade_to_numeric(pers_grade) - grade_to_numeric(base_grade))
             assert diff <= 3, f"Grade shift too large: {diff} grades"
 ```
@@ -2077,21 +2077,21 @@ slab_specialist:
     at delicate, technical climbing on low-angle walls where body positioning
     and friction are key. However, they may struggle on steep overhangs that
     require significant upper body strength.
-  
+
   strengths:
     - "Balance and body positioning"
     - "Precise footwork on small edges"
     - "Friction climbing technique"
     - "Static, controlled movement"
     - "Mental composure on delicate sequences"
-  
+
   weaknesses:
     - "Steep overhangs (>105°)"
     - "Upper body power moves"
     - "Dynamic movements"
     - "Campus-style climbing"
     - "Compression problems"
-  
+
   # Adjustment multipliers for different route types
   adjustments:
     slab_routes:
@@ -2105,7 +2105,7 @@ slab_specialist:
       multipliers:
         transition: 1.0       # Neutral
         variability: 1.0      # Neutral
-    
+
     overhang_routes:
       condition:
         wall_angle_category: ["overhang", "steep"]
@@ -2117,7 +2117,7 @@ slab_specialist:
       multipliers:
         transition: 1.10      # 10% more affected
         variability: 1.05     # 5% more affected
-    
+
     vertical_routes:
       condition:
         wall_angle_category: "vertical"
@@ -2126,19 +2126,19 @@ slab_specialist:
         distance: 0.95        # 5% easier
         hold_difficulty: 1.0  # Neutral
         hold_density: 1.0     # Neutral
-  
+
   # Examples for user education
   examples:
     - route: "Delicate vertical face with small footholds"
       base_grade: "V5"
       personalized_grade: "V4"
       explanation: "Your balance and footwork skills give you an advantage"
-    
+
     - route: "Steep overhang with powerful moves"
       base_grade: "V5"
       personalized_grade: "V7"
       explanation: "This route requires upper body power, which isn't your strength"
-  
+
   # Training recommendations
   training_recommendations:
     maintain:
@@ -2196,4 +2196,3 @@ slab_specialist:
 - UX designer (user experience review)
 
 **Next Action**: Review with stakeholders and decide on Phase 1.5 implementation timeline
-

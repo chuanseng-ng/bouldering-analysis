@@ -204,13 +204,13 @@ Footholds are scored based on size and availability:
 def calculate_foothold_difficulty(footholds: list) -> float:
     """
     Calculate foothold difficulty score.
-    
+
     CRITICAL: No footholds = campusing = extreme difficulty
     """
     if len(footholds) == 0:
         # NO FOOTHOLDS = CAMPUSING
         return 12.0  # Maximum difficulty
-    
+
     total_score = 0
     for fh in footholds:
         area = fh.area
@@ -223,10 +223,10 @@ def calculate_foothold_difficulty(footholds: list) -> float:
         else:
             score = 1
         total_score += score
-    
+
     # Normalize by foothold count
     avg_foothold_difficulty = total_score / len(footholds)
-    
+
     # Apply foothold scarcity penalty
     # Few footholds = limited balance options = harder
     if len(footholds) <= 2:
@@ -237,7 +237,7 @@ def calculate_foothold_difficulty(footholds: list) -> float:
         scarcity_multiplier = 1.1  # Limited footholds
     else:
         scarcity_multiplier = 1.0  # Adequate footholds
-    
+
     return avg_foothold_difficulty * scarcity_multiplier
 ```
 
@@ -322,9 +322,9 @@ Define wall-angle-dependent weights for combining handhold and foothold scores:
 def get_foothold_weight(wall_angle_category: str) -> tuple[float, float]:
     """
     Return (handhold_weight, foothold_weight) for wall angle.
-    
+
     Weights sum to 1.0, reflecting relative importance.
-    
+
     Returns:
         tuple: (handhold_weight, foothold_weight)
     """
@@ -335,7 +335,7 @@ def get_foothold_weight(wall_angle_category: str) -> tuple[float, float]:
         'moderate_overhang': (0.70, 0.30), # 30% foothold importance
         'steep_overhang': (0.75, 0.25)     # 25% foothold importance
     }
-    
+
     return weights.get(wall_angle_category, (0.55, 0.45))  # Default: vertical
 ```
 
@@ -363,19 +363,19 @@ def calculate_combined_hold_difficulty(
 ) -> float:
     """
     Calculate combined hold difficulty considering both hands and feet.
-    
+
     Uses wall-angle-dependent weighting to reflect climbing biomechanics.
     """
     # Calculate individual scores
     handhold_score = calculate_handhold_difficulty(handholds)  # 1-13 range
     foothold_score = calculate_foothold_difficulty(footholds)  # 1-12 range
-    
+
     # Get wall-angle-dependent weights
     hand_weight, foot_weight = get_foothold_weight(wall_angle_category)
-    
+
     # Combine with weights
     combined_score = (handhold_score * hand_weight) + (foothold_score * foot_weight)
-    
+
     # Combined score range: approximately 1-13
     return combined_score
 ```
@@ -500,10 +500,10 @@ Model foothold scarcity with emphasis on the severe difficulty increase from mis
 def calculate_foothold_density_score(foothold_count: int) -> float:
     """
     Calculate difficulty score based on foothold count.
-    
+
     CRITICAL: No footholds = campusing = extreme difficulty
     Sparse footholds = limited balance options = high difficulty
-    
+
     Returns score in range [0, 12]
     """
     if foothold_count == 0:
@@ -562,24 +562,24 @@ def calculate_combined_hold_density(
 ) -> float:
     """
     Calculate combined hold density score with wall-angle-dependent weighting.
-    
+
     Uses same weighting as Factor 1 for consistency.
     """
     # Calculate individual density scores
     handhold_density_score = 12 - (math.log2(max(handhold_count, 1)) * 2.5)
     handhold_density_score = max(0, min(12, handhold_density_score))
-    
+
     foothold_density_score = calculate_foothold_density_score(foothold_count)
-    
+
     # Get wall-angle-dependent weights (same as Factor 1)
     hand_weight, foot_weight = get_foothold_weight(wall_angle_category)
-    
+
     # Combine with weights
     combined_density_score = (
         handhold_density_score * hand_weight +
         foothold_density_score * foot_weight
     )
-    
+
     return combined_density_score
 ```
 
@@ -672,17 +672,17 @@ Separate handholds and footholds, then sort each by vertical position:
 def separate_and_sort_holds(all_holds: list) -> tuple[list, list]:
     """
     Separate holds into handholds and footholds, sort vertically.
-    
+
     Returns:
         tuple: (sorted_handholds, sorted_footholds)
     """
     handholds = [h for h in all_holds if h.hold_type not in ['foot-hold']]
     footholds = [h for h in all_holds if h.hold_type == 'foot-hold']
-    
+
     # Sort by y-coordinate (bottom to top)
     handholds_sorted = sorted(handholds, key=lambda h: h.bbox_y1)
     footholds_sorted = sorted(footholds, key=lambda h: h.bbox_y1)
-    
+
     return handholds_sorted, footholds_sorted
 ```
 
@@ -694,7 +694,7 @@ For each consecutive pair of holds (separately for hands and feet), calculate Eu
 def calculate_hold_distances(holds: list) -> dict:
     """
     Calculate distance metrics for a list of holds.
-    
+
     Returns:
         dict with avg_distance, max_distance, distance_variance
     """
@@ -705,21 +705,21 @@ def calculate_hold_distances(holds: list) -> dict:
             'distance_variance': 0,
             'distances': []
         }
-    
+
     distances = []
     for i in range(len(holds) - 1):
         h1, h2 = holds[i], holds[i + 1]
-        
+
         # Calculate center points
         x1 = (h1.bbox_x1 + h1.bbox_x2) / 2
         y1 = (h1.bbox_y1 + h1.bbox_y2) / 2
         x2 = (h2.bbox_x1 + h2.bbox_x2) / 2
         y2 = (h2.bbox_y1 + h2.bbox_y2) / 2
-        
+
         # Euclidean distance
         distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         distances.append(distance)
-    
+
     return {
         'avg_distance': statistics.mean(distances),
         'max_distance': max(distances),
@@ -774,20 +774,20 @@ def calculate_handhold_distance_score(
 ) -> float:
     """
     Calculate difficulty score from handhold spacing.
-    
+
     Returns score in range [0, 12]
     """
     if len(handhold_metrics['distances']) == 0:
         return 0
-    
+
     # Normalize distances
     normalized_avg = handhold_metrics['avg_distance'] / image_height
     normalized_max = handhold_metrics['max_distance'] / image_height
-    
+
     # Average distance component (0-9 range)
     avg_component = (normalized_avg / 0.15) * 3
     avg_component = min(avg_component, 9)
-    
+
     # Maximum distance component (crux bonus: 0-3)
     if normalized_max < 0.18:  # ~200px at 1080p
         max_component = 0
@@ -797,7 +797,7 @@ def calculate_handhold_distance_score(
         max_component = 2
     else:
         max_component = 3
-    
+
     total_score = avg_component + max_component
     return min(total_score, 12)
 ```
@@ -855,20 +855,20 @@ def calculate_foothold_distance_score(
 ) -> float:
     """
     Calculate difficulty score from foothold spacing.
-    
+
     Emphasis on vertical spacing (high-steps).
     No footholds = campusing = maximum score.
-    
+
     Returns score in range [0, 12]
     """
     if len(foothold_metrics['distances']) == 0:
         # NO FOOTHOLDS = CAMPUSING
         return 12.0
-    
+
     # Normalize distances
     normalized_avg = foothold_metrics['avg_distance'] / image_height
     normalized_max = foothold_metrics['max_distance'] / image_height
-    
+
     # Average spacing component (0-9 range)
     # Steeper curve than handholds - foothold spacing more impactful
     if normalized_avg < 0.11:  # < 120px
@@ -879,7 +879,7 @@ def calculate_foothold_distance_score(
         avg_component = 6.0
     else:  # > 300px
         avg_component = 9.0
-    
+
     # Maximum spacing component (high-step crux: 0-3)
     if normalized_max < 0.18:  # < 200px
         max_component = 0
@@ -889,7 +889,7 @@ def calculate_foothold_distance_score(
         max_component = 2
     else:  # > 400px
         max_component = 3
-    
+
     total_score = avg_component + max_component
     return min(total_score, 12)
 ```
@@ -917,18 +917,18 @@ def calculate_combined_distance_score(
 ) -> float:
     """
     Calculate combined distance score with wall-angle-dependent weighting.
-    
+
     Uses same weighting as Factors 1 and 2 for consistency.
     """
     # Get wall-angle-dependent weights
     hand_weight, foot_weight = get_foothold_weight(wall_angle_category)
-    
+
     # Combine with weights
     combined_score = (
         handhold_distance_score * hand_weight +
         foothold_distance_score * foot_weight
     )
-    
+
     return combined_score
 ```
 
@@ -1124,10 +1124,10 @@ For more granular scoring when exact angles are available:
 def calculate_incline_multiplier(angle_degrees: float) -> float:
     """
     Calculate difficulty multiplier based on wall angle.
-    
+
     Args:
         angle_degrees: Wall angle (90° = vertical, >90° = overhang, <90° = slab)
-    
+
     Returns:
         Multiplier value (0.5 to 2.5)
     """
@@ -1203,7 +1203,7 @@ To detect wall angle transitions, we need **spatial information** about where th
 
 - User specifies wall segments and their angles when uploading route
 - Example input format:
-  
+
   ```json
   {
     "segments": [
@@ -1243,24 +1243,24 @@ To detect wall angle transitions, we need **spatial information** about where th
 def detect_wall_transitions(holds: list, wall_segments: list) -> dict:
     """
     Detect transitions between wall segments.
-    
+
     Args:
         holds: List of DetectedHold objects sorted by y-coordinate
         wall_segments: List of wall segments with y_range and angle
-    
+
     Returns:
         dict with transition count and magnitude information
     """
     transitions = []
-    
+
     # Assign each hold to a segment
     for i in range(len(holds) - 1):
         current_hold = holds[i]
         next_hold = holds[i + 1]
-        
+
         current_segment = find_segment(current_hold.y_center, wall_segments)
         next_segment = find_segment(next_hold.y_center, wall_segments)
-        
+
         if current_segment != next_segment:
             # Transition detected
             angle_diff = abs(next_segment.angle - current_segment.angle)
@@ -1270,7 +1270,7 @@ def detect_wall_transitions(holds: list, wall_segments: list) -> dict:
                 'magnitude': angle_diff,
                 'hold_index': i
             })
-    
+
     return {
         'transition_count': len(transitions),
         'transitions': transitions,
@@ -1298,19 +1298,19 @@ Calculate multiplier based on transition count and magnitude:
 def calculate_transition_multiplier(transition_data: dict) -> float:
     """
     Calculate difficulty multiplier from wall transitions.
-    
+
     Returns multiplier in range [1.0, 1.5]
     """
     if transition_data['transition_count'] == 0:
         return 1.0  # No transitions, no multiplier
-    
+
     # Base multiplier from transition count
     count_factor = min(transition_data['transition_count'] * 0.08, 0.25)
-    
+
     # Additional multiplier from magnitude
     avg_magnitude = transition_data['avg_magnitude']
     max_magnitude = transition_data['max_magnitude']
-    
+
     if avg_magnitude < 15:
         magnitude_factor = 0.05
     elif avg_magnitude < 30:
@@ -1319,13 +1319,13 @@ def calculate_transition_multiplier(transition_data: dict) -> float:
         magnitude_factor = 0.25
     else:
         magnitude_factor = 0.35
-    
+
     # Bonus for extreme single transition
     extreme_bonus = 0.1 if max_magnitude > 45 else 0
-    
+
     # Combine factors
     total_multiplier = 1.0 + count_factor + magnitude_factor + extreme_bonus
-    
+
     # Clamp to maximum 1.5x
     return min(total_multiplier, 1.5)
 ```
@@ -1381,33 +1381,33 @@ Use Shannon entropy to measure distribution uniformity:
 def calculate_hold_type_entropy(hold_type_counts: dict) -> float:
     """
     Calculate Shannon entropy of hold type distribution.
-    
+
     Higher entropy = more uniform distribution = more variability
-    
+
     Args:
         hold_type_counts: Dictionary mapping hold types to counts
                          (exclude foot-holds, start-holds, top-out-holds)
-    
+
     Returns:
         Entropy value (0 to ~2.08 for 5 hand hold types)
     """
     import math
-    
+
     # Get handhold types only
     handhold_types = ['crimp', 'jug', 'sloper', 'pinch', 'pocket']
     counts = [hold_type_counts.get(ht, 0) for ht in handhold_types]
     total = sum(counts)
-    
+
     if total == 0:
         return 0
-    
+
     # Calculate Shannon entropy
     entropy = 0
     for count in counts:
         if count > 0:
             probability = count / total
             entropy -= probability * math.log2(probability)
-    
+
     return entropy
 ```
 
@@ -1425,16 +1425,16 @@ Measure variance in hold difficulty:
 def calculate_hold_difficulty_variance(holds: list) -> float:
     """
     Calculate standard deviation of hold difficulty scores.
-    
+
     High variance = mix of easy and hard holds = more variability
     """
     from statistics import stdev
-    
+
     difficulty_scores = [get_hold_base_score(h.hold_type) for h in holds]
-    
+
     if len(difficulty_scores) < 2:
         return 0
-    
+
     return stdev(difficulty_scores)
 ```
 
@@ -1476,9 +1476,9 @@ Calculate multiplier based on entropy:
 def calculate_variability_multiplier(entropy: float, unique_types: int) -> float:
     """
     Calculate difficulty multiplier from hold type variability.
-    
+
     Returns multiplier in range [1.0, 1.5]
-    
+
     Args:
         entropy: Shannon entropy of hold type distribution (0-2.32)
         unique_types: Number of distinct hold types used
@@ -1487,7 +1487,7 @@ def calculate_variability_multiplier(entropy: float, unique_types: int) -> float
     # Map entropy [0, 2.32] to multiplier [1.0, 1.4]
     max_entropy = 2.32  # log2(5) for 5 hold types perfectly distributed
     entropy_multiplier = 1.0 + (entropy / max_entropy) * 0.4
-    
+
     # Bonus for using many different types
     if unique_types >= 4:
         type_bonus = 0.1
@@ -1495,7 +1495,7 @@ def calculate_variability_multiplier(entropy: float, unique_types: int) -> float
         type_bonus = 0.05
     else:
         type_bonus = 0
-    
+
     # Combine and clamp
     total_multiplier = entropy_multiplier + type_bonus
     return min(total_multiplier, 1.5)
@@ -1639,7 +1639,7 @@ Integrate the detection confidence scores:
 ```text
 if average_confidence < 0.5:
     add_grade_uncertainty_flag = True
-    
+
 confidence_factor = min(average_confidence / 0.7, 1.0)
 adjusted_score = Composite_Score × confidence_factor
 ```
@@ -1742,30 +1742,30 @@ def predict_grade_v2(
 ) -> tuple[str, float, dict]:
     """
     Predict climbing grade using sophisticated multi-factor analysis with complexity multipliers.
-    
+
     CRITICAL: Fully integrates foothold analysis throughout all factors.
-    
+
     Args:
         features: Dictionary with hold counts and types
         detected_holds: List of DetectedHold objects with bbox coordinates
         wall_segments: Optional list of wall segments with angles (for transitions)
                       If None, assumes single wall angle
         wall_incline: Default wall angle category if wall_segments not provided
-    
+
     Returns:
         tuple: (predicted_grade, confidence_score, score_breakdown)
     """
     # Preprocessing - SEPARATE handholds and footholds (DO NOT DISCARD footholds)
     handholds, footholds = separate_holds(detected_holds)
-    
+
     confidence_avg = calculate_average_confidence(detected_holds)
     hold_type_counts = count_hold_types(handholds)
-    
+
     # Get wall angle category for weighting
     wall_angle_cat = get_wall_angle_category(wall_segments or wall_incline)
-    
+
     # Stage 1: Calculate Base Score from 4 Factors (with foothold integration)
-    
+
     # Factor 1: Combined Hold Type & Size Analysis
     # Includes both handhold difficulty and foothold difficulty
     # with wall-angle-dependent weighting
@@ -1776,7 +1776,7 @@ def predict_grade_v2(
         foothold_difficulty,
         wall_angle_cat
     )
-    
+
     # Factor 2: Combined Hold Count Analysis
     # Includes both handhold density and foothold density
     # with wall-angle-dependent weighting
@@ -1787,7 +1787,7 @@ def predict_grade_v2(
         foothold_density,
         wall_angle_cat
     )
-    
+
     # Factor 3: Combined Distance Analysis
     # Includes both handhold distances and foothold distances (high-steps)
     # with wall-angle-dependent weighting
@@ -1798,10 +1798,10 @@ def predict_grade_v2(
         foothold_distance,
         wall_angle_cat
     )
-    
+
     # Factor 4: Wall Incline Analysis (unchanged)
     wall_incline_score = analyze_wall_incline(wall_segments or wall_incline)
-    
+
     # Combine scores into base score
     base_score = (
         combined_hold_difficulty_score * 0.35 +
@@ -1809,9 +1809,9 @@ def predict_grade_v2(
         combined_distance_score * 0.20 +
         wall_incline_score * 0.20
     )
-    
+
     # Stage 2: Calculate Complexity Multipliers
-    
+
     # Multiplier 1: Wall Angle Transitions
     if wall_segments and len(wall_segments) > 1:
         # Use all holds (handholds + footholds) for transition detection
@@ -1821,23 +1821,23 @@ def predict_grade_v2(
     else:
         transition_data = {'transition_count': 0}
         transition_multiplier = 1.0
-    
+
     # Multiplier 2: Hold Type Variability (handholds only)
     hold_entropy = calculate_hold_type_entropy(hold_type_counts)
     unique_types = count_unique_hold_types(hold_type_counts)
     variability_multiplier = calculate_variability_multiplier(hold_entropy, unique_types)
-    
+
     # Apply multipliers to base score
     final_score = base_score * transition_multiplier * variability_multiplier
-    
+
     # Stage 3: Confidence Adjustment & Grade Mapping
-    
+
     # Adjust for confidence
     adjusted_score = apply_confidence_adjustment(final_score, confidence_avg)
-    
+
     # Map to grade
     predicted_grade = map_score_to_grade(adjusted_score)
-    
+
     # Prepare detailed breakdown for debugging/explainability
     score_breakdown = {
         'base_factors': {
@@ -1870,7 +1870,7 @@ def predict_grade_v2(
         'entropy': hold_entropy,
         'unique_types': unique_types
     }
-    
+
     return predicted_grade, confidence_avg, score_breakdown
 ```
 
@@ -1911,13 +1911,13 @@ def predict_grade_v2(
    # In Analysis model
    wall_incline = Column(String(20), default='vertical')
    # Options: 'slab', 'vertical', 'slight_overhang', 'moderate_overhang', 'steep_overhang'
-   
+
    wall_segments = Column(JSON, nullable=True)
    # Format: [
    #   {"y_start": 0, "y_end": 400, "angle": 90, "category": "vertical"},
    #   {"y_start": 400, "y_end": 800, "angle": 110, "category": "moderate_overhang"}
    # ]
-   
+
    # OR for precise angles (alternative):
    wall_angle_degrees = Column(Float, default=90.0)
    # Range: 70-135 degrees
@@ -2539,7 +2539,7 @@ grade_prediction:
     hold_density: 0.25
     distance: 0.20
     wall_incline: 0.20
-  
+
   # Handhold configuration
   handhold_distance_thresholds:
     close: 150
@@ -2553,7 +2553,7 @@ grade_prediction:
     sloper_small: 1500
     sloper_large: 3000
     jug_small: 2000
-  
+
   # Foothold configuration (NEW - CRITICAL)
   foothold_enabled: true
   foothold_distance_thresholds:
@@ -2580,7 +2580,7 @@ grade_prediction:
     seven_to_eight: 4.0
     nine_to_twelve: 2.5
     thirteen_plus: 1.0
-  
+
   # Wall-angle-dependent foothold weighting (CRITICAL)
   wall_angle_foothold_weights:
     slab:
@@ -2598,14 +2598,14 @@ grade_prediction:
     steep_overhang:
       handhold_weight: 0.75
       foothold_weight: 0.25
-  
+
   wall_incline_multipliers:
     slab: 0.65
     vertical: 1.00
     slight_overhang: 1.25
     moderate_overhang: 1.60
     steep_overhang: 2.00
-  
+
   # Complexity multiplier configuration
   complexity_multipliers:
     transition:
@@ -2719,14 +2719,14 @@ This enables:
 
 ### Acceptance Criteria
 
-✅ All unit tests pass  
-✅ Integration tests pass  
-✅ Accuracy ≥60% exact match, ≥80% within ±1 grade (on validation set)  
-✅ No regression in existing test cases  
-✅ Edge cases handled gracefully (no crashes)  
-✅ Performance acceptable (< 100ms per prediction)  
-✅ Code review approved  
-✅ Documentation complete  
+✅ All unit tests pass
+✅ Integration tests pass
+✅ Accuracy ≥60% exact match, ≥80% within ±1 grade (on validation set)
+✅ No regression in existing test cases
+✅ Edge cases handled gracefully (no crashes)
+✅ Performance acceptable (< 100ms per prediction)
+✅ Code review approved
+✅ Documentation complete
 
 ---
 
@@ -3048,7 +3048,7 @@ class Analysis(Base):
 class UserProfile(Base):
     """Stores user preferences and persona settings."""
     __tablename__ = 'user_profiles'
-    
+
     id = db.Column(db.String(36), primary_key=True)
     session_id = db.Column(db.String(36), db.ForeignKey('user_sessions.session_id'))
     persona_config = db.Column(db.JSON, nullable=True)
@@ -3157,7 +3157,7 @@ personas:
   default: "balanced"
   strength_levels: ["light", "medium", "strong"]
   max_adjustment_magnitude: 0.35
-  
+
   profiles:
     slab_specialist:
       name: "Slab Specialist"
@@ -3227,4 +3227,3 @@ personas:
 - **Shannon entropy** from information theory for measuring distribution uniformity
 - **Multiplicative difficulty factors** from game design and psychophysics
 - **Spatial clustering analysis** for transition detection
-

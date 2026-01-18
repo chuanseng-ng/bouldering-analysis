@@ -46,7 +46,7 @@ python scripts/migrations/drop_holds_detected_column.py --rollback
    ```bash
    # SQLite
    cp bouldering_analysis.db bouldering_analysis.db.backup
-   
+
    # PostgreSQL
    pg_dump -U username -d database_name > backup.sql
    ```

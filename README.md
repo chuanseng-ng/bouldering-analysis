@@ -47,6 +47,9 @@ cd bouldering-analysis
 # Install dependencies
 pip install -r requirements.txt
 
+# Install pre-commit hooks (recommended)
+pre-commit install
+
 # Start the server
 uvicorn src.app:application --reload
 ```
@@ -77,6 +80,18 @@ pytest tests/ --cov=src --cov-report=term-missing
 ```
 
 ### Quality Checks
+
+#### Automated Pre-commit Hooks (Recommended)
+
+```bash
+# Run all QA checks automatically before each commit
+pre-commit run --all-files
+
+# Checks include: formatting, linting, type checking, tests, and code quality
+# See docs/PRE_COMMIT_HOOKS.md for detailed guide
+```
+
+#### Manual QA Commands
 
 ```bash
 # Type checking
@@ -124,6 +139,7 @@ bouldering-analysis/
 - [Design Specification](docs/DESIGN.md) - Architecture and milestones
 - [FastAPI Role Explained](docs/FASTAPI_ROLE.md) - What FastAPI does in this app
 - [Model Pretraining](docs/MODEL_PRETRAIN.md) - ML model specifications
+- [Pre-commit Hooks Guide](docs/PRE_COMMIT_HOOKS.md) - QA automation setup and usage
 - [Supabase Setup Guide](docs/SUPABASE_SETUP.md) - Database configuration
 - [Migration Plan](plans/MIGRATION_PLAN.md) - Implementation roadmap
 - [AI Assistant Guide](CLAUDE.md) - Development guidelines

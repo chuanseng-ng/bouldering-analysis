@@ -4,7 +4,7 @@
 
 This guide walks through how to train the YOLOv8 hold detection model using the current codebase, and explains what would be needed to add **slant angle detection** (hold orientation).
 
-**Current Model Output**: Bounding box, hold type (8 classes), confidence  
+**Current Model Output**: Bounding box, hold type (8 classes), confidence
 **Missing for Slant Detection**: Hold orientation angle (not currently captured)
 
 ---
@@ -218,12 +218,12 @@ python src/manage_models.py activate v1.0
 
 **Option 3: Manual database update**:
 ```sql
-UPDATE model_versions 
-SET is_active = 0 
+UPDATE model_versions
+SET is_active = 0
 WHERE model_type = 'hold_detection';
 
-UPDATE model_versions 
-SET is_active = 1 
+UPDATE model_versions
+SET is_active = 1
 WHERE version = 'v1.0' AND model_type = 'hold_detection';
 ```
 
@@ -305,7 +305,7 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
    ```python
    # In src/train_model.py, line 297:
    from ultralytics import YOLO
-   
+
    # Load OBB model instead of detection model
    model = YOLO('yolov8n-obb.pt')  # Use OBB variant
    ```
@@ -350,7 +350,7 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
 
 **Approach**: Detect holds first, then classify orientation
 
-**Step 1**: Use current model for hold detection  
+**Step 1**: Use current model for hold detection
 **Step 2**: Train separate orientation classifier
 
 **Implementation**:
@@ -363,7 +363,7 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
    # Train simple CNN for orientation
    # Input: Cropped hold image (from bbox)
    # Output: Orientation class (0=down, 1=horizontal, 2=up)
-   
+
    class OrientationClassifier(nn.Module):
        def __init__(self):
            super().__init__()
@@ -378,7 +378,7 @@ WHERE version = 'v1.0' AND model_type = 'hold_detection';
    ```python
    # Detect holds
    hold_detections = yolo_model(image)
-   
+
    # For each hold, classify orientation
    for detection in hold_detections:
        hold_crop = crop_image(image, detection.bbox)
@@ -681,8 +681,8 @@ python src/train_model.py --device cpu
 
 ### To Add Slant Detection
 
-**Phase 1a MVP**: Manual annotation (1-2 days)  
-**Phase 1b**: YOLO-OBB training (2-4 weeks)  
+**Phase 1a MVP**: Manual annotation (1-2 days)
+**Phase 1b**: YOLO-OBB training (2-4 weeks)
 **Alternative**: Two-stage classifier (1-2 weeks)
 
 ### Next Steps

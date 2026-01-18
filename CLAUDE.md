@@ -142,8 +142,10 @@ bouldering-analysis/
 | `src/logging_config.py` | Structured logging | JSON format for production |
 | `src/routes/health.py` | Health check endpoint | `/health`, `/api/v1/health` |
 | `tests/conftest.py` | Pytest fixtures | Test app, client, settings |
+| `.pre-commit-config.yaml` | Pre-commit hooks config | QA automation |
 | `docs/DESIGN.md` | Architecture spec | Milestones, domain model |
 | `docs/MODEL_PRETRAIN.md` | ML spec | Detection, classification |
+| `docs/PRE_COMMIT_HOOKS.md` | Pre-commit guide | Setup, usage, troubleshooting |
 | `plans/MIGRATION_PLAN.md` | Migration roadmap | PR breakdown, phases |
 
 ---
@@ -201,9 +203,36 @@ Tested on: **Python 3.10, 3.11, 3.12, 3.13**
 # Install dependencies
 pip install -r requirements.txt
 
+# Install pre-commit hooks (recommended)
+pre-commit install
+
 # Verify installation
 python -c "from src.app import create_app; print('OK')"
 ```
+
+### Pre-commit Hooks (Recommended)
+
+This project uses pre-commit hooks to automatically run QA checks before each commit.
+
+```bash
+# Install the git hooks (one-time setup)
+pre-commit install
+
+# Run checks manually on all files
+pre-commit run --all-files
+
+# Run checks on staged files only
+pre-commit run
+```
+
+The hooks automatically check:
+- Code formatting (ruff)
+- Linting (ruff)
+- Type checking (mypy)
+- Tests with coverage (pytest)
+- Code quality (pylint)
+
+**See [docs/PRE_COMMIT_HOOKS.md](docs/PRE_COMMIT_HOOKS.md) for detailed usage and troubleshooting.**
 
 ### Running the Application
 
@@ -543,6 +572,7 @@ class HealthResponse(BaseModel):
 
 - **Design Spec**: [docs/DESIGN.md](docs/DESIGN.md)
 - **Model Spec**: [docs/MODEL_PRETRAIN.md](docs/MODEL_PRETRAIN.md)
+- **Pre-commit Guide**: [docs/PRE_COMMIT_HOOKS.md](docs/PRE_COMMIT_HOOKS.md)
 - **Migration Plan**: [plans/MIGRATION_PLAN.md](plans/MIGRATION_PLAN.md)
 - **PR Specs**: [plans/specs/](plans/specs/)
 
