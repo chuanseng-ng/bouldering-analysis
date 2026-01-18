@@ -97,7 +97,8 @@ def get_settings_override(overrides: dict[str, Any]) -> Settings:
     """Create settings with specific overrides.
 
     Used primarily for testing to create settings with custom values
-    without affecting the cached settings.
+    without affecting the cached settings. Disables .env file loading
+    to ensure only the provided overrides and defaults are used.
 
     Args:
         overrides: Dictionary of setting names to override values.
@@ -110,4 +111,4 @@ def get_settings_override(overrides: dict[str, Any]) -> Settings:
         >>> test_settings.testing
         True
     """
-    return Settings(**overrides)
+    return Settings(_env_file=None, **overrides)  # type: ignore[call-arg]

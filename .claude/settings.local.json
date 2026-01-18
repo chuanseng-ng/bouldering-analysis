@@ -29,7 +29,10 @@
       "Bash(test:*)",
       "Bash(pre-commit install:*)",
       "Bash(pre-commit migrate-config:*)",
-      "Bash(pre-commit run:*)"
+      "Bash(pre-commit run:*)",
+      "Bash(pip check:*)",
+      "Bash(python:*)",
+      "Bash(pip show:*)"
     ]
   }
 }

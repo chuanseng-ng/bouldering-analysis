@@ -203,7 +203,7 @@ class TestGetSettingsOverride:
         """Non-overridden settings should keep defaults."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
         with patch.dict(os.environ, env, clear=True):
-            settings = Settings(debug=True, _env_file=None)  # type: ignore[call-arg]
+            settings = get_settings_override({"debug": True})
             assert settings.app_name == "bouldering-analysis"
             assert settings.log_level == "INFO"
 

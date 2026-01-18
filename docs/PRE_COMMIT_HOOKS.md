@@ -13,6 +13,7 @@ Pre-commit hooks are scripts that run automatically before you create a commit. 
 The following checks run automatically on every commit:
 
 ### 1. Standard Hooks (Auto-fix)
+
 - **Trailing whitespace**: Removes trailing whitespace from files
 - **End of files**: Ensures files end with a newline
 - **Mixed line endings**: Fixes mixed line endings (CRLF/LF)
@@ -23,19 +24,23 @@ The following checks run automatically on every commit:
 - **Case conflicts**: Detects case-conflicting filenames
 
 ### 2. Ruff (Auto-fix)
+
 - **Linting**: Fast Python linting (ignores E501 line length as per CLAUDE.md)
 - **Formatting**: Code formatting (Black-compatible)
 
 ### 3. mypy (Manual fix required)
+
 - **Type checking**: Static type analysis to catch type errors
 - Checks all Python files except archive directories
 
 ### 4. pytest (Manual fix required)
+
 - **Unit tests**: Runs the full test suite with coverage
 - **Coverage**: Enforces minimum 85% code coverage (current stage)
 - Tests must pass for commit to succeed
 
 ### 5. pylint (Manual fix required)
+
 - **Code quality**: Checks code quality and style
 - **Score**: Requires minimum score of 8.5/10 (current stage)
 - Ignores archive directories
@@ -70,6 +75,7 @@ git commit -m "Your commit message"
 ```
 
 If any check fails:
+
 1. The commit is blocked
 2. Files that can be auto-fixed are modified
 3. You'll see error messages for issues requiring manual fixes
@@ -113,6 +119,7 @@ git commit --no-verify -m "Emergency fix"
 **Problem**: Tests fail because your local `.env` file has different values than the test defaults.
 
 **Solution**: This is expected behavior. The tests are designed to run in a clean environment. Either:
+
 1. Temporarily unset environment variables before committing, or
 2. Update your environment variables to match test expectations, or
 3. Ensure tests are written to handle your environment properly
@@ -128,6 +135,7 @@ git commit --no-verify -m "Emergency fix"
 **Problem**: `Your code has been rated at X.XX/10`
 
 **Solution**: Review pylint output and fix the issues. Common fixes:
+
 - Add docstrings to functions/classes
 - Fix naming conventions
 - Reduce code complexity
@@ -150,10 +158,11 @@ Then open `htmlcov/index.html` in a browser to see detailed coverage.
 **Problem**: Running all checks takes time
 
 **Tips**:
+
 - Hooks run in parallel where possible
 - Run `pre-commit run` on staged files only (faster than `--all-files`)
 - Consider committing more frequently with smaller changes
-- Use `git commit -a` to skip the add step
+- Use `git commit -a` to automatically stage and commit modified tracked files (it does not stage new/untracked files)
 
 ## Updating Hooks
 
@@ -174,7 +183,7 @@ The pre-commit configuration is in `.pre-commit-config.yaml` at the repository r
 Quality thresholds are staged based on project completion:
 
 | Check | Current Stage | Final Stage |
-|-------|--------------|-------------|
+| :---: | :-----------: | :---------: |
 | Coverage | ≥85% | ≥90% |
 | Pylint | ≥8.5/10 | ≥9.0/10 |
 
@@ -213,6 +222,7 @@ Pre-commit hooks run locally before committing. The same checks also run in CI/C
 ### Pre-commit.ci (Optional)
 
 The configuration includes optional integration with [pre-commit.ci](https://pre-commit.ci), a free service that:
+
 - Runs hooks on pull requests
 - Auto-fixes issues and commits them
 - Auto-updates hook versions weekly
