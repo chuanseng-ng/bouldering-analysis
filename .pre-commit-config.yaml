@@ -1,0 +1,106 @@
+# Pre-commit hooks for bouldering-analysis
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+default_language_version:
+  python: python3
+
+repos:
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+      - id: end-of-file-fixer
+        name: Fix end of files
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-toml
+        name: Check TOML syntax
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: check-case-conflict
+        name: Check for case conflicts
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.7
+    hooks:
+      # Ruff linter
+      - id: ruff
+        name: Ruff linting
+        args:
+          - --fix
+          - --ignore=E501  # Ignore line length (as per CLAUDE.md)
+        types_or: [python, pyi]
+
+      # Ruff formatter
+      - id: ruff-format
+        name: Ruff formatting
+        types_or: [python, pyi]
+
+  # mypy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        name: Type checking with mypy
+        args: [--config-file=mypy.ini]
+        additional_dependencies:
+          - pydantic>=2.0
+          - pydantic-settings>=2.0
+          - types-PyYAML
+          - pytest>=8.0
+          - fastapi>=0.115.0
+          - httpx>=0.28.0
+        exclude: ^(tests/archive/|src/archive/)
+
+  # pytest - Run tests with coverage
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: Run tests with coverage
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args:
+          - tests/
+          - --cov=src
+          - --cov-fail-under=85  # Current stage requirement
+          - --cov-report=term-missing:skip-covered
+          - -q  # Quiet mode for faster feedback
+        stages: [pre-commit]
+
+  # pylint - Code quality checker
+  - repo: local
+    hooks:
+      - id: pylint
+        name: Code quality check with pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args:
+          - --ignore=archive
+          - --fail-under=8.5  # Current stage requirement
+        exclude: ^(tests/archive/|src/archive/)
+        stages: [pre-commit]
+
+# Configuration for pre-commit.ci (optional cloud service)
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [pytest-check, pylint]  # Skip expensive checks in CI
+  submodules: false

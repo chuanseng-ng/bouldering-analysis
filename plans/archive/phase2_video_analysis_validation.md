@@ -79,7 +79,7 @@ Measures how far the climber's body is from the wall:
 def calculate_hip_shoulder_angle(shoulder_pos, hip_pos, wall_normal):
     """
     Calculate angle between body centerline and wall.
-    
+
     Returns:
         angle: 0° = body flat against wall (slab)
                90° = body perpendicular to wall (overhang)
@@ -142,13 +142,13 @@ Analyze velocity and acceleration of body center of mass:
 def classify_movement_type(body_positions_over_time):
     """
     Classify movement as dynamic or static based on velocity.
-    
+
     Dynamic: Rapid acceleration, jumping, swinging
     Static: Controlled, gradual position changes
     """
     velocities = calculate_velocity(body_positions_over_time)
     accelerations = calculate_acceleration(velocities)
-    
+
     if max(accelerations) > DYNAMIC_THRESHOLD:
         return "dynamic"
     else:
@@ -169,13 +169,13 @@ Measure smoothness and continuity of movement:
 def calculate_movement_flow(keypoint_positions_over_time):
     """
     Calculate flow score based on movement continuity.
-    
+
     High flow: Smooth, continuous movement
     Low flow: Frequent pauses, hesitation, repositioning
     """
     pauses = detect_pauses(keypoint_positions_over_time)
     jerkiness = calculate_jerk(keypoint_positions_over_time)  # 3rd derivative of position
-    
+
     flow_score = 1.0 / (1 + pauses * 0.1 + jerkiness * 0.5)
     return flow_score
 ```
@@ -212,13 +212,13 @@ Identify when climber is resting vs actively moving:
 def detect_rest_positions(keypoint_positions, velocity_threshold=0.1):
     """
     Detect frames where climber is stationary (resting).
-    
+
     Returns:
         rest_periods: List of (start_frame, end_frame, duration)
     """
     velocities = calculate_velocity(keypoint_positions)
     is_resting = velocities < velocity_threshold
-    
+
     rest_periods = identify_continuous_periods(is_resting)
     return rest_periods
 ```
@@ -244,7 +244,7 @@ Poor rest: Bent arms, body far from wall → no good rests available, harder rou
 def score_rest_quality(hip_shoulder_angle, arm_extension_ratio):
     """
     Score quality of rest position.
-    
+
     Good rest: Low score (body relaxed, straight arms)
     Poor rest: High score (body tense, locked off)
     """
@@ -262,16 +262,16 @@ Analyze precision of foot placements:
 def analyze_foot_precision(foot_positions_over_time, hold_positions):
     """
     Measure precision of foot placements.
-    
+
     Returns:
         precision_score: Lower = more precise (fewer adjustments)
     """
     # Detect foot adjustments (multiple movements to same hold)
     adjustments = count_foot_repositionings(foot_positions_over_time)
-    
+
     # Measure foot-hold alignment
     alignment_errors = calculate_alignment_errors(foot_positions_over_time, hold_positions)
-    
+
     precision_score = adjustments * 0.5 + alignment_errors * 0.5
     return precision_score
 ```
@@ -297,12 +297,12 @@ Hand-heavy climbing (>60% weight on hands): Overhang or poor footwork, harder
 def estimate_weight_distribution(body_center, hand_positions, foot_positions):
     """
     Estimate weight distribution based on body position relative to supports.
-    
+
     Approximation: Weight shifts toward supports closer to center of mass
     """
     hand_distances = calculate_distances(body_center, hand_positions)
     foot_distances = calculate_distances(body_center, foot_positions)
-    
+
     weight_on_feet_ratio = sum(1/foot_distances) / (sum(1/hand_distances) + sum(1/foot_distances))
     return weight_on_feet_ratio
 ```
@@ -317,7 +317,7 @@ Track how long climber holds each grip:
 def analyze_grip_durations(hand_positions, hold_positions, timestamps):
     """
     Measure time spent on each hold.
-    
+
     Returns:
         grip_durations: List of hold durations
     """
@@ -357,7 +357,7 @@ Detect when climber extends leg outward for balance (flagging):
 def detect_flagging(leg_positions, wall_plane):
     """
     Detect flagging (leg extended away from wall for balance).
-    
+
     Flagging indicates technical difficulty and need for precise balance.
     """
     leg_to_wall_distance = calculate_distance_to_plane(leg_positions, wall_plane)
@@ -378,7 +378,7 @@ Measure body rigidity during moves:
 def estimate_core_tension(spine_angle_variance):
     """
     Estimate core engagement from spine stability.
-    
+
     Low variance: Rigid core, lots of tension → harder
     High variance: Relaxed core → easier
     """
@@ -398,23 +398,23 @@ Combine metrics into a performance difficulty score:
 def predict_grade_from_video(video_metrics: dict) -> tuple[str, float, dict]:
     """
     Predict grade based on climber performance in video.
-    
+
     Args:
         video_metrics: Dictionary of extracted metrics from video analysis
-    
+
     Returns:
         tuple: (predicted_grade, confidence_score, metric_breakdown)
     """
     # Extract individual metric scores
     body_position_score = score_body_position(video_metrics['hip_shoulder_angles'])
-    movement_score = score_movement_quality(video_metrics['movement_flow'], 
+    movement_score = score_movement_quality(video_metrics['movement_flow'],
                                             video_metrics['dynamic_ratio'])
-    rest_score = score_rest_analysis(video_metrics['rest_periods'], 
+    rest_score = score_rest_analysis(video_metrics['rest_periods'],
                                      video_metrics['rest_quality'])
     precision_score = score_foot_precision(video_metrics['foot_precision'])
     reach_score = score_reaching(video_metrics['reach_distances'])
     tempo_score = score_climb_pace(video_metrics['climb_pace'])
-    
+
     # Weighted combination
     performance_score = (
         body_position_score * 0.25 +
@@ -424,13 +424,13 @@ def predict_grade_from_video(video_metrics: dict) -> tuple[str, float, dict]:
         reach_score * 0.10 +
         tempo_score * 0.10
     )
-    
+
     # Map to V-grade
     predicted_grade = map_performance_score_to_grade(performance_score)
-    
+
     # Calculate confidence based on video quality and consistency
     confidence = calculate_video_confidence(video_metrics)
-    
+
     return predicted_grade, confidence, {
         'performance_score': performance_score,
         'body_position': body_position_score,
@@ -448,7 +448,7 @@ def predict_grade_from_video(video_metrics: dict) -> tuple[str, float, dict]:
 def map_performance_score_to_grade(performance_score):
     """
     Map performance score (0-12) to V-grade.
-    
+
     Similar mapping to Phase 1, but based on performance indicators.
     """
     grade_mapping = {
@@ -466,11 +466,11 @@ def map_performance_score_to_grade(performance_score):
         (11.25, 11.75): "V11",
         (11.75, 12): "V12"
     }
-    
+
     for (min_score, max_score), grade in grade_mapping.items():
         if min_score <= performance_score < max_score:
             return grade
-    
+
     return "V12"  # Maximum grade
 ```
 
@@ -486,12 +486,12 @@ Compare route-based prediction (Phase 1) to video-based prediction (Phase 2):
 def cross_validate_predictions(route_grade, video_grade, route_confidence, video_confidence):
     """
     Compare route-based and video-based predictions.
-    
+
     Returns:
         validation_result: Dict with comparison analysis
     """
     grade_diff = abs(grade_to_numeric(route_grade) - grade_to_numeric(video_grade))
-    
+
     # Determine validation status
     if grade_diff <= 1:
         status = "VALID"
@@ -502,16 +502,16 @@ def cross_validate_predictions(route_grade, video_grade, route_confidence, video
     else:  # grade_diff >= 3
         status = "SIGNIFICANT_DISCREPANCY"
         message = "Large discrepancy detected - requires investigation"
-    
+
     # Calculate combined confidence
     combined_confidence = (route_confidence + video_confidence) / 2
     if grade_diff <= 1:
         combined_confidence *= 1.1  # Boost confidence when predictions agree
     else:
         combined_confidence *= 0.8  # Reduce confidence when predictions disagree
-    
+
     combined_confidence = min(combined_confidence, 1.0)
-    
+
     return {
         'status': status,
         'message': message,
@@ -556,7 +556,7 @@ Store all discrepancies in database:
 class GradeDiscrepancy(Base):
     """Log grade prediction discrepancies for algorithm improvement."""
     __tablename__ = 'grade_discrepancies'
-    
+
     id = Column(Integer, primary_key=True)
     analysis_id = Column(Integer, ForeignKey('analyses.id'))
     route_grade = Column(String(10))
@@ -675,7 +675,7 @@ video_analysis:
   min_resolution: [1280, 720]
   pose_model: "mediapipe"
   target_analysis_fps: 10
-  
+
   # Cross-validation thresholds
   validation:
     acceptable_margin: 1  # grades

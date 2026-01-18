@@ -25,7 +25,14 @@
       "Bash(ruff format:*)",
       "Bash(pylint:*)",
       "Bash(git push:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(test:*)",
+      "Bash(pre-commit install:*)",
+      "Bash(pre-commit migrate-config:*)",
+      "Bash(pre-commit run:*)",
+      "Bash(pip check:*)",
+      "Bash(python:*)",
+      "Bash(pip show:*)"
     ]
   }
 }

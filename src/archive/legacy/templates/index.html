@@ -267,7 +267,7 @@
             .then(response => response.json())
             .then(data => {
                 loading.style.display = 'none';
-                
+
                 if (data.error) {
                     showError(data.error);
                     return;

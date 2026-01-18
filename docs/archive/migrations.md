@@ -59,7 +59,7 @@ Before running this migration, ensure:
    ```bash
    # For SQLite
    cp bouldering_analysis.db bouldering_analysis.db.backup
-   
+
    # For PostgreSQL
    pg_dump -U username -d database_name > backup.sql
    ```
@@ -71,13 +71,13 @@ Before running this migration, ensure:
    ```python
    from src.models import db, DetectedHold, Analysis
    from src.main import app
-   
+
    with app.app_context():
        # Check that DetectedHold table has data
        hold_count = db.session.query(DetectedHold).count()
        analysis_count = db.session.query(Analysis).count()
        print(f"Analyses: {analysis_count}, DetectedHolds: {hold_count}")
-       
+
        # Ideally, you should have multiple holds per analysis
        if analysis_count > 0 and hold_count == 0:
            print("WARNING: No holds found in DetectedHold table!")
@@ -210,7 +210,7 @@ from src.main import app
 with app.app_context():
     hold_count = db.session.query(DetectedHold).count()
     print(f"Total detected holds: {hold_count}")
-    
+
     # Check a sample
     sample_holds = db.session.query(DetectedHold).limit(5).all()
     for hold in sample_holds:

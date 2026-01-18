@@ -1,6 +1,6 @@
 name: Python Unit Test + Code Coverage
 
-on: 
+on:
   push:
     branches:
       - python/pre_release
