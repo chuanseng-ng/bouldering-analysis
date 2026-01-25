@@ -27,6 +27,9 @@ class Settings(BaseSettings):
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
         supabase_url: Supabase project URL (required for database operations).
         supabase_key: Supabase API key (required for database operations).
+        max_upload_size_mb: Maximum allowed file upload size in megabytes.
+        storage_bucket: Name of the Supabase Storage bucket for route images.
+        allowed_image_types: List of allowed MIME types for image uploads.
     """
 
     app_name: str = "bouldering-analysis"
@@ -37,6 +40,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     supabase_url: str = ""
     supabase_key: str = ""
+
+    # Upload configuration
+    max_upload_size_mb: int = 10
+    storage_bucket: str = "route-images"
+    allowed_image_types: list[str] = ["image/jpeg", "image/png"]
 
     model_config = SettingsConfigDict(
         env_prefix="BA_",
