@@ -35,7 +35,7 @@ Built with a **backend-first, explainable AI** approach:
 **✅ Completed Features:**
 
 - **Supabase Client** (`src/database/supabase_client.py`) - Connection pooling and storage operations
-- **Image Upload** (`POST /api/v1/routes/upload`) - Validates and stores JPEG/PNG images
+- **Image Upload** (`POST /api/v1/routes/upload`) - Validates and stores JPEG/PNG files
 - **Storage Management** - Upload, delete, list files in Supabase Storage buckets
 - **Configuration** - Environment-based Supabase credentials and upload limits
 
