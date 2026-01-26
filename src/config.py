@@ -119,4 +119,4 @@ def get_settings_override(overrides: dict[str, Any]) -> Settings:
         >>> test_settings.testing
         True
     """
-    return Settings(_env_file=None, **overrides)
+    return Settings(_env_file=None, **overrides)  # type: ignore[call-arg]
