@@ -12,7 +12,6 @@ from typing import Annotated
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 
-from src.config import get_settings
 from src.database.supabase_client import SupabaseClientError, upload_to_storage
 from src.logging_config import get_logger
 
@@ -141,19 +140,20 @@ def validate_file_signature(file_data: bytes, content_type: str) -> None:
             )
 
 
-def validate_image_file(file: UploadFile) -> None:
+def validate_image_file(file: UploadFile, request: Request) -> None:
     """Validate uploaded image file metadata.
 
     Args:
         file: Uploaded file from FastAPI.
+        request: FastAPI request object (used to access app settings).
 
     Raises:
         HTTPException: If validation fails (400 Bad Request).
 
     Example:
-        >>> validate_image_file(uploaded_file)
+        >>> validate_image_file(uploaded_file, request)
     """
-    settings = get_settings()
+    settings = request.app.state.settings
 
     # Check if file is present
     if not file.filename:
@@ -262,7 +262,7 @@ async def upload_route_image(
     settings = request.app.state.settings
 
     # Validate the uploaded file
-    validate_image_file(file)
+    validate_image_file(file, request)
 
     try:
         # Read file content
