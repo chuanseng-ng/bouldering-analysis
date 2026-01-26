@@ -44,7 +44,7 @@ class TestHealthResponse:
         """Should reject invalid status values."""
         with pytest.raises(ValidationError):
             HealthResponse(
-                status="invalid",  # type: ignore[arg-type]
+                status="invalid",
                 version="1.0.0",
                 timestamp=datetime.now(timezone.utc),
             )
@@ -52,7 +52,7 @@ class TestHealthResponse:
     def test_health_response_requires_version(self) -> None:
         """Version field should be required."""
         with pytest.raises(ValidationError):
-            HealthResponse(  # type: ignore[call-arg]
+            HealthResponse(
                 status="healthy",
                 timestamp=datetime.now(timezone.utc),
             )
@@ -60,7 +60,7 @@ class TestHealthResponse:
     def test_health_response_requires_timestamp(self) -> None:
         """Timestamp field should be required."""
         with pytest.raises(ValidationError):
-            HealthResponse(  # type: ignore[call-arg]
+            HealthResponse(
                 status="healthy",
                 version="1.0.0",
             )

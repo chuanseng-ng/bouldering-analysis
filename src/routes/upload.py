@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 
 from src.config import get_settings
@@ -194,6 +194,7 @@ def generate_file_path(content_type: str) -> tuple[str, str]:
 )
 async def upload_route_image(
     file: Annotated[UploadFile, File(description="Route image file (JPEG or PNG)")],
+    request: Request,
 ) -> UploadResponse:
     """Upload a bouldering route image.
 
@@ -202,6 +203,7 @@ async def upload_route_image(
 
     Args:
         file: The image file to upload.
+        request: FastAPI request object (used to access app settings).
 
     Returns:
         UploadResponse containing the public URL and metadata.
@@ -216,7 +218,7 @@ async def upload_route_image(
              -F "file=@route.jpg"
         ```
     """
-    settings = get_settings()
+    settings = request.app.state.settings
 
     # Validate the uploaded file
     validate_image_file(file)

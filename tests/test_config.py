@@ -26,7 +26,7 @@ class TestSettings:
         """Debug should default to False."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
         with patch.dict(os.environ, env, clear=True):
-            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            settings = get_settings_override({})
             assert settings.debug is False
 
     def test_default_testing_is_false(self) -> None:
@@ -38,28 +38,28 @@ class TestSettings:
         """CORS origins should default to wildcard."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
         with patch.dict(os.environ, env, clear=True):
-            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            settings = get_settings_override({})
             assert settings.cors_origins == ["*"]
 
     def test_default_log_level(self) -> None:
         """Log level should default to INFO."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
         with patch.dict(os.environ, env, clear=True):
-            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            settings = get_settings_override({})
             assert settings.log_level == "INFO"
 
     def test_default_supabase_url(self) -> None:
         """Supabase URL should default to empty string."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
         with patch.dict(os.environ, env, clear=True):
-            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            settings = get_settings_override({})
             assert settings.supabase_url == ""
 
     def test_default_supabase_key(self) -> None:
         """Supabase key should default to empty string."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
         with patch.dict(os.environ, env, clear=True):
-            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            settings = get_settings_override({})
             assert settings.supabase_key == ""
 
     def test_settings_from_env_vars(self) -> None:

@@ -483,13 +483,43 @@ class TestErrorHandling:
     """Tests for error handling in different modes."""
 
     @patch("src.routes.upload.upload_to_storage")
-    def test_unexpected_error_logged(
+    def test_unexpected_error_in_production(
+        self,
+        mock_upload: MagicMock,
+        valid_jpeg_image: bytes,
+    ) -> None:
+        """Unexpected errors should hide details in production mode."""
+        from src.app import create_app
+
+        # Create app in production mode (debug=False, testing=False)
+        app = create_app({"debug": False, "testing": False})
+        client = TestClient(app)
+
+        # Make upload_to_storage raise an unexpected exception
+        mock_upload.side_effect = RuntimeError("Something went wrong internally")
+
+        response = client.post(
+            "/api/v1/routes/upload",
+            files={"file": ("route.jpg", valid_jpeg_image, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+
+        # In production mode, should show safe generic message
+        assert "unexpected error" in data["detail"].lower()
+        assert "occurred during upload" in data["detail"].lower()
+        # Should NOT contain the actual RuntimeError message
+        assert "Something went wrong internally" not in data["detail"]
+
+    @patch("src.routes.upload.upload_to_storage")
+    def test_unexpected_error_in_debug(
         self,
         mock_upload: MagicMock,
         client_with_upload: TestClient,
         valid_jpeg_image: bytes,
     ) -> None:
-        """Unexpected errors should be logged and return safe message."""
+        """Unexpected errors should show details in debug/testing mode."""
         # Make upload_to_storage raise an unexpected exception
         mock_upload.side_effect = RuntimeError("Something went wrong internally")
 
@@ -501,9 +531,6 @@ class TestErrorHandling:
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         data = response.json()
 
-        # Error message should be safe and generic
-        # Check that error message is present and doesn't expose internals
-        assert "unexpected error" in data["detail"].lower()
-        assert "occurred during upload" in data["detail"].lower()
-        # Should not contain the actual RuntimeError message
-        assert "Something went wrong internally" not in data["detail"]
+        # In debug/testing mode, should show actual error details
+        assert "Unexpected error during upload" in data["detail"]
+        assert "Something went wrong internally" in data["detail"]
