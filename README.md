@@ -30,12 +30,31 @@ Built with a **backend-first, explainable AI** approach:
 - **Database**: Supabase (Postgres + Storage)
 - **Frontend**: Lovable (external)
 
+### Database Implementation Status
+
+**✅ Completed Features:**
+
+- **Supabase Client** (`src/database/supabase_client.py`) - Connection pooling and storage operations
+- **Image Upload** (`POST /api/v1/routes/upload`) - Validates and stores JPEG/PNG files
+- **Storage Management** - Upload, delete, list files in Supabase Storage buckets
+- **Configuration** - Environment-based Supabase credentials and upload limits
+
+**❌ Pending Features:**
+
+- Database tables (`routes`, `holds`, `features`, `predictions`, `feedback`)
+- Route record creation endpoint
+- Hold detection and classification
+- Grade prediction
+
+See [CLAUDE.md - Database Implementation Status](CLAUDE.md#database-implementation-status) for detailed information.
+
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.10+
 - pip
+- Supabase account (for storage and database features)
 
 ### Installation
 
@@ -50,6 +69,19 @@ pip install -r requirements.txt
 # Install pre-commit hooks (recommended)
 pre-commit install
 
+# Configure Supabase (required for upload functionality)
+# 1. Create a .env file in the project root
+# 2. Add your Supabase credentials:
+cat > .env << EOF
+BA_SUPABASE_URL=https://your-project.supabase.co
+BA_SUPABASE_KEY=your-anon-or-service-role-key
+EOF
+
+# See docs/SUPABASE_SETUP.md for detailed setup instructions
+
+# Test Supabase connection (optional)
+python test_supabase_connection.py
+
 # Start the server
 uvicorn src.app:application --reload
 ```
@@ -58,16 +90,30 @@ The API will be available at [http://localhost:8000](http://localhost:8000)
 
 ### API Endpoints
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | Health check |
-| `GET /api/v1/health` | Versioned health check |
-| `GET /docs` | Swagger UI (debug mode) |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/api/v1/health` | GET | Versioned health check |
+| `/api/v1/routes/upload` | POST | Upload route image (JPEG/PNG) |
+| `/docs` | GET | Swagger UI (debug mode) |
+
+#### Example: Upload an image**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/routes/upload \
+  -F "file=@route.jpg"
+```
 
 ## Development
 
-**Current Project Stage**: Backend Foundation (Milestone 1)
+**Current Project Stage**: Image Upload (Milestone 2 - In Progress)
+**Completed Milestones**:
+
+- ✅ Milestone 1: Backend Foundation (FastAPI + Supabase Client)
+- 🔄 Milestone 2: Image Upload (Upload endpoint complete, route records pending)
+
 **Quality Targets**: Coverage ≥85%, Pylint ≥8.5/10 (will increase to 90%/9.0 when all features complete)
+**Current Coverage**: 98%
 
 ### Running Tests
 
@@ -111,27 +157,57 @@ pylint src/ --ignore=archive
 
 ### Environment Variables
 
+#### Core Configuration
+
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `BA_APP_NAME` | `bouldering-analysis` | Application name |
+| `BA_APP_VERSION` | `0.1.0` | Application version |
 | `BA_DEBUG` | `false` | Enable debug mode |
+| `BA_TESTING` | `false` | Enable testing mode |
 | `BA_LOG_LEVEL` | `INFO` | Logging level |
-| `BA_CORS_ORIGINS` | `["*"]` | Allowed CORS origins |
+| `BA_CORS_ORIGINS` | `["*"]` | Allowed CORS origins (JSON array) |
+
+#### Database & Storage (Supabase)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BA_SUPABASE_URL` | `""` | Supabase project URL (required) |
+| `BA_SUPABASE_KEY` | `""` | Supabase API key (required) |
+| `BA_STORAGE_BUCKET` | `route-images` | Storage bucket name |
+| `BA_MAX_UPLOAD_SIZE_MB` | `10` | Max upload size in MB |
+| `BA_ALLOWED_IMAGE_TYPES` | `["image/jpeg", "image/png"]` | Allowed MIME types |
 
 ## Project Structure
 
 ```text
 bouldering-analysis/
-├── src/                    # Application code
-│   ├── app.py              # FastAPI application
-│   ├── config.py           # Configuration
-│   ├── routes/             # API routes
-│   └── archive/            # Legacy code (reference)
-├── tests/                  # Test suite
-├── docs/                   # Documentation
-│   ├── DESIGN.md           # Architecture spec
-│   └── MODEL_PRETRAIN.md   # ML spec
-├── plans/                  # Implementation plans
-└── CLAUDE.md               # AI assistant guide
+├── src/                          # Application code
+│   ├── app.py                    # FastAPI application factory
+│   ├── config.py                 # Pydantic Settings configuration
+│   ├── logging_config.py         # Structured JSON logging
+│   ├── routes/                   # API route modules
+│   │   ├── health.py             # Health check endpoint
+│   │   └── upload.py             # Image upload endpoint
+│   ├── database/                 # Database layer (Supabase)
+│   │   └── supabase_client.py    # Supabase client & storage
+│   └── archive/legacy/           # Legacy code (reference)
+├── tests/                        # Test suite (98% coverage)
+│   ├── test_app.py               # Application tests
+│   ├── test_config.py            # Configuration tests
+│   ├── test_health.py            # Health endpoint tests
+│   ├── test_supabase_client.py   # Supabase client tests
+│   ├── test_upload.py            # Upload endpoint tests
+│   └── conftest.py               # Pytest fixtures
+├── docs/                         # Documentation
+│   ├── DESIGN.md                 # Architecture spec
+│   ├── MODEL_PRETRAIN.md         # ML spec
+│   ├── SUPABASE_SETUP.md         # Database setup guide
+│   └── PRE_COMMIT_HOOKS.md       # QA automation guide
+├── plans/                        # Implementation plans
+│   └── MIGRATION_PLAN.md         # Migration roadmap
+├── test_supabase_connection.py   # Connection test script
+└── CLAUDE.md                     # AI assistant guide
 ```
 
 ## Documentation
