@@ -143,7 +143,8 @@ Legacy Flask-based code is preserved in:
 
 The following Supabase tables are **planned but not yet implemented**:
 
-**Table: routes**
+#### Table: routes**
+
 ```sql
 CREATE TABLE routes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

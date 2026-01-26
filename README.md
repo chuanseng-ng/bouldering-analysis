@@ -97,7 +97,7 @@ The API will be available at [http://localhost:8000](http://localhost:8000)
 | `/api/v1/routes/upload` | POST | Upload route image (JPEG/PNG) |
 | `/docs` | GET | Swagger UI (debug mode) |
 
-**Example: Upload an image**
+#### Example: Upload an image**
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/routes/upload \
