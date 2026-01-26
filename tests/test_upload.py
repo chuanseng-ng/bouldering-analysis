@@ -180,7 +180,7 @@ class TestUploadEndpoint:
         client_with_upload: TestClient,
         valid_jpeg_image: bytes,
     ) -> None:
-        """Storage upload failure should return 500 error."""
+        """Storage upload failure should return categorized 500 error."""
         from src.database.supabase_client import SupabaseClientError
 
         mock_upload.side_effect = SupabaseClientError("Storage connection failed")
@@ -192,7 +192,72 @@ class TestUploadEndpoint:
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         data = response.json()
-        assert "Failed to upload image to storage" in data["detail"]
+        # Error should be categorized as network error
+        assert "Storage upload failed" in data["detail"]
+        assert "Network connection error" in data["detail"]
+
+    @patch("src.routes.upload.upload_to_storage")
+    def test_upload_storage_permission_error(
+        self,
+        mock_upload: MagicMock,
+        client_with_upload: TestClient,
+        valid_jpeg_image: bytes,
+    ) -> None:
+        """Storage permission error should return categorized message."""
+        from src.database.supabase_client import SupabaseClientError
+
+        mock_upload.side_effect = SupabaseClientError("Permission denied")
+
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("route.jpg", valid_jpeg_image, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "Insufficient permissions" in data["detail"]
+
+    @patch("src.routes.upload.upload_to_storage")
+    def test_upload_storage_quota_error(
+        self,
+        mock_upload: MagicMock,
+        client_with_upload: TestClient,
+        valid_jpeg_image: bytes,
+    ) -> None:
+        """Storage quota error should return categorized message."""
+        from src.database.supabase_client import SupabaseClientError
+
+        mock_upload.side_effect = SupabaseClientError("Storage quota exceeded")
+
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("route.jpg", valid_jpeg_image, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "Storage quota exceeded" in data["detail"]
+
+    @patch("src.routes.upload.upload_to_storage")
+    def test_upload_storage_unknown_error(
+        self,
+        mock_upload: MagicMock,
+        client_with_upload: TestClient,
+        valid_jpeg_image: bytes,
+    ) -> None:
+        """Unknown storage error should return generic safe message."""
+        from src.database.supabase_client import SupabaseClientError
+
+        mock_upload.side_effect = SupabaseClientError("Some unknown error")
+
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("route.jpg", valid_jpeg_image, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "Unable to save image" in data["detail"]
 
     @patch("src.routes.upload.upload_to_storage")
     def test_upload_file_path_generation(
@@ -328,3 +393,116 @@ class TestConfigSettings:
 
         assert settings.max_upload_size_mb == 5
         assert settings.storage_bucket == "test-bucket"
+
+
+class TestHelperFunctions:
+    """Tests for upload helper functions."""
+
+    def test_format_bytes_small_values(self) -> None:
+        """Format bytes should handle small values correctly."""
+        from src.routes.upload import format_bytes
+
+        assert format_bytes(0) == "0.00 bytes"
+        assert format_bytes(100) == "100.00 bytes"
+        assert format_bytes(1023) == "1023.00 bytes"
+
+    def test_format_bytes_kilobytes(self) -> None:
+        """Format bytes should convert to kilobytes."""
+        from src.routes.upload import format_bytes
+
+        assert format_bytes(1024) == "1.00 KB"
+        assert format_bytes(2048) == "2.00 KB"
+        assert format_bytes(1536) == "1.50 KB"
+
+    def test_format_bytes_megabytes(self) -> None:
+        """Format bytes should convert to megabytes."""
+        from src.routes.upload import format_bytes
+
+        assert format_bytes(1024 * 1024) == "1.00 MB"
+        assert format_bytes(10 * 1024 * 1024) == "10.00 MB"
+        assert format_bytes(15728640) == "15.00 MB"
+
+    def test_format_bytes_gigabytes(self) -> None:
+        """Format bytes should convert to gigabytes."""
+        from src.routes.upload import format_bytes
+
+        result = format_bytes(1024 * 1024 * 1024)
+        assert "1.00 GB" in result
+
+    def test_categorize_storage_error_permission(self) -> None:
+        """Categorize permission errors correctly."""
+        from src.database.supabase_client import SupabaseClientError
+        from src.routes.upload import categorize_storage_error
+
+        error = SupabaseClientError("Permission denied")
+        result = categorize_storage_error(error)
+        assert "Insufficient permissions" in result
+
+        error2 = SupabaseClientError("Unauthorized access")
+        result2 = categorize_storage_error(error2)
+        assert "Insufficient permissions" in result2
+
+    def test_categorize_storage_error_quota(self) -> None:
+        """Categorize quota errors correctly."""
+        from src.database.supabase_client import SupabaseClientError
+        from src.routes.upload import categorize_storage_error
+
+        error = SupabaseClientError("Storage quota exceeded")
+        result = categorize_storage_error(error)
+        assert "quota exceeded" in result
+
+        error2 = SupabaseClientError("Storage limit reached")
+        result2 = categorize_storage_error(error2)
+        assert "quota exceeded" in result2
+
+    def test_categorize_storage_error_network(self) -> None:
+        """Categorize network errors correctly."""
+        from src.database.supabase_client import SupabaseClientError
+        from src.routes.upload import categorize_storage_error
+
+        error = SupabaseClientError("Network timeout")
+        result = categorize_storage_error(error)
+        assert "Network connection error" in result
+
+        error2 = SupabaseClientError("Connection failed")
+        result2 = categorize_storage_error(error2)
+        assert "Network connection error" in result2
+
+    def test_categorize_storage_error_unknown(self) -> None:
+        """Categorize unknown errors with safe generic message."""
+        from src.database.supabase_client import SupabaseClientError
+        from src.routes.upload import categorize_storage_error
+
+        error = SupabaseClientError("Some random error")
+        result = categorize_storage_error(error)
+        assert "Unable to save image" in result
+
+
+class TestErrorHandling:
+    """Tests for error handling in different modes."""
+
+    @patch("src.routes.upload.upload_to_storage")
+    def test_unexpected_error_logged(
+        self,
+        mock_upload: MagicMock,
+        client_with_upload: TestClient,
+        valid_jpeg_image: bytes,
+    ) -> None:
+        """Unexpected errors should be logged and return safe message."""
+        # Make upload_to_storage raise an unexpected exception
+        mock_upload.side_effect = RuntimeError("Something went wrong internally")
+
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("route.jpg", valid_jpeg_image, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+
+        # Error message should be safe and generic
+        # Check that error message is present and doesn't expose internals
+        assert "unexpected error" in data["detail"].lower()
+        assert "occurred during upload" in data["detail"].lower()
+        # Should not contain the actual RuntimeError message
+        assert "Something went wrong internally" not in data["detail"]

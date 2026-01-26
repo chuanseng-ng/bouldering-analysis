@@ -13,6 +13,9 @@ from pydantic import BaseModel
 
 from src.config import get_settings
 from src.database.supabase_client import SupabaseClientError, upload_to_storage
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["upload"])
 
@@ -45,6 +48,55 @@ class ErrorResponse(BaseModel):
 
     detail: str
     error_code: str
+
+
+def format_bytes(size_bytes: int) -> str:
+    """Convert bytes to human-readable format.
+
+    Args:
+        size_bytes: Size in bytes.
+
+    Returns:
+        Human-readable size string (e.g., "15.23 MB").
+
+    Example:
+        >>> format_bytes(1024)
+        '1.00 KB'
+        >>> format_bytes(15728640)
+        '15.00 MB'
+    """
+    for unit in ["bytes", "KB", "MB", "GB"]:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.2f} TB"
+
+
+def categorize_storage_error(error: SupabaseClientError) -> str:
+    """Categorize storage errors for user-friendly messaging.
+
+    Args:
+        error: The storage error to categorize.
+
+    Returns:
+        User-friendly error message.
+
+    Example:
+        >>> error = SupabaseClientError("Permission denied")
+        >>> categorize_storage_error(error)
+        'Storage upload failed: Insufficient permissions'
+    """
+    error_str = str(error).lower()
+
+    if "permission" in error_str or "unauthorized" in error_str:
+        return "Storage upload failed: Insufficient permissions"
+    if "quota" in error_str or "limit" in error_str:
+        return "Storage upload failed: Storage quota exceeded"
+    if "network" in error_str or "timeout" in error_str or "connection" in error_str:
+        return "Storage upload failed: Network connection error"
+
+    # Generic message for unknown storage errors
+    return "Storage upload failed: Unable to save image"
 
 
 def validate_image_file(file: UploadFile) -> None:
@@ -85,8 +137,8 @@ def validate_image_file(file: UploadFile) -> None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"File size ({file.size} bytes) exceeds maximum "
-                    f"allowed size ({settings.max_upload_size_mb} MB)"
+                    f"File size ({format_bytes(file.size)}) exceeds maximum "
+                    f"allowed size ({format_bytes(max_size_bytes)})"
                 ),
             )
 
@@ -178,8 +230,8 @@ async def upload_route_image(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"File size ({len(file_content)} bytes) exceeds maximum "
-                    f"allowed size ({settings.max_upload_size_mb} MB)"
+                    f"File size ({format_bytes(len(file_content))}) exceeds maximum "
+                    f"allowed size ({format_bytes(max_size_bytes)})"
                 ),
             )
 
@@ -204,15 +256,47 @@ async def upload_route_image(
         )
 
     except SupabaseClientError as e:
+        # Log full error for debugging
+        logger.error(
+            "Storage upload failed",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "file_id": file_id if "file_id" in locals() else None,
+                "storage_path": file_path if "file_path" in locals() else None,
+            },
+        )
+
+        # Return categorized, user-friendly error
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload image to storage: {e!s}",
+            detail=categorize_storage_error(e),
         ) from e
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
+        # Log full error for debugging
+        logger.exception(
+            "Unexpected error during upload",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
+        )
+
+        # Return safe generic message (hide details in production)
+        # Use settings from function scope (already retrieved)
+        if settings.debug or settings.testing:
+            # Show details in debug/testing mode
+            detail = f"Unexpected error during upload: {e!s}"
+        else:
+            # Generic message for production
+            detail = (
+                "An unexpected error occurred during upload. Please try again later."
+            )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error during upload: {e!s}",
+            detail=detail,
         ) from e
