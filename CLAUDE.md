@@ -60,20 +60,22 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 
 The codebase is being migrated from Flask to FastAPI + Supabase.
 
-| Milestone | Status | PR |
-|-----------|--------|-----|
-| 1. Backend Foundation | **In Progress** | |
-| ├─ FastAPI Bootstrap | Completed | PR-1.1 |
-| └─ Supabase Client | Pending | PR-1.2 |
-| 2. Image Upload | Pending | PR-2.x |
-| 3. Hold Detection | Pending | PR-3.x |
-| 4. Hold Classification | Pending | PR-4.x |
-| 5. Route Graph | Pending | PR-5.x |
-| 6. Feature Extraction | Pending | PR-6.x |
-| 7. Grade Estimation | Pending | PR-7.x |
-| 8. Explainability | Pending | PR-8.x |
-| 9. Database Schema | Pending | PR-9.x |
-| 10. Frontend Integration | Pending | PR-10.x |
+| Milestone | Status | PR | Coverage |
+|-----------|--------|-----|----------|
+| 1. Backend Foundation | **Completed** | | 98% |
+| ├─ FastAPI Bootstrap | ✅ Completed | PR-1.1 | 100% |
+| └─ Supabase Client | ✅ Completed | PR-1.2 | 100% |
+| 2. Image Upload | **In Progress** | | 97% |
+| ├─ Upload Route Image | ✅ Completed | PR-2.1 | 97% |
+| └─ Create Route Record | Pending | PR-2.2 | - |
+| 3. Hold Detection | Pending | PR-3.x | - |
+| 4. Hold Classification | Pending | PR-4.x | - |
+| 5. Route Graph | Pending | PR-5.x | - |
+| 6. Feature Extraction | Pending | PR-6.x | - |
+| 7. Grade Estimation | Pending | PR-7.x | - |
+| 8. Explainability | Pending | PR-8.x | - |
+| 9. Database Schema | Pending | PR-9.x | - |
+| 10. Frontend Integration | Pending | PR-10.x | - |
 
 ### Archived Code
 
@@ -82,6 +84,148 @@ Legacy Flask-based code is preserved in:
 - `tests/archive/legacy/` - Original test files
 
 **Do not import from archive directories** - they are for reference only.
+
+---
+
+## Database Implementation Status
+
+### Supabase Client (✅ COMPLETED - PR-1.2)
+
+**Module**: `src/database/supabase_client.py`
+
+**Implemented Functions**:
+- `get_supabase_client()` - Returns cached Supabase client with connection pooling
+- `upload_to_storage(bucket, file_path, file_data, content_type)` - Upload files to Supabase Storage
+- `delete_from_storage(bucket, file_path)` - Delete files from storage
+- `get_storage_url(bucket, file_path)` - Get public URL for stored files
+- `list_storage_files(bucket, path)` - List files in a storage bucket
+
+**Configuration** (in `src/config.py`):
+- `supabase_url` - Supabase project URL (env: `BA_SUPABASE_URL`)
+- `supabase_key` - Supabase API key (env: `BA_SUPABASE_KEY`)
+- `storage_bucket` - Default storage bucket name (default: `route-images`)
+- `max_upload_size_mb` - Maximum upload size in MB (default: `10`)
+- `allowed_image_types` - List of allowed MIME types (default: `["image/jpeg", "image/png"]`)
+
+**Test Coverage**: 100% (`tests/test_supabase_client.py`)
+
+**Connection Test**: Run `python test_supabase_connection.py` to verify Supabase setup
+
+### Image Upload (✅ COMPLETED - PR-2.1)
+
+**Module**: `src/routes/upload.py`
+
+**Endpoint**: `POST /api/v1/routes/upload`
+
+**Features**:
+- Multipart file upload handling
+- File type validation (JPEG, PNG)
+- File size validation (configurable limit)
+- Magic byte signature validation (prevents file type spoofing)
+- Automatic file organization by year/month
+- Unique UUID-based file naming
+- Returns public URL and metadata
+
+**Response Model**:
+```python
+{
+    "file_id": "uuid",
+    "public_url": "https://...",
+    "file_size": 1234,
+    "content_type": "image/jpeg",
+    "uploaded_at": "2026-01-26T12:00:00Z"
+}
+```
+
+**Test Coverage**: 97% (`tests/test_upload.py`)
+
+### Database Schema (❌ PENDING - PR-2.2 & PR-9.x)
+
+The following Supabase tables are **planned but not yet implemented**:
+
+**Table: routes**
+```sql
+CREATE TABLE routes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    image_url TEXT NOT NULL,
+    wall_angle FLOAT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Table: holds**
+```sql
+CREATE TABLE holds (
+    id SERIAL PRIMARY KEY,
+    route_id UUID REFERENCES routes(id),
+    x FLOAT NOT NULL,
+    y FLOAT NOT NULL,
+    size FLOAT,
+    type VARCHAR(20),
+    confidence FLOAT
+);
+```
+
+**Table: features**
+```sql
+CREATE TABLE features (
+    id SERIAL PRIMARY KEY,
+    route_id UUID REFERENCES routes(id) UNIQUE,
+    feature_vector JSONB NOT NULL,
+    extracted_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Table: predictions**
+```sql
+CREATE TABLE predictions (
+    id SERIAL PRIMARY KEY,
+    route_id UUID REFERENCES routes(id),
+    grade VARCHAR(10) NOT NULL,
+    confidence FLOAT,
+    uncertainty FLOAT,
+    explanation TEXT,
+    model_version VARCHAR(50),
+    predicted_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Table: feedback**
+```sql
+CREATE TABLE feedback (
+    id SERIAL PRIMARY KEY,
+    route_id UUID REFERENCES routes(id),
+    user_grade VARCHAR(10),
+    is_accurate BOOLEAN,
+    comments TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Status**: Schema defined in `plans/MIGRATION_PLAN.md` but not yet implemented in Supabase.
+
+**Next Steps** (PR-2.2):
+1. Create `routes` table in Supabase
+2. Implement `POST /api/v1/routes` endpoint to create route records
+3. Link uploaded images to route records
+4. Add comprehensive tests
+
+### Storage Buckets
+
+**Required Buckets** (to be created in Supabase):
+- `route-images` - Storage for uploaded bouldering route images
+- `model-outputs` - Storage for model inference outputs (future)
+
+**Current Status**: Buckets must be manually created in Supabase (see `docs/SUPABASE_SETUP.md`)
+
+### Overall Database Coverage
+
+- **Supabase Client**: ✅ 100%
+- **Storage Operations**: ✅ 100%
+- **Image Upload**: ✅ 97%
+- **Database Tables**: ❌ Not implemented
+- **Route Records**: ❌ Not implemented
 
 ---
 
@@ -98,7 +242,11 @@ bouldering-analysis/
 │   ├── logging_config.py         # Structured JSON logging
 │   ├── routes/                   # API route modules
 │   │   ├── __init__.py           # Route exports
-│   │   └── health.py             # Health check endpoint
+│   │   ├── health.py             # Health check endpoint
+│   │   └── upload.py             # Image upload endpoint
+│   ├── database/                 # Database layer (Supabase)
+│   │   ├── __init__.py           # Database exports
+│   │   └── supabase_client.py    # Supabase client & storage helpers
 │   └── archive/legacy/           # Archived Flask code (reference only)
 │
 ├── tests/                        # Test suite
@@ -108,6 +256,8 @@ bouldering-analysis/
 │   ├── test_config.py            # Configuration tests
 │   ├── test_health.py            # Health endpoint tests
 │   ├── test_logging_config.py    # Logging tests
+│   ├── test_supabase_client.py   # Supabase client tests
+│   ├── test_upload.py            # Upload endpoint tests
 │   └── archive/legacy/           # Archived tests (reference only)
 │
 ├── docs/                         # Documentation
@@ -141,11 +291,17 @@ bouldering-analysis/
 | `src/config.py` | Configuration management | Pydantic Settings with env vars |
 | `src/logging_config.py` | Structured logging | JSON format for production |
 | `src/routes/health.py` | Health check endpoint | `/health`, `/api/v1/health` |
+| `src/routes/upload.py` | Image upload endpoint | `/api/v1/routes/upload` |
+| `src/database/supabase_client.py` | Supabase client | Connection pooling, storage ops |
 | `tests/conftest.py` | Pytest fixtures | Test app, client, settings |
+| `tests/test_supabase_client.py` | Database tests | Supabase client & storage tests |
+| `tests/test_upload.py` | Upload tests | Image validation & upload tests |
+| `test_supabase_connection.py` | Connection test script | Verify Supabase setup |
 | `.pre-commit-config.yaml` | Pre-commit hooks config | QA automation |
 | `docs/DESIGN.md` | Architecture spec | Milestones, domain model |
 | `docs/MODEL_PRETRAIN.md` | ML spec | Detection, classification |
 | `docs/PRE_COMMIT_HOOKS.md` | Pre-commit guide | Setup, usage, troubleshooting |
+| `docs/SUPABASE_SETUP.md` | Supabase setup guide | Step-by-step setup instructions |
 | `plans/MIGRATION_PLAN.md` | Migration roadmap | PR breakdown, phases |
 
 ---
@@ -159,6 +315,9 @@ bouldering-analysis/
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic-settings==2.7.1
+
+# Database & Storage
+supabase==2.17.0
 
 # Async Support
 httpx==0.28.1
@@ -206,8 +365,18 @@ pip install -r requirements.txt
 # Install pre-commit hooks (recommended)
 pre-commit install
 
+# Configure Supabase (required for upload functionality)
+# 1. Create a .env file in the project root
+# 2. Add your Supabase credentials:
+#    BA_SUPABASE_URL=https://your-project.supabase.co
+#    BA_SUPABASE_KEY=your-anon-or-service-role-key
+# See docs/SUPABASE_SETUP.md for detailed instructions
+
 # Verify installation
 python -c "from src.app import create_app; print('OK')"
+
+# Test Supabase connection (optional)
+python test_supabase_connection.py
 ```
 
 ### Pre-commit Hooks (Recommended)
@@ -226,6 +395,7 @@ pre-commit run
 ```
 
 The hooks automatically check:
+
 - Code formatting (ruff)
 - Linting (ruff)
 - Type checking (mypy)
@@ -443,6 +613,11 @@ class TestHealthEndpoint:
 | `BA_TESTING` | `false` | Enable testing mode |
 | `BA_CORS_ORIGINS` | `["*"]` | Allowed CORS origins (JSON array) |
 | `BA_LOG_LEVEL` | `INFO` | Logging level |
+| `BA_SUPABASE_URL` | `""` | Supabase project URL (required) |
+| `BA_SUPABASE_KEY` | `""` | Supabase API key (required) |
+| `BA_MAX_UPLOAD_SIZE_MB` | `10` | Maximum file upload size in MB |
+| `BA_STORAGE_BUCKET` | `route-images` | Supabase storage bucket name |
+| `BA_ALLOWED_IMAGE_TYPES` | `["image/jpeg", "image/png"]` | Allowed image MIME types |
 
 ### Example .env File
 
@@ -452,6 +627,14 @@ BA_APP_VERSION=0.1.0
 BA_DEBUG=true
 BA_LOG_LEVEL=DEBUG
 BA_CORS_ORIGINS=["http://localhost:3000"]
+
+# Supabase Configuration (required)
+BA_SUPABASE_URL=https://your-project.supabase.co
+BA_SUPABASE_KEY=your-anon-or-service-role-key
+
+# Upload Configuration (optional)
+BA_MAX_UPLOAD_SIZE_MB=10
+BA_STORAGE_BUCKET=route-images
 ```
 
 ### Accessing Configuration
@@ -472,6 +655,7 @@ test_settings = get_settings_override({"testing": True})
 ## Quality Standards
 
 **IMPORTANT**: Quality targets are staged based on project completion:
+
 - **Current Stage (Backend Foundation)**: 85% coverage, 8.5/10 pylint
 - **Final Stage (All Features Complete)**: 90% coverage, 9.0/10 pylint
 
@@ -508,6 +692,7 @@ Use these thresholds based on current project stage:
 |--------|------|-------------|----------|
 | GET | `/health` | Health check (root level) | HealthResponse |
 | GET | `/api/v1/health` | Health check (versioned) | HealthResponse |
+| POST | `/api/v1/routes/upload` | Upload route image | UploadResponse |
 | GET | `/docs` | Swagger UI (debug only) | HTML |
 | GET | `/openapi.json` | OpenAPI schema (debug only) | JSON |
 
@@ -523,6 +708,19 @@ curl http://localhost:8000/health
     "version": "0.1.0",
     "timestamp": "2026-01-14T12:00:00Z"
 }
+
+# Upload image
+curl -X POST http://localhost:8000/api/v1/routes/upload \
+  -F "file=@route.jpg"
+
+# Response
+{
+    "file_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "public_url": "https://your-project.supabase.co/storage/v1/object/public/route-images/2026/01/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg",
+    "file_size": 1048576,
+    "content_type": "image/jpeg",
+    "uploaded_at": "2026-01-26T12:00:00Z"
+}
 ```
 
 ### Response Models
@@ -532,6 +730,13 @@ class HealthResponse(BaseModel):
     status: Literal["healthy", "degraded", "unhealthy"]
     version: str
     timestamp: datetime
+
+class UploadResponse(BaseModel):
+    file_id: str
+    public_url: str
+    file_size: int
+    content_type: str
+    uploaded_at: str
 ```
 
 ---
@@ -609,8 +814,14 @@ pylint src/ --ignore=archive
 | Application factory | `src/app.py` |
 | Configuration | `src/config.py` |
 | Health endpoint | `src/routes/health.py` |
+| Upload endpoint | `src/routes/upload.py` |
+| Supabase client | `src/database/supabase_client.py` |
 | Test fixtures | `tests/conftest.py` |
+| Supabase tests | `tests/test_supabase_client.py` |
+| Upload tests | `tests/test_upload.py` |
+| Connection test | `test_supabase_connection.py` |
 | Design spec | `docs/DESIGN.md` |
+| Supabase setup | `docs/SUPABASE_SETUP.md` |
 | Migration plan | `plans/MIGRATION_PLAN.md` |
 
 ---
