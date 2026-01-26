@@ -65,11 +65,12 @@ def format_bytes(size_bytes: int) -> str:
         >>> format_bytes(15728640)
         '15.00 MB'
     """
+    size = float(size_bytes)
     for unit in ["bytes", "KB", "MB", "GB"]:
-        if size_bytes < 1024.0:
-            return f"{size_bytes:.2f} {unit}"
-        size_bytes /= 1024.0
-    return f"{size_bytes:.2f} TB"
+        if size < 1024.0:
+            return f"{size:.2f} {unit}"
+        size /= 1024.0
+    return f"{size:.2f} TB"
 
 
 def categorize_storage_error(error: SupabaseClientError) -> str:
