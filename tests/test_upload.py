@@ -69,24 +69,21 @@ def large_image() -> bytes:
     """Create a large image exceeding size limit.
 
     Returns:
-        Bytes of a large JPEG image (>5MB).
+        Bytes of a valid JPEG image (>5MB).
     """
     import numpy as np
 
     # Create a large image with random noise (won't compress well)
-    # This ensures it exceeds 5MB
-    random_array = np.random.randint(0, 256, (3000, 3000, 3), dtype=np.uint8)
+    # Increased to 4000x4000 to ensure it exceeds 5MB organically
+    random_array = np.random.randint(0, 256, (4000, 4000, 3), dtype=np.uint8)
     img = Image.fromarray(random_array, mode="RGB")
     img_bytes = io.BytesIO()
+    # Save with maximum quality to ensure large file size
     img.save(img_bytes, format="JPEG", quality=100)
 
     data = img_bytes.getvalue()
-    # If still not large enough, pad with extra data
-    if len(data) < 5 * 1024 * 1024:
-        # Create a valid JPEG header and pad the rest
-        padding = b"\x00" * (6 * 1024 * 1024 - len(data))
-        # Note: This makes it invalid but it's OK for size validation testing
-        data = data + padding
+    # Verify it's actually large enough (should be ~10-15 MB with these settings)
+    assert len(data) > 5 * 1024 * 1024, f"Generated image is only {len(data)} bytes"
 
     return data
 
@@ -534,3 +531,106 @@ class TestErrorHandling:
         # In debug/testing mode, should show actual error details
         assert "Unexpected error during upload" in data["detail"]
         assert "Something went wrong internally" in data["detail"]
+
+
+class TestFileSignatureValidation:
+    """Tests for file signature (magic bytes) validation."""
+
+    def test_validate_file_signature_valid_jpeg(self) -> None:
+        """Valid JPEG signature should pass validation."""
+        from src.routes.upload import validate_file_signature
+
+        # Create valid JPEG bytes
+        img = Image.new("RGB", (10, 10), color="red")
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="JPEG")
+        jpeg_data = img_bytes.getvalue()
+
+        # Should not raise exception
+        validate_file_signature(jpeg_data, "image/jpeg")
+
+    def test_validate_file_signature_valid_png(self) -> None:
+        """Valid PNG signature should pass validation."""
+        from src.routes.upload import validate_file_signature
+
+        # Create valid PNG bytes
+        img = Image.new("RGB", (10, 10), color="blue")
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format="PNG")
+        png_data = img_bytes.getvalue()
+
+        # Should not raise exception
+        validate_file_signature(png_data, "image/png")
+
+    def test_validate_file_signature_mismatched_jpeg_as_png(
+        self, client_with_upload: TestClient, valid_jpeg_image: bytes
+    ) -> None:
+        """JPEG file with PNG content type should be rejected."""
+        # Upload JPEG bytes with PNG content type
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("image.png", valid_jpeg_image, "image/png")},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "does not match PNG signature" in data["detail"]
+
+    def test_validate_file_signature_mismatched_png_as_jpeg(
+        self, client_with_upload: TestClient, valid_png_image: bytes
+    ) -> None:
+        """PNG file with JPEG content type should be rejected."""
+        # Upload PNG bytes with JPEG content type
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("image.jpg", valid_png_image, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "does not match JPEG signature" in data["detail"]
+
+    def test_validate_file_signature_too_small(
+        self, client_with_upload: TestClient
+    ) -> None:
+        """File smaller than 8 bytes should be rejected."""
+        tiny_file = b"\xff\xd8"  # Only 2 bytes
+
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("tiny.jpg", tiny_file, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "too small" in data["detail"].lower()
+
+    def test_validate_file_signature_empty_file(
+        self, client_with_upload: TestClient
+    ) -> None:
+        """Empty file should be rejected."""
+        empty_file = b""
+
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("empty.jpg", empty_file, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "too small" in data["detail"].lower()
+
+    def test_validate_file_signature_fake_jpeg(
+        self, client_with_upload: TestClient
+    ) -> None:
+        """Text file with JPEG extension should be rejected."""
+        fake_jpeg = b"This is not a JPEG file, just text content"
+
+        response = client_with_upload.post(
+            "/api/v1/routes/upload",
+            files={"file": ("fake.jpg", fake_jpeg, "image/jpeg")},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "does not match JPEG signature" in data["detail"]
