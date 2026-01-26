@@ -378,9 +378,10 @@ class TestConfigSettings:
 
     def test_default_upload_settings(self) -> None:
         """Config should have sensible default upload settings."""
-        from src.config import Settings
+        from src.config import get_settings_override
 
-        settings = Settings(_env_file=None)
+        # Get settings without loading .env file
+        settings = get_settings_override({})
 
         assert settings.max_upload_size_mb == 10
         assert settings.storage_bucket == "route-images"
