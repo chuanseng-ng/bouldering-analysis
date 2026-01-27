@@ -5,7 +5,7 @@ pydantic-settings==2.7.1
 
 # Async Support
 httpx==0.28.1
-python-multipart==0.0.20
+python-multipart==0.0.22
 
 # Structured Logging
 python-json-logger==3.2.1
