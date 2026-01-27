@@ -6,7 +6,7 @@ route records that link uploaded images to route metadata.
 
 import asyncio
 import re
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Path, status
 from pydantic import BaseModel, Field, field_validator
