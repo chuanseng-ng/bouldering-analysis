@@ -133,7 +133,81 @@ VALUES ('model-outputs', 'model-outputs', false);
 
 ---
 
-## Step 5: Test Your Connection
+## Step 5: Set Up Database Tables
+
+The application uses PostgreSQL tables for storing route data and analysis results.
+
+### Create the routes table
+
+1. **Navigate to SQL Editor**:
+   - In your Supabase dashboard, click "SQL Editor" in the left sidebar
+   - Click "New query"
+
+2. **Run the following SQL**:
+
+```sql
+-- Create routes table for storing route records
+CREATE TABLE routes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    image_url TEXT NOT NULL,
+    wall_angle FLOAT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for public read access
+CREATE POLICY "Allow public read access" ON routes
+    FOR SELECT USING (true);
+
+-- Create policy for service role write access
+CREATE POLICY "Allow service write access" ON routes
+    FOR INSERT WITH CHECK (true);
+
+-- Create policy for service role update access
+CREATE POLICY "Allow service update access" ON routes
+    FOR UPDATE USING (true);
+
+-- Create index for faster lookups by creation date
+CREATE INDEX idx_routes_created_at ON routes (created_at DESC);
+
+-- Create function to automatically update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to auto-update updated_at on row changes
+CREATE TRIGGER update_routes_updated_at
+    BEFORE UPDATE ON routes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+```
+
+3. **Click "Run"** to execute the SQL
+
+4. **Verify the table was created**:
+   - Navigate to "Table Editor" in the left sidebar
+   - You should see the `routes` table listed
+
+### Table Schema Reference
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | UUID | auto-generated | Primary key |
+| `image_url` | TEXT | required | Public URL of route image |
+| `wall_angle` | FLOAT | NULL | Wall angle in degrees (-90 to 90) |
+| `created_at` | TIMESTAMPTZ | NOW() | Creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOW() | Last update timestamp |
+
+---
+
+## Step 6: Test Your Connection
 
 Verify your Supabase connection works:
 

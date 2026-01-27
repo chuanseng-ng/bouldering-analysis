@@ -1,0 +1,311 @@
+"""Route record management endpoints.
+
+This module provides endpoints for creating and retrieving bouldering
+route records that link uploaded images to route metadata.
+"""
+
+import asyncio
+import re
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Path, status
+from pydantic import BaseModel, Field, field_validator
+
+from src.database.supabase_client import (
+    SupabaseClientError,
+    insert_record,
+    select_record_by_id,
+)
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/api/v1", tags=["routes"])
+
+# Constants
+WALL_ANGLE_MIN = -90.0
+WALL_ANGLE_MAX = 90.0
+IMAGE_URL_MAX_LENGTH = 2048
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+class RouteCreate(BaseModel):
+    """Request model for creating a route.
+
+    Attributes:
+        image_url: Public URL of the uploaded route image.
+        wall_angle: Optional wall angle in degrees (-90 to 90).
+            Negative values indicate overhang, positive values indicate slab.
+    """
+
+    image_url: Annotated[
+        str,
+        Field(
+            min_length=1,
+            max_length=IMAGE_URL_MAX_LENGTH,
+            description="Public URL of the uploaded route image",
+            examples=[
+                "https://example.supabase.co/storage/v1/object/public/route-images/2026/01/uuid.jpg"
+            ],
+        ),
+    ]
+    wall_angle: Annotated[
+        float | None,
+        Field(
+            default=None,
+            ge=WALL_ANGLE_MIN,
+            le=WALL_ANGLE_MAX,
+            description="Wall angle in degrees (-90 to 90). Negative=overhang, Positive=slab.",
+            examples=[0.0, 15.0, -30.0],
+        ),
+    ]
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_image_url(cls, v: str) -> str:
+        """Validate that image_url is a valid HTTPS URL.
+
+        Args:
+            v: The image URL to validate.
+
+        Returns:
+            The validated URL.
+
+        Raises:
+            ValueError: If URL is not a valid HTTPS URL.
+        """
+        if not v.startswith("https://"):
+            raise ValueError("Image URL must use HTTPS scheme")
+        return v
+
+
+class RouteResponse(BaseModel):
+    """Response model for route data.
+
+    Attributes:
+        id: Unique identifier for the route.
+        image_url: Public URL of the route image.
+        wall_angle: Wall angle in degrees, or None if unknown.
+        created_at: ISO 8601 timestamp of creation.
+        updated_at: ISO 8601 timestamp of last update.
+    """
+
+    id: str
+    image_url: str
+    wall_angle: float | None
+    created_at: str
+    updated_at: str
+
+
+class ErrorResponse(BaseModel):
+    """Response model for route errors.
+
+    Attributes:
+        detail: Human-readable error message.
+    """
+
+    detail: str
+
+
+def _format_timestamp(value: str | None) -> str:
+    """Format a timestamp value for response.
+
+    Args:
+        value: Timestamp string from database or None.
+
+    Returns:
+        Formatted timestamp string ending with 'Z' for UTC.
+    """
+    if value is None:
+        return ""
+
+    # Ensure timestamp ends with Z for UTC indication
+    timestamp = str(value)
+    if not timestamp.endswith("Z"):
+        # Remove any timezone suffix and add Z
+        if "+" in timestamp:
+            timestamp = timestamp.split("+", maxsplit=1)[0]
+        timestamp = timestamp + "Z"
+
+    return timestamp
+
+
+def _record_to_response(record: dict) -> RouteResponse:
+    """Convert a database record to a RouteResponse.
+
+    Args:
+        record: Database record dictionary.
+
+    Returns:
+        RouteResponse model instance.
+    """
+    return RouteResponse(
+        id=str(record["id"]),
+        image_url=str(record["image_url"]),
+        wall_angle=record.get("wall_angle"),
+        created_at=_format_timestamp(record.get("created_at")),
+        updated_at=_format_timestamp(record.get("updated_at")),
+    )
+
+
+@router.post(
+    "/routes",
+    response_model=RouteResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "Invalid input data",
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Server error during route creation",
+        },
+    },
+)
+async def create_route(route_data: RouteCreate) -> RouteResponse:
+    """Create a new route record.
+
+    This endpoint creates a new route record in the database, linking
+    an uploaded image to route metadata like wall angle.
+
+    Args:
+        route_data: Route creation data with image_url and optional wall_angle.
+
+    Returns:
+        Created route record with generated ID and timestamps.
+
+    Raises:
+        HTTPException: 400 for validation errors, 500 for database errors.
+
+    Example:
+        ```bash
+        curl -X POST "http://localhost:8000/api/v1/routes" \\
+             -H "Content-Type: application/json" \\
+             -d '{"image_url": "https://example.com/image.jpg", "wall_angle": 15.0}'
+        ```
+    """
+    # Prepare data for insertion
+    insert_data: dict = {
+        "image_url": route_data.image_url,
+    }
+
+    # Only include wall_angle if provided (let DB handle NULL)
+    if route_data.wall_angle is not None:
+        insert_data["wall_angle"] = round(route_data.wall_angle, 1)
+
+    try:
+        # Insert record (run in thread to avoid blocking event loop)
+        record = await asyncio.to_thread(
+            insert_record,
+            table="routes",
+            data=insert_data,
+        )
+
+        logger.info(
+            "Route created successfully",
+            extra={
+                "route_id": record["id"],
+                "image_url": route_data.image_url,
+            },
+        )
+
+        return _record_to_response(record)
+
+    except SupabaseClientError as e:
+        logger.error(
+            "Failed to create route record",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "image_url": route_data.image_url,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create route record",
+        ) from e
+
+
+@router.get(
+    "/routes/{route_id}",
+    response_model=RouteResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Route not found",
+        },
+        422: {
+            "model": ErrorResponse,
+            "description": "Invalid route ID format",
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Server error during retrieval",
+        },
+    },
+)
+async def get_route(
+    route_id: Annotated[
+        str,
+        Path(
+            description="UUID of the route to retrieve",
+            examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
+        ),
+    ],
+) -> RouteResponse:
+    """Retrieve a route by ID.
+
+    Args:
+        route_id: UUID of the route to retrieve.
+
+    Returns:
+        Route record with all fields.
+
+    Raises:
+        HTTPException: 404 if not found, 422 for invalid UUID, 500 for database errors.
+
+    Example:
+        ```bash
+        curl "http://localhost:8000/api/v1/routes/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        ```
+    """
+    # Validate UUID format
+    if not UUID_PATTERN.match(route_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid route ID format. Must be a valid UUID.",
+        )
+
+    try:
+        # Query record (run in thread to avoid blocking event loop)
+        record = await asyncio.to_thread(
+            select_record_by_id,
+            table="routes",
+            record_id=route_id,
+        )
+
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Route not found",
+            )
+
+        return _record_to_response(record)
+
+    except SupabaseClientError as e:
+        logger.error(
+            "Failed to retrieve route",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "route_id": route_id,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve route",
+        ) from e

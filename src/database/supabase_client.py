@@ -186,3 +186,80 @@ def list_storage_files(bucket: str, path: str = "") -> list[dict[str, Any]]:
         raise SupabaseClientError(
             f"Failed to list files in bucket '{bucket}': {e!s}"
         ) from e
+
+
+# =============================================================================
+# Database Table Operations
+# =============================================================================
+
+
+def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:
+    """Insert a record into a Supabase table.
+
+    Args:
+        table: Name of the table (e.g., "routes").
+        data: Dictionary of column names to values.
+
+    Returns:
+        The inserted record with server-generated fields (id, created_at, etc.).
+
+    Raises:
+        SupabaseClientError: If insert fails or table doesn't exist.
+
+    Example:
+        >>> record = insert_record("routes", {"image_url": "https://..."})
+        >>> print(record["id"])
+    """
+    client = get_supabase_client()
+
+    try:
+        result = client.table(table).insert(data).execute()
+
+        if not result.data:
+            raise SupabaseClientError(f"Insert to table '{table}' returned no data")
+
+        record: dict[str, Any] = result.data[0]
+        return record
+
+    except SupabaseClientError:
+        # Re-raise our own errors
+        raise
+    except Exception as e:
+        raise SupabaseClientError(
+            f"Failed to insert record into table '{table}': {e!s}"
+        ) from e
+
+
+def select_record_by_id(table: str, record_id: str) -> dict[str, Any] | None:
+    """Select a single record by ID.
+
+    Args:
+        table: Name of the table.
+        record_id: UUID of the record.
+
+    Returns:
+        The record as a dictionary, or None if not found.
+
+    Raises:
+        SupabaseClientError: If query fails.
+
+    Example:
+        >>> route = select_record_by_id("routes", "uuid-here")
+        >>> if route:
+        ...     print(route["image_url"])
+    """
+    client = get_supabase_client()
+
+    try:
+        result = client.table(table).select("*").eq("id", record_id).execute()
+
+        if not result.data:
+            return None
+
+        record: dict[str, Any] = result.data[0]
+        return record
+
+    except Exception as e:
+        raise SupabaseClientError(
+            f"Failed to select record from table '{table}': {e!s}"
+        ) from e
