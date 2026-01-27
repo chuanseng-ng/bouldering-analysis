@@ -107,6 +107,7 @@ docs/
 **Endpoint**: `POST /api/v1/routes`
 
 **Request Body**:
+
 ```json
 {
     "image_url": "https://your-project.supabase.co/storage/v1/object/public/route-images/2026/01/uuid.jpg",
@@ -120,6 +121,7 @@ docs/
 | `wall_angle` | float | No | Wall angle in degrees (-90 to 90). Null if unknown. Negative = overhang, Positive = slab |
 
 **Response** (201 Created):
+
 ```json
 {
     "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -150,6 +152,7 @@ docs/
 | `route_id` | UUID | Route identifier |
 
 **Response** (200 OK):
+
 ```json
 {
     "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",

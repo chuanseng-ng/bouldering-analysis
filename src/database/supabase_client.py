@@ -4,6 +4,7 @@ This module provides a centralized Supabase client with caching
 and storage bucket access helpers.
 """
 
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -193,6 +194,25 @@ def list_storage_files(bucket: str, path: str = "") -> list[dict[str, Any]]:
 # =============================================================================
 
 
+def _validate_table_name(table: str) -> None:
+    """Validate table name for SQL safety.
+
+    Args:
+        table: Table name to validate.
+
+    Raises:
+        SupabaseClientError: If table name is invalid.
+    """
+    if not table:
+        raise SupabaseClientError("Table name cannot be empty")
+
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table):
+        raise SupabaseClientError(
+            f"Invalid table name '{table}': must start with letter/underscore "
+            "and contain only alphanumeric characters and underscores"
+        )
+
+
 def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:
     """Insert a record into a Supabase table.
 
@@ -204,12 +224,21 @@ def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:
         The inserted record with server-generated fields (id, created_at, etc.).
 
     Raises:
-        SupabaseClientError: If insert fails or table doesn't exist.
+        SupabaseClientError: If insert fails, table doesn't exist, or input is invalid.
 
     Example:
         >>> record = insert_record("routes", {"image_url": "https://..."})
         >>> print(record["id"])
     """
+    # Validate inputs
+    _validate_table_name(table)
+
+    if not data:
+        raise SupabaseClientError("Data dictionary cannot be empty")
+
+    if not isinstance(data, dict):
+        raise SupabaseClientError("Data must be a dictionary")
+
     client = get_supabase_client()
 
     try:
@@ -242,13 +271,19 @@ def select_record_by_id(table: str, record_id: str) -> dict[str, Any] | None:
         The record as a dictionary, or None if not found.
 
     Raises:
-        SupabaseClientError: If query fails.
+        SupabaseClientError: If query fails or input is invalid.
 
     Example:
         >>> route = select_record_by_id("routes", "uuid-here")
         >>> if route:
         ...     print(route["image_url"])
     """
+    # Validate inputs
+    _validate_table_name(table)
+
+    if not record_id:
+        raise SupabaseClientError("Record ID cannot be empty")
+
     client = get_supabase_client()
 
     try:

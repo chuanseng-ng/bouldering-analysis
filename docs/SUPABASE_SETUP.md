@@ -160,15 +160,15 @@ ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for public read access
 CREATE POLICY "Allow public read access" ON routes
-    FOR SELECT USING (true);
+    FOR SELECT TO PUBLIC USING (true);
 
 -- Create policy for service role write access
 CREATE POLICY "Allow service write access" ON routes
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT TO service_role WITH CHECK (true);
 
 -- Create policy for service role update access
 CREATE POLICY "Allow service update access" ON routes
-    FOR UPDATE USING (true);
+    FOR UPDATE TO service_role USING (true);
 
 -- Create index for faster lookups by creation date
 CREATE INDEX idx_routes_created_at ON routes (created_at DESC);
@@ -189,9 +189,9 @@ CREATE TRIGGER update_routes_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 ```
 
-3. **Click "Run"** to execute the SQL
+1. **Click "Run"** to execute the SQL
 
-4. **Verify the table was created**:
+1. **Verify the table was created**:
    - Navigate to "Table Editor" in the left sidebar
    - You should see the `routes` table listed
 

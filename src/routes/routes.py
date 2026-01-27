@@ -156,9 +156,9 @@ def _record_to_response(record: dict) -> RouteResponse:
     response_model=RouteResponse,
     status_code=status.HTTP_201_CREATED,
     responses={
-        400: {
+        422: {
             "model": ErrorResponse,
-            "description": "Invalid input data",
+            "description": "Validation error - invalid request body format",
         },
         500: {
             "model": ErrorResponse,
@@ -179,7 +179,7 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
         Created route record with generated ID and timestamps.
 
     Raises:
-        HTTPException: 400 for validation errors, 500 for database errors.
+        HTTPException: 422 for validation errors, 500 for database errors.
 
     Example:
         ```bash
