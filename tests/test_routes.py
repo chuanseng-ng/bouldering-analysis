@@ -738,7 +738,8 @@ class TestRouteModels:
         """RouteCreate model should accept missing wall_angle."""
         from src.routes.routes import RouteCreate
 
-        data = RouteCreate(image_url="https://example.com/image.jpg")
+        # wall_angle has a default of None, so this is valid
+        data = RouteCreate(image_url="https://example.com/image.jpg")  # type: ignore[call-arg]
         assert data.image_url == "https://example.com/image.jpg"
         assert data.wall_angle is None
 

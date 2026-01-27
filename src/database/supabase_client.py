@@ -96,7 +96,7 @@ def upload_to_storage(
         client.storage.from_(bucket).upload(
             path=file_path,
             file=file_data,
-            file_options=options if options else None,
+            file_options=options if options else None,  # type: ignore[arg-type]
         )
 
         # Get public URL
@@ -218,7 +218,7 @@ def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:
         if not result.data:
             raise SupabaseClientError(f"Insert to table '{table}' returned no data")
 
-        record: dict[str, Any] = result.data[0]
+        record: dict[str, Any] = dict(result.data[0])
         return record
 
     except SupabaseClientError:
@@ -256,7 +256,7 @@ def select_record_by_id(table: str, record_id: str) -> dict[str, Any] | None:
         if not result.data:
             return None
 
-        record: dict[str, Any] = result.data[0]
+        record: dict[str, Any] = dict(result.data[0])
         return record
 
     except Exception as e:
