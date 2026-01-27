@@ -218,7 +218,8 @@ def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:
         if not result.data:
             raise SupabaseClientError(f"Insert to table '{table}' returned no data")
 
-        record: dict[str, Any] = dict(result.data[0])
+        # result.data[0] is already a dict-like object from Supabase
+        record: dict[str, Any] = result.data[0]  # type: ignore[assignment]
         return record
 
     except SupabaseClientError:
@@ -256,7 +257,8 @@ def select_record_by_id(table: str, record_id: str) -> dict[str, Any] | None:
         if not result.data:
             return None
 
-        record: dict[str, Any] = dict(result.data[0])
+        # result.data[0] is already a dict-like object from Supabase
+        record: dict[str, Any] = result.data[0]  # type: ignore[assignment]
         return record
 
     except Exception as e:
