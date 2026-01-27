@@ -21,7 +21,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Running pytest..."
-pytest_output=$(pytest tests/ --cov-report=term-missing --cov=src/ 2>&1)
+pytest_output=$(python -m pytest tests/ --cov-report=term-missing --cov=src/ 2>&1)
 pytest_exit_code=$?
 echo "$pytest_output"
 
