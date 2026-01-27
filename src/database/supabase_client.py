@@ -4,6 +4,7 @@ This module provides a centralized Supabase client with caching
 and storage bucket access helpers.
 """
 
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -185,4 +186,117 @@ def list_storage_files(bucket: str, path: str = "") -> list[dict[str, Any]]:
     except Exception as e:
         raise SupabaseClientError(
             f"Failed to list files in bucket '{bucket}': {e!s}"
+        ) from e
+
+
+# =============================================================================
+# Database Table Operations
+# =============================================================================
+
+
+def _validate_table_name(table: str) -> None:
+    """Validate table name for SQL safety.
+
+    Args:
+        table: Table name to validate.
+
+    Raises:
+        SupabaseClientError: If table name is invalid.
+    """
+    if not table:
+        raise SupabaseClientError("Table name cannot be empty")
+
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table):
+        raise SupabaseClientError(
+            f"Invalid table name '{table}': must start with letter/underscore "
+            "and contain only alphanumeric characters and underscores"
+        )
+
+
+def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:
+    """Insert a record into a Supabase table.
+
+    Args:
+        table: Name of the table (e.g., "routes").
+        data: Dictionary of column names to values.
+
+    Returns:
+        The inserted record with server-generated fields (id, created_at, etc.).
+
+    Raises:
+        SupabaseClientError: If insert fails, table doesn't exist, or input is invalid.
+
+    Example:
+        >>> record = insert_record("routes", {"image_url": "https://..."})
+        >>> print(record["id"])
+    """
+    # Validate inputs
+    _validate_table_name(table)
+
+    if not data:
+        raise SupabaseClientError("Data dictionary cannot be empty")
+
+    if not isinstance(data, dict):
+        raise SupabaseClientError("Data must be a dictionary")
+
+    client = get_supabase_client()
+
+    try:
+        result = client.table(table).insert(data).execute()
+
+        if not result.data:
+            raise SupabaseClientError(f"Insert to table '{table}' returned no data")
+
+        # result.data[0] is already a dict-like object from Supabase
+        record: dict[str, Any] = result.data[0]  # type: ignore[assignment]
+        return record
+
+    except SupabaseClientError:
+        # Re-raise our own errors
+        raise
+    except Exception as e:
+        raise SupabaseClientError(
+            f"Failed to insert record into table '{table}': {e!s}"
+        ) from e
+
+
+def select_record_by_id(table: str, record_id: str) -> dict[str, Any] | None:
+    """Select a single record by ID.
+
+    Args:
+        table: Name of the table.
+        record_id: UUID of the record.
+
+    Returns:
+        The record as a dictionary, or None if not found.
+
+    Raises:
+        SupabaseClientError: If query fails or input is invalid.
+
+    Example:
+        >>> route = select_record_by_id("routes", "uuid-here")
+        >>> if route:
+        ...     print(route["image_url"])
+    """
+    # Validate inputs
+    _validate_table_name(table)
+
+    if not record_id:
+        raise SupabaseClientError("Record ID cannot be empty")
+
+    client = get_supabase_client()
+
+    try:
+        result = client.table(table).select("*").eq("id", record_id).execute()
+
+        if not result.data:
+            return None
+
+        # result.data[0] is already a dict-like object from Supabase
+        record: dict[str, Any] = result.data[0]  # type: ignore[assignment]
+        return record
+
+    except Exception as e:
+        raise SupabaseClientError(
+            f"Failed to select record from table '{table}': {e!s}"
         ) from e

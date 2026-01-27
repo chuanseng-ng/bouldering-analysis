@@ -941,7 +941,7 @@ pip freeze
 # Development scripts
 ./run.sh
 ./run_setup_dev.sh
-./run_qa.csh
+./run_qa.sh
 ```
 
 ### Dangerous Commands (Require Confirmation)

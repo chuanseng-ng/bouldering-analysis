@@ -17,7 +17,7 @@ Before running E2E tests, ensure:
 pytest tests/ --cov=src/ --cov-report=term-missing
 
 # 2. QA checks pass
-./run_qa.csh
+./run_qa.sh
 
 # 3. Database is initialized
 python src/setup_dev.py
@@ -372,7 +372,7 @@ Example for **Render.com**:
 #### Pre-Deployment
 
 - [ ] All unit tests pass locally
-- [ ] All QA checks pass (`./run_qa.csh`)
+- [ ] All QA checks pass (`./run_qa.sh`)
 - [ ] E2E tests pass locally
 - [ ] Database migrations applied (if any)
 - [ ] Configuration validated (`src/cfg/user_config.yaml`)

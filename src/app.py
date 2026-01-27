@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import Settings, get_settings, get_settings_override
 from src.logging_config import configure_logging, get_logger
-from src.routes import health_router, upload_router
+from src.routes import health_router, routes_router, upload_router
 
 logger = get_logger(__name__)
 
@@ -153,6 +153,7 @@ def _register_routes(app: FastAPI) -> None:
     # Versioned API routes
     app.include_router(health_router, prefix="/api/v1", tags=["health-v1"])
     app.include_router(upload_router)
+    app.include_router(routes_router)
 
 
 # Create default app instance for uvicorn
