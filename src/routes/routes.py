@@ -133,7 +133,7 @@ def _format_timestamp(value: str | None) -> str:
     return timestamp
 
 
-def _record_to_response(record: dict) -> RouteResponse:
+def _record_to_response(record: dict[str, Any]) -> RouteResponse:
     """Convert a database record to a RouteResponse.
 
     Args:
