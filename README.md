@@ -28,7 +28,25 @@ Built with a **backend-first, explainable AI** approach:
 - **Backend**: FastAPI with Pydantic Settings
 - **ML/CV**: PyTorch + Ultralytics YOLOv8
 - **Database**: Supabase (Postgres + Storage)
-- **Frontend**: Lovable (external)
+- **Frontend**: React/Next.js (developed via Lovable, deployed on Vercel)
+
+### Frontend Development
+
+The frontend is developed in two phases:
+
+1. **Lovable Prototype**: Rapid UI development using the [Lovable](https://lovable.dev) no-code platform
+2. **Code Refinement**: Export to code, enhance with Claude Code, deploy to [Vercel](https://vercel.com)
+
+This approach enables rapid prototyping while maintaining full code control and production-grade deployment.
+
+See [docs/FRONTEND_WORKFLOW.md](docs/FRONTEND_WORKFLOW.md) for the complete development workflow.
+
+## Deployment
+
+- **Backend**: TBD (FastAPI deployment strategy to be determined)
+- **Frontend**: Vercel with automatic Git deployments
+
+See [docs/VERCEL_SETUP.md](docs/VERCEL_SETUP.md) for frontend deployment instructions.
 
 ### Database Implementation Status
 
@@ -203,6 +221,8 @@ bouldering-analysis/
 │   ├── DESIGN.md                 # Architecture spec
 │   ├── MODEL_PRETRAIN.md         # ML spec
 │   ├── SUPABASE_SETUP.md         # Database setup guide
+│   ├── FRONTEND_WORKFLOW.md      # Frontend development guide
+│   ├── VERCEL_SETUP.md           # Vercel deployment guide
 │   └── PRE_COMMIT_HOOKS.md       # QA automation guide
 ├── plans/                        # Implementation plans
 │   └── MIGRATION_PLAN.md         # Migration roadmap
@@ -217,6 +237,8 @@ bouldering-analysis/
 - [Model Pretraining](docs/MODEL_PRETRAIN.md) - ML model specifications
 - [Pre-commit Hooks Guide](docs/PRE_COMMIT_HOOKS.md) - QA automation setup and usage
 - [Supabase Setup Guide](docs/SUPABASE_SETUP.md) - Database configuration
+- [Frontend Workflow](docs/FRONTEND_WORKFLOW.md) - Frontend development guide (Lovable → Claude Code → Vercel)
+- [Vercel Setup Guide](docs/VERCEL_SETUP.md) - Frontend deployment to Vercel
 - [Migration Plan](plans/MIGRATION_PLAN.md) - Implementation roadmap
 - [AI Assistant Guide](CLAUDE.md) - Development guidelines
 

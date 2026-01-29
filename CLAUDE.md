@@ -49,6 +49,7 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 - **Backend**: FastAPI 0.115.6 with Pydantic Settings
 - **ML/CV**: PyTorch 2.9.1 + Ultralytics YOLOv8 8.3.233
 - **Database**: Supabase (Postgres + Storage) - planned
+- **Frontend**: React/Next.js (via Lovable export), deployed on Vercel
 - **Testing**: pytest 8.3.5 with staged coverage requirements (≥85% now, ≥90% final)
 - **Quality**: mypy, ruff, pylint with staged requirements (≥8.5/10 now, ≥9.0/10 final)
 
@@ -75,7 +76,41 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | 7. Grade Estimation | Pending | PR-7.x | - |
 | 8. Explainability | Pending | PR-8.x | - |
 | 9. Database Schema | Pending | PR-9.x | - |
-| 10. Frontend Integration | Pending | PR-10.x | - |
+| 10. Frontend Development | Pending | PR-10.x | - |
+
+### Frontend Development Strategy
+
+The frontend follows a two-phase development approach:
+
+#### Phase 1: Initial Development (Lovable)
+- Rapid prototyping using [Lovable](https://lovable.dev) platform (no-code/low-code)
+- Build core UI components and user flows
+- Establish initial design system
+- Create working prototype for user testing
+- Connect to backend API endpoints
+
+#### Phase 2: Enhancement & Deployment (Claude Code + Vercel)
+- Export Lovable project to code repository
+- Refine and extend functionality using Claude Code
+- Add advanced features and optimizations
+- Deploy to [Vercel](https://vercel.com) for production hosting
+- Set up continuous deployment from Git
+
+#### Technology Stack
+- **Prototyping**: Lovable (no-code platform for rapid UI development)
+- **Framework**: React/Next.js (exported from Lovable)
+- **Modifications**: Claude Code (AI-assisted development)
+- **Hosting**: Vercel (with automatic Git deployments)
+- **API Integration**: FastAPI backend via REST API
+
+#### Frontend Environment Variables
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Backend API base URL |
+| `NEXT_PUBLIC_SUPABASE_URL` | `""` | Supabase URL (if frontend uses Supabase directly) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `""` | Supabase anon key (if needed) |
+
+See [docs/FRONTEND_WORKFLOW.md](docs/FRONTEND_WORKFLOW.md) and [docs/VERCEL_SETUP.md](docs/VERCEL_SETUP.md) for detailed guides.
 
 ### Archived Code
 
@@ -303,6 +338,8 @@ bouldering-analysis/
 | `docs/MODEL_PRETRAIN.md` | ML spec | Detection, classification |
 | `docs/PRE_COMMIT_HOOKS.md` | Pre-commit guide | Setup, usage, troubleshooting |
 | `docs/SUPABASE_SETUP.md` | Supabase setup guide | Step-by-step setup instructions |
+| `docs/FRONTEND_WORKFLOW.md` | Frontend development guide | Lovable → Claude Code → Vercel |
+| `docs/VERCEL_SETUP.md` | Vercel deployment guide | Step-by-step deployment |
 | `plans/MIGRATION_PLAN.md` | Migration roadmap | PR breakdown, phases |
 
 ---
@@ -823,6 +860,8 @@ pylint src/ --ignore=archive
 | Connection test | `test_supabase_connection.py` |
 | Design spec | `docs/DESIGN.md` |
 | Supabase setup | `docs/SUPABASE_SETUP.md` |
+| Frontend workflow | `docs/FRONTEND_WORKFLOW.md` |
+| Vercel setup | `docs/VERCEL_SETUP.md` |
 | Migration plan | `plans/MIGRATION_PLAN.md` |
 
 ---

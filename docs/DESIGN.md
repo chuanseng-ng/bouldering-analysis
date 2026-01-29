@@ -28,19 +28,44 @@ This system prioritizes **explainability, modularity, and data efficiency**.
 ## 3. High-Level Architecture
 
 ```text
-Frontend (Lovable)
-↓
-FastAPI Backend
-↓
-Perception Models (pre-trained)
-↓
-Route Graph
-↓
-Feature Extraction
-↓
-Ordinal Grade Model
-↓
-Supabase (Postgres + Storage)
+┌─────────────────────────────────────────────────────┐
+│                    Frontend                         │
+│         (Lovable → React/Next.js → Vercel)          │
+│                                                     │
+│  - Image Upload UI                                  │
+│  - Hold Annotation Interface                        │
+│  - Grade Display with Explanations                  │
+│  - User Feedback Forms                              │
+└─────────────────────────────────────────────────────┘
+                        │
+                        │ REST API (HTTPS)
+                        │
+┌─────────────────────────────────────────────────────┐
+│              FastAPI Backend                        │
+│          (Python 3.10+ on TBD platform)             │
+│                                                     │
+│  - Image Upload & Storage                           │
+│  - Hold Detection (YOLOv8)                          │
+│  - Hold Classification                              │
+│  - Route Graph Construction                         │
+│  - Feature Extraction                               │
+│  - Grade Estimation                                 │
+│  - Explainability                                   │
+└─────────────────────────────────────────────────────┘
+                        │
+                        │ Storage & Database
+                        │
+┌─────────────────────────────────────────────────────┐
+│              Supabase                               │
+│        (Postgres + Storage)                         │
+│                                                     │
+│  - Route Records (routes table)                     │
+│  - Hold Data (holds table)                          │
+│  - Features (features table)                        │
+│  - Predictions (predictions table)                  │
+│  - User Feedback (feedback table)                   │
+│  - Image Storage (route-images bucket)              │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## 4. Domain Model
@@ -171,13 +196,53 @@ Goal: Classify detected holds into semantic types.
 
 One migration per PR.
 
-### MILESTONE 10 — Frontend Integration (Lovable)
+### MILESTONE 10 — Frontend Development & Integration
 
-- Frontend responsibilities:
-- Image upload
-- Start / finish annotation
-- Grade + explanation display
-- No business logic in frontend.
+**Goal**: Build and deploy user-facing interface
+
+#### Three-Phase Approach
+
+**Phase 1: Lovable Prototype (PR-10.1)**
+- Rapid UI development using Lovable platform
+- Core components: upload, annotation, display
+- Backend API integration
+- User testing and iteration
+
+**Phase 2: Code Export & Enhancement (PR-10.2)**
+- Export Lovable project to Git repository
+- Refine with Claude Code
+- Performance optimizations
+- Comprehensive testing
+- Accessibility improvements
+
+**Phase 3: Vercel Deployment (PR-10.3)**
+- Deploy to Vercel platform
+- Configure environment variables
+- Set up continuous deployment
+- Configure monitoring and analytics
+
+#### Frontend Responsibilities
+- Image upload interface
+- Interactive hold annotation
+- Grade prediction display with uncertainty
+- Feedback submission forms
+- Responsive design (mobile + desktop)
+
+#### Backend API Contract
+- `POST /api/v1/routes/upload` - Upload image
+- `POST /api/v1/routes` - Create route record
+- `GET /api/v1/routes/{id}` - Get route details
+- `POST /api/v1/routes/{id}/analyze` - Trigger analysis
+- `PUT /api/v1/routes/{id}/constraints` - Set start/finish
+- `GET /api/v1/routes/{id}/prediction` - Get prediction
+- `POST /api/v1/routes/{id}/feedback` - Submit feedback
+
+#### Technology Stack
+- **Development**: Lovable → React/Next.js
+- **Hosting**: Vercel (automatic Git deployments)
+- **API**: REST (FastAPI backend)
+
+See [docs/FRONTEND_WORKFLOW.md](FRONTEND_WORKFLOW.md) and [docs/VERCEL_SETUP.md](VERCEL_SETUP.md) for detailed guides.
 
 ## 6. Non-Goals (Explicit)
 

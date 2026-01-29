@@ -23,7 +23,8 @@ This plan outlines the migration from the current Flask-based implementation to 
 | **Grade Prediction** | Heuristic 4-factor algorithm | Route Graph + Feature Extraction + Ordinal ML |
 | **Model Architecture** | Single YOLO detection model | Separate detection + classification models |
 | **Storage** | Local filesystem | Supabase Storage |
-| **Frontend** | Flask templates (index.html) | Lovable (external) |
+| **Frontend** | Flask templates (index.html) | React/Next.js (Lovable → Vercel) |
+| **Deployment** | Not defined | Backend TBD, Frontend on Vercel |
 
 ---
 
@@ -437,26 +438,143 @@ CREATE TABLE feedback (
 
 ---
 
-### MILESTONE 10 — Frontend Integration (Lovable)
+### MILESTONE 10 — Frontend Development & Integration
 
-**Goal**: API contract for Lovable frontend
+**Goal**: Build and deploy user-facing interface for bouldering route analysis
 
-#### Frontend Responsibilities (not implemented in backend)
+This milestone follows a three-phase development workflow:
 
-- Image upload UI
-- Start/finish annotation interface
-- Grade + explanation display
+#### Phase 1: Lovable Prototype (PR-10.1)
+
+**Goal**: Rapidly build functional UI prototype using Lovable platform
+
+- **Function**: N/A (no-code development)
+- **Tasks**:
+  1. Set up Lovable project with route analysis theme
+  2. Build core UI components:
+     - Image upload interface with drag-and-drop
+     - Route image display with interactive hold overlay
+     - Hold annotation tools (mark start/finish)
+     - Grade prediction display with uncertainty visualization
+     - Feedback submission form
+     - Route history/gallery
+  3. Connect to backend API endpoints (see Backend API Endpoints below)
+  4. Implement responsive design for mobile and desktop
+  5. Add loading states and error handling
+  6. User testing and design iteration
+- **Dependencies**: PR-2.2 (Route records), PR-7.2 (Grade estimation)
+- **Estimated Effort**: Medium
+- **Deliverables**:
+  - Working Lovable prototype
+  - Design system documentation
+  - API integration documentation
+  - User feedback summary
+
+#### Phase 2: Code Export & Enhancement (PR-10.2)
+
+**Goal**: Export prototype to Git and refine with Claude Code
+
+- **Function**: `enhance_frontend_features()`
+- **Tasks**:
+  1. Export Lovable project to Git repository (likely Next.js/React)
+  2. Set up local development environment
+  3. Install dependencies and configure build pipeline
+  4. Refine components using Claude Code:
+     - Performance optimizations (code splitting, lazy loading)
+     - Advanced interactions (keyboard shortcuts, touch gestures)
+     - Improved error handling and validation
+     - Responsive design enhancements
+     - Accessibility improvements (ARIA labels, keyboard navigation)
+  5. Add comprehensive frontend tests:
+     - Unit tests for components (Jest/Vitest)
+     - Integration tests for API calls
+     - E2E tests for critical flows (Playwright/Cypress)
+  6. Optimize bundle size and loading performance
+  7. Add analytics and monitoring
+- **Dependencies**: PR-10.1
+- **Estimated Effort**: Medium
+- **Deliverables**:
+  - Cleaned, optimized codebase
+  - Test suite with ≥80% coverage
+  - Performance benchmarks
+  - Documentation for local development
+
+#### Phase 3: Vercel Deployment (PR-10.3)
+
+**Goal**: Deploy frontend to production with continuous deployment
+
+- **Function**: `deploy_to_vercel()`
+- **Tasks**:
+  1. Create Vercel project linked to Git repository
+  2. Configure environment variables:
+     - `NEXT_PUBLIC_API_URL` (backend API endpoint)
+     - `NEXT_PUBLIC_SUPABASE_URL` (if frontend uses Supabase)
+     - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (if needed)
+  3. Configure build settings:
+     - Framework preset (Next.js/React)
+     - Build command and output directory
+     - Install command customization
+  4. Set up preview deployments for pull requests
+  5. Configure production deployment on main branch
+  6. Set up custom domain (optional)
+  7. Configure CORS on backend to allow Vercel domain
+  8. Set up monitoring and analytics:
+     - Vercel Analytics
+     - Error tracking (Sentry integration)
+     - Performance monitoring
+  9. Document deployment process and troubleshooting
+- **Dependencies**: PR-10.2
+- **Estimated Effort**: Small
+- **Deliverables**:
+  - Production deployment on Vercel
+  - Automatic preview deployments
+  - Deployment documentation
+  - Monitoring dashboards
 
 #### Backend API Endpoints
 
-| Endpoint | Method | Purpose |
-| :------: | :----: | :-----: |
-| `POST /api/v1/routes/upload` | POST | Upload image |
-| `GET /api/v1/routes/{id}` | GET | Get route details |
-| `POST /api/v1/routes/{id}/analyze` | POST | Trigger analysis |
-| `GET /api/v1/routes/{id}/prediction` | GET | Get grade prediction |
-| `POST /api/v1/routes/{id}/feedback` | POST | Submit feedback |
-| `PUT /api/v1/routes/{id}/constraints` | PUT | Set start/finish holds |
+These endpoints must be implemented in the backend to support the frontend:
+
+| Endpoint | Method | Purpose | Status |
+| :------: | :----: | :-----: | :----: |
+| `POST /api/v1/routes/upload` | POST | Upload route image | ✅ Completed (PR-2.1) |
+| `POST /api/v1/routes` | POST | Create route record | Pending (PR-2.2) |
+| `GET /api/v1/routes/{id}` | GET | Get route details | Pending |
+| `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | Pending (PR-3.x, PR-4.x) |
+| `GET /api/v1/routes/{id}/holds` | GET | Get detected holds | Pending |
+| `PUT /api/v1/routes/{id}/constraints` | PUT | Set start/finish holds | Pending (PR-5.x) |
+| `GET /api/v1/routes/{id}/prediction` | GET | Get grade prediction | Pending (PR-7.x) |
+| `POST /api/v1/routes/{id}/feedback` | POST | Submit user feedback | Pending |
+| `GET /api/v1/routes` | GET | List routes (with pagination) | Pending |
+
+#### Frontend Responsibilities
+
+The frontend will handle:
+
+- **User Interface**:
+  - Responsive, mobile-friendly design
+  - Interactive hold annotation
+  - Real-time feedback on API operations
+- **Client-Side Logic**:
+  - Form validation
+  - Image preprocessing (resize, format conversion)
+  - State management (route data, UI state)
+- **API Integration**:
+  - REST API calls to backend
+  - Error handling and retries
+  - Loading states and optimistic updates
+- **User Experience**:
+  - Smooth animations and transitions
+  - Helpful error messages
+  - Onboarding and tutorials
+
+#### Non-Goals (Handled by Backend)
+
+- Hold detection/classification logic
+- Grade prediction algorithms
+- Database operations
+- Image storage and processing
+- Business logic and validation
 
 ---
 
