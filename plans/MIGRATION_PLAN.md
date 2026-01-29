@@ -23,8 +23,8 @@ This plan outlines the migration from the current Flask-based implementation to 
 | **Grade Prediction** | Heuristic 4-factor algorithm | Route Graph + Feature Extraction + Ordinal ML |
 | **Model Architecture** | Single YOLO detection model | Separate detection + classification models |
 | **Storage** | Local filesystem | Supabase Storage |
-| **Frontend** | Flask templates (index.html) | React/Next.js (Lovable → Vercel) |
-| **Deployment** | Not defined | Backend TBD, Frontend on Vercel |
+| **Frontend** | Flask templates (index.html) | Web (React/Next.js via Lovable → Vercel) + Telegram Bot |
+| **Deployment** | Not defined | Backend TBD, Web Frontend on Vercel, Bot TBD |
 
 ---
 
@@ -575,6 +575,55 @@ The frontend will handle:
 - Database operations
 - Image storage and processing
 - Business logic and validation
+
+#### Phase 4: Telegram Bot Frontend (PR-10.4)
+
+**Goal**: Provide lightweight alternative interface via Telegram
+
+- **Function**: `handle_telegram_message(update, context)`
+- **Tasks**:
+  1. Create Telegram bot using `python-telegram-bot` library
+  2. Implement bot commands:
+     - `/start` - Welcome message and instructions
+     - `/help` - Usage guide
+     - Photo upload handler - Analyze route from photo
+     - `/status {route_id}` - Check analysis status
+     - `/history` - View recent analyses
+  3. Integrate with backend API:
+     - Upload image via `/api/v1/routes/upload`
+     - Create route record
+     - Trigger analysis
+     - Retrieve and format prediction
+  4. Implement conversation flow:
+     - Receive photo from user
+     - Show "analyzing..." status
+     - Return grade prediction with explanation
+     - Offer feedback options
+  5. Add error handling and user-friendly messages
+  6. Deploy bot (webhook or polling mode)
+  7. Document bot setup and usage
+- **Dependencies**: PR-2.2 (Route creation), PR-7.2 (Grade prediction)
+- **Estimated Effort**: Small-Medium
+- **Deliverables**:
+  - Working Telegram bot
+  - Deployment configuration
+  - User guide with screenshots
+  - Bot command documentation
+
+**Bot Features**:
+- Simple photo upload (no annotations initially)
+- Quick grade prediction
+- Text-based explanations
+- Optional: Feedback submission via inline buttons
+- Optional: Route history with thumbnails
+
+**Technology Stack**:
+- `python-telegram-bot` (v20+)
+- FastAPI backend integration
+- Deployment: AWS Lambda, Google Cloud Functions, or dedicated server
+- Webhook mode for production (polling for development)
+
+See [docs/TELEGRAM_BOT.md](../docs/TELEGRAM_BOT.md) for detailed implementation guide.
 
 ---
 
