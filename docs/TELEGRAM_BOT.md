@@ -130,9 +130,10 @@ Create a `.env` file for the bot:
 
 ```bash
 # .env.telegram-bot
+# IMPORTANT: Add .env.telegram-bot to .gitignore and use placeholder values here.
 
 # Telegram Configuration
-TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+TELEGRAM_BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
 TELEGRAM_WEBHOOK_URL=https://yourdomain.com/webhook  # For production
 
 # Backend API

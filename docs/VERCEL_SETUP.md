@@ -391,8 +391,9 @@ For advanced logging, set up log drains:
    - If it works locally, check Vercel configuration
 
 3. **Check Node.js version**:
-   - Vercel uses Node.js 18 by default
-   - To change: Add `engines` to `package.json`:
+   - Vercel uses the latest Node.js LTS version by default
+   - **Recommended**: Explicitly pin a Node version for reproducible builds
+   - **Option 1**: Add `engines` to `package.json` (replace `18.x` with your chosen version):
      ```json
      {
        "engines": {
@@ -400,6 +401,8 @@ For advanced logging, set up log drains:
        }
      }
      ```
+   - **Option 2**: Configure Node version in Vercel Project Settings → General → Node.js Version
+   - Consult [Vercel's Node.js runtime documentation](https://vercel.com/docs/functions/runtimes/node-js) for available versions
 
 4. **Clear build cache**:
    - Go to Project Settings → General
