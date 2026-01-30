@@ -28,19 +28,58 @@ This system prioritizes **explainability, modularity, and data efficiency**.
 ## 3. High-Level Architecture
 
 ```text
-Frontend (Lovable)
-↓
-FastAPI Backend
-↓
-Perception Models (pre-trained)
-↓
-Route Graph
-↓
-Feature Extraction
-↓
-Ordinal Grade Model
-↓
-Supabase (Postgres + Storage)
+┌─────────────────────────────────────────────────────┐
+│              Web Frontend (Primary)                 │
+│         (Lovable → React/Next.js → Vercel)          │
+│                                                     │
+│  - Image Upload UI                                  │
+│  - Hold Annotation Interface                        │
+│  - Grade Display with Explanations                  │
+│  - User Feedback Forms                              │
+│  - Route History & Gallery                          │
+└─────────────────────────────────────────────────────┘
+                        │
+                        │
+┌─────────────────────────────────────────────────────┐
+│         Telegram Bot (Alternative)                  │
+│           (Python Telegram Bot)                     │
+│                                                     │
+│  - Photo Upload via Chat                            │
+│  - Quick Grade Predictions                          │
+│  - Text-based Interaction                           │
+│  - Minimal Friction                                 │
+└─────────────────────────────────────────────────────┘
+                        │
+                        ├─────────────────────┐
+                        │ REST API (HTTPS)    │
+                        ├─────────────────────┘
+                        │
+┌─────────────────────────────────────────────────────┐
+│              FastAPI Backend                        │
+│          (Python 3.10+ on TBD platform)             │
+│                                                     │
+│  - Image Upload & Storage                           │
+│  - Hold Detection (YOLOv8)                          │
+│  - Hold Classification                              │
+│  - Route Graph Construction                         │
+│  - Feature Extraction                               │
+│  - Grade Estimation                                 │
+│  - Explainability                                   │
+└─────────────────────────────────────────────────────┘
+                        │
+                        │ Storage & Database
+                        │
+┌─────────────────────────────────────────────────────┐
+│              Supabase                               │
+│        (Postgres + Storage)                         │
+│                                                     │
+│  - Route Records (routes table)                     │
+│  - Hold Data (holds table)                          │
+│  - Features (features table)                        │
+│  - Predictions (predictions table)                  │
+│  - User Feedback (feedback table)                   │
+│  - Image Storage (route-images bucket)              │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## 4. Domain Model
@@ -171,13 +210,91 @@ Goal: Classify detected holds into semantic types.
 
 One migration per PR.
 
-### MILESTONE 10 — Frontend Integration (Lovable)
+### MILESTONE 10 — Frontend Development & Integration
 
-- Frontend responsibilities:
-- Image upload
-- Start / finish annotation
-- Grade + explanation display
-- No business logic in frontend.
+**Goal**: Build and deploy user-facing interfaces (Web + Telegram Bot)
+
+#### Web Frontend: Three-Phase Approach
+
+**Phase 1: Lovable Prototype (PR-10.1)**
+- Rapid UI development using Lovable platform
+- Core components: upload, annotation, display
+- Backend API integration
+- User testing and iteration
+
+**Phase 2: Code Export & Enhancement (PR-10.2)**
+- Export Lovable project to Git repository
+- Refine with Claude Code
+- Performance optimizations
+- Comprehensive testing
+- Accessibility improvements
+
+**Phase 3: Vercel Deployment (PR-10.3)**
+- Deploy to Vercel platform
+- Configure environment variables
+- Set up continuous deployment
+- Configure monitoring and analytics
+
+**Use Cases**: Full-featured analysis, detailed annotations, advanced features
+
+#### Telegram Bot: Simple Implementation (PR-10.4)
+
+**Phase 4: Telegram Bot Frontend (PR-10.4)**
+- Build bot using `python-telegram-bot` library
+- Implement photo upload and analysis
+- Simple text-based interaction
+- Deploy to serverless or dedicated service
+
+**Bot Commands**:
+- `/start` - Welcome message
+- `/help` - Usage guide
+- Photo upload → Instant grade prediction
+- `/history` - Recent analyses (optional)
+
+**Use Cases**: Quick grade checks, on-the-go analysis, minimal friction
+
+#### Frontend Responsibilities
+
+**Web Frontend**:
+- Image upload interface
+- Interactive hold annotation
+- Grade prediction display with uncertainty
+- Feedback submission forms
+- Responsive design (mobile + desktop)
+- Route history and gallery
+
+**Telegram Bot**:
+- Photo upload via chat
+- Quick grade predictions
+- Text-based explanations
+- Simple feedback (optional)
+
+#### Backend API Contract
+
+Both frontends use the same API:
+
+- `POST /api/v1/routes/upload` - Upload image
+- `POST /api/v1/routes` - Create route record
+- `GET /api/v1/routes/{id}` - Get route details
+- `POST /api/v1/routes/{id}/analyze` - Trigger analysis
+- `PUT /api/v1/routes/{id}/constraints` - Set start/finish
+- `GET /api/v1/routes/{id}/prediction` - Get prediction
+- `POST /api/v1/routes/{id}/feedback` - Submit feedback
+- `GET /api/v1/routes` - List routes (with pagination)
+
+#### Technology Stack
+
+**Web Frontend**:
+- **Development**: Lovable → React/Next.js
+- **Hosting**: Vercel (automatic Git deployments)
+- **API**: REST (FastAPI backend)
+
+**Telegram Bot**:
+- **Development**: Python (`python-telegram-bot`)
+- **Hosting**: TBD (Serverless or dedicated service)
+- **API**: REST (FastAPI backend)
+
+See [docs/FRONTEND_WORKFLOW.md](FRONTEND_WORKFLOW.md), [docs/VERCEL_SETUP.md](VERCEL_SETUP.md), and [docs/TELEGRAM_BOT.md](TELEGRAM_BOT.md) for detailed guides.
 
 ## 6. Non-Goals (Explicit)
 
