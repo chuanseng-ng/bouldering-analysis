@@ -63,7 +63,7 @@ Vercel will auto-detect your framework. Verify the following settings:
 #### For Next.js Projects
 
 | Setting | Value |
-|---------|-------|
+| ------- | ----- |
 | **Framework Preset** | Next.js |
 | **Root Directory** | `.` (or `frontend/` if in subdirectory) |
 | **Build Command** | `npm run build` (or auto-detected) |
@@ -73,7 +73,7 @@ Vercel will auto-detect your framework. Verify the following settings:
 #### For React Projects (Non-Next.js)
 
 | Setting | Value |
-|---------|-------|
+| ------- | ----- |
 | **Framework Preset** | Create React App (or Vite) |
 | **Root Directory** | `.` |
 | **Build Command** | `npm run build` |
@@ -164,17 +164,34 @@ app = create_app()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://yourdomain.vercel.app",           # Production
-        "https://*.vercel.app",                    # Preview deployments
+        "https://yourdomain.vercel.app",           # Production (replace with actual domain)
         "http://localhost:3000",                   # Local development
+        "http://localhost:8000",                   # Local backend
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # All Vercel preview deployments
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "User-Agent",
+        "DNT",
+        "Cache-Control",
+        "X-Requested-With",
+    ],
 )
 ```
 
-**Security Note**: Replace `*` wildcards with specific domains in production.
+**Security Note**: The `allow_origin_regex` pattern matches all Vercel subdomains. Update `allow_origins` with your production domain and any other trusted origins.
 
 ---
 
@@ -619,12 +636,12 @@ vercel rm [deployment-url]
 ### Important URLs
 
 | Resource | URL |
-|----------|-----|
-| Vercel Dashboard | https://vercel.com/dashboard |
-| Your Project | https://vercel.com/[username]/[project] |
-| Deployment Logs | https://vercel.com/[username]/[project]/[deployment-id] |
-| Analytics | https://vercel.com/[username]/[project]/analytics |
-| Settings | https://vercel.com/[username]/[project]/settings |
+| -------- | --- |
+| Vercel Dashboard | [Vercel Dashboard](https://vercel.com/dashboard) |
+| Your Project | [Your Project](https://vercel.com/[username]/[project]) |
+| Deployment Logs | [Deployment Logs](https://vercel.com/[username]/[project]/[deployment-id]) |
+| Analytics | [Analytics](https://vercel.com/[username]/[project]/analytics) |
+| Settings | [Settings](https://vercel.com/[username]/[project]/settings) |
 
 ---
 
