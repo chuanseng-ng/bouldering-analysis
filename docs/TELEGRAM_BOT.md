@@ -108,13 +108,13 @@ User → Telegram App → Telegram API → Bot Server → FastAPI Backend → Su
 ### Step 2: Configure Bot Settings (Optional)
 
 1. **Set Description** (`/setdescription`):
-   ```
+   ```text
    Analyze bouldering routes and get grade predictions instantly!
    Just send me a photo of a climbing route.
    ```
 
 2. **Set About Text** (`/setabouttext`):
-   ```
+   ```text
    AI-powered bouldering route analysis bot
    ```
 
@@ -122,7 +122,7 @@ User → Telegram App → Telegram API → Bot Server → FastAPI Backend → Su
    - Upload a climbing-themed image (512x512 recommended)
 
 4. **Set Commands** (`/setcommands`):
-   ```
+   ```text
    start - Start the bot and see welcome message
    help - Show usage instructions
    analyze - Analyze a route photo
@@ -272,7 +272,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• Include the full route in the photo\n"
         "• Make sure holds are visible\n"
         "• Good lighting helps accuracy\n\n"
-        "Questions? Contact @your_username"
+        "Questions? Contact the bot administrator"
     )
     await update.message.reply_text(help_message)
 
@@ -690,14 +690,14 @@ Similar to AWS Lambda, but using Google Cloud.
 
 1. **Get a VPS** (DigitalOcean, Linode, AWS EC2, etc.)
 
-2. **Install Dependencies**:
+1. **Install Dependencies**:
 
 ```bash
 sudo apt update
 sudo apt install python3 python3-pip nginx certbot
 ```
 
-3. **Clone Repository**:
+1. **Clone Repository**:
 
 ```bash
 git clone https://github.com/yourusername/telegram-bot.git
@@ -705,7 +705,7 @@ cd telegram-bot
 pip3 install -r requirements.txt
 ```
 
-4. **Set up Systemd Service**:
+1. **Set up Systemd Service**:
 
 Create `/etc/systemd/system/telegram-bot.service`:
 
@@ -727,7 +727,7 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-5. **Start Service**:
+1. **Start Service**:
 
 ```bash
 sudo systemctl daemon-reload
@@ -736,7 +736,7 @@ sudo systemctl enable telegram-bot
 sudo systemctl status telegram-bot
 ```
 
-6. **Optional: Set up Webhook** (instead of polling):
+1. **Optional: Set up Webhook** (instead of polling):
 
 Create a simple webhook server using FastAPI:
 
