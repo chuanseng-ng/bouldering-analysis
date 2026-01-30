@@ -81,21 +81,27 @@ User → Telegram App → Telegram API → Bot Server → FastAPI Backend → Su
 2. **Start Chat** with BotFather and send `/newbot`
 
 3. **Choose Bot Name**:
-   ```
+
+   ```text
    BotFather: Alright, a new bot. How are we going to call it?
    You: Bouldering Route Analyzer
    ```
 
+
 4. **Choose Username** (must end with `bot`):
-   ```
+
+   ```text
    BotFather: Good. Now let's choose a username for your bot.
    You: bouldering_analysis_bot
    ```
 
+
 5. **Save the Token**:
-   ```
+
+   ```text
    BotFather: Done! Your token is: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz
    ```
+
 
    **Important**: Keep this token secret! Anyone with this token can control your bot.
 
@@ -142,6 +148,11 @@ TELEGRAM_API_URL=http://localhost:8000  # Or production URL
 # Optional
 TELEGRAM_ADMIN_USER_IDS=123456789,987654321  # Admin Telegram user IDs
 TELEGRAM_MAX_FILE_SIZE_MB=10
+
+# Privacy & Logging (Optional)
+# WARNING: Enabling detailed PII logging exposes user identifiers in logs
+# Only enable for development/debugging, never in production
+TELEGRAM_LOG_DETAILED_PII=false  # Set to "true" to log raw usernames/IDs (default: false)
 ```
 
 ---
@@ -184,6 +195,7 @@ Create `bot.py`:
 ```python
 """Telegram bot for bouldering route analysis."""
 
+import hashlib
 import logging
 import os
 from io import BytesIO
@@ -206,6 +218,9 @@ load_dotenv()
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 API_URL = os.getenv("TELEGRAM_API_URL", "http://localhost:8000")
+# Privacy: Set to "true" to enable detailed PII logging (username/user_id)
+# By default, user identifiers are hashed for privacy
+LOG_DETAILED_PII = os.getenv("TELEGRAM_LOG_DETAILED_PII", "false").lower() == "true"
 
 # Logging
 logging.basicConfig(
@@ -213,6 +228,23 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+def hash_user_id(user_id: int) -> str:
+    """Hash user ID for privacy-preserving logging."""
+    return hashlib.sha256(str(user_id).encode()).hexdigest()[:16]
+
+
+def get_user_identifier(user) -> str:
+    """Get user identifier for logging (hashed by default, raw if opt-in enabled)."""
+    if LOG_DETAILED_PII:
+        # Opt-in: Log raw identifiers (use only in development/debugging)
+        username = user.username or "unknown"
+        return f"{username} (ID: {user.id})"
+    else:
+        # Default: Hash user ID for privacy
+        hashed_id = hash_user_id(user.id)
+        return f"user_{hashed_id}"
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -248,7 +280,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle photo uploads and analyze routes."""
     user = update.effective_user
-    logger.info(f"Photo received from {user.username} ({user.id})")
+    user_identifier = get_user_identifier(user)
+    logger.info(f"Photo received from {user_identifier}")
 
     # Send "analyzing" message
     status_message = await update.message.reply_text(
@@ -578,7 +611,7 @@ application.add_handler(CommandHandler("stats", stats_command))
 
 1. **Install AWS CLI and SAM CLI**
 
-2. **Create Lambda Function**:
+1. **Create Lambda Function**:
 
 ```python
 # lambda_handler.py
@@ -611,7 +644,7 @@ async def lambda_handler(event, context):
         }
 ```
 
-3. **Deploy**:
+1. **Deploy**:
 
 ```bash
 # Package dependencies
@@ -628,9 +661,9 @@ aws lambda create-function \
     --role arn:aws:iam::YOUR_ACCOUNT:role/lambda-role
 ```
 
-4. **Set up API Gateway** to receive webhooks
+1. **Set up API Gateway** to receive webhooks
 
-5. **Set webhook**:
+1. **Set webhook**:
 
 ```python
 import requests
@@ -970,6 +1003,15 @@ Bot: ✅ Thanks for your feedback!
 - **Validate user input** before processing
 - **Rate limit** users to prevent abuse
 - **Log suspicious activity**
+
+### Privacy
+
+- **Hash user identifiers by default** - The bot hashes user IDs (SHA-256) in logs to protect privacy
+- **Never log PII in production** - Keep `TELEGRAM_LOG_DETAILED_PII=false` in production environments
+- **Opt-in detailed logging** - Only enable `TELEGRAM_LOG_DETAILED_PII=true` for local development/debugging
+- **Comply with data protection laws** - Follow GDPR, CCPA, and other privacy regulations
+- **Inform users about data collection** - Update `/start` message to include privacy policy link
+- **Minimize data retention** - Delete old logs and user data according to your retention policy
 
 ### Performance
 
