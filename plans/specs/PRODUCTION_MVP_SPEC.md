@@ -244,10 +244,13 @@ COMMENT ON COLUMN users.is_active IS 'Account active status. Set to false to dis
 ```sql
 CREATE TABLE routes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    image_url TEXT NOT NULL,
-    wall_angle FLOAT,
-    owner_id VARCHAR(255) NOT NULL,  -- User ID or session ID
-    owner_type VARCHAR(20) DEFAULT 'anonymous',  -- 'anonymous' | 'authenticated'
+    image_url TEXT NOT NULL
+        CHECK (image_url ~* '^https?://'),  -- Must start with http:// or https://
+    wall_angle FLOAT
+        CHECK (wall_angle BETWEEN -15 AND 90),  -- Overhang (-15°) to slab (90°)
+    owner_id VARCHAR(64) NOT NULL,  -- User UUID (36 chars) or session ID (64 chars max)
+    owner_type VARCHAR(20) DEFAULT 'anonymous'
+        CHECK (owner_type IN ('anonymous', 'authenticated')),
     start_hold_ids INT[],  -- Array of start hold IDs
     finish_hold_id INT,    -- Single finish hold ID
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -256,6 +259,11 @@ CREATE TABLE routes (
 
 CREATE INDEX idx_routes_owner ON routes(owner_id, owner_type);
 CREATE INDEX idx_routes_created_at ON routes(created_at DESC);
+
+-- Column comments
+COMMENT ON COLUMN routes.image_url IS 'URL to route image in storage. Must start with http:// or https://. Additional URL validation performed at application layer.';
+COMMENT ON COLUMN routes.wall_angle IS 'Wall angle in degrees. Range: -15° (overhang) to 90° (vertical slab). NULL for unknown/unspecified.';
+COMMENT ON COLUMN routes.owner_id IS 'Owner identifier: UUID for authenticated users (36 chars) or session ID for anonymous users (up to 64 chars).';
 ```
 
 **holds table:**
@@ -277,7 +285,7 @@ CREATE INDEX idx_holds_route_id ON holds(route_id);
 ```sql
 CREATE TABLE features (
     id SERIAL PRIMARY KEY,
-    route_id UUID REFERENCES routes(id) UNIQUE ON DELETE CASCADE,
+    route_id UUID REFERENCES routes(id) ON DELETE CASCADE UNIQUE,
     feature_vector JSONB NOT NULL,
     extracted_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -568,25 +576,59 @@ Response:
 ### 6.3 Security Requirements
 
 **Password Security:**
-- Minimum 8 characters
-- Hashed with bcrypt (cost factor 12)
+- Minimum 10-12 characters (configurable, default: 10)
+- Complexity requirements:
+  - At least one uppercase letter
+  - At least one lowercase letter
+  - At least one number
+  - At least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)
+- Hashed with bcrypt (cost factor 12, configurable via `BCRYPT_COST`)
 - Never logged or stored in plaintext
+- Password history: prevent reuse of last 3 passwords (optional, configurable)
 
 **JWT Security:**
-- HS256 algorithm
-- 30-day expiration
-- Secret key from environment variable
-- Payload: user_id, exp
+- Algorithm: Configurable (RS256 recommended for production, HS256 for simpler deployments)
+  - **RS256 (Recommended)**: Use asymmetric key pairs with key rotation support
+    - Private key: `JWT_PRIVATE_KEY` environment variable (PEM format)
+    - Public key: `JWT_PUBLIC_KEY` environment variable (PEM format)
+    - Key rotation: Support multiple public keys for validation during rotation
+  - **HS256 (Alternative)**: Symmetric secret key from environment variable
+    - Secret key: `JWT_SECRET` environment variable (minimum 32 characters)
+- Configurable via `JWT_ALGORITHM` environment variable (default: RS256)
+
+**Token Strategy:**
+- **Access tokens**: Short-lived (15-60 minutes, configurable via `JWT_ACCESS_TOKEN_TTL`)
+  - Used for API authentication
+  - Payload: user_id, exp, type: 'access'
+- **Refresh tokens**: Long-lived (up to 30 days, configurable via `JWT_REFRESH_TOKEN_TTL`)
+  - Used to obtain new access tokens
+  - Payload: user_id, exp, type: 'refresh', jti (unique token ID)
+  - Stored in database for revocation
+  - Automatic rotation: Issue new refresh token on each use
+- **Revocation endpoint**: `POST /api/v1/auth/revoke` to invalidate refresh tokens
+  - Revoke single token by jti
+  - Revoke all tokens for a user
 
 **Rate Limiting:**
 - Login: 5 attempts/15 minutes per IP
 - Signup: 3 signups/hour per IP
+- Password reset: 3 attempts/hour per email
 - Prevent brute force attacks
+
+**Account Lockout:**
+- Lock account after N failed login attempts per account (configurable, default: 10)
+- Lockout duration: Exponential backoff (1 min, 5 min, 15 min, 1 hour)
+- Unlock methods:
+  - Automatic unlock after lockout duration expires
+  - Administrative unlock via admin API
+  - Email-based unlock link (future enhancement)
+- Rate limiting escalation: Increase lockout duration with repeated failures
 
 **HTTPS:**
 - All endpoints require HTTPS in production
 - HTTP-only cookies for session/token storage
 - SameSite=Lax cookie attribute
+- Secure flag on cookies in production
 
 ---
 
@@ -637,14 +679,42 @@ Response:
 # Environment variables
 TELEGRAM_BOT_TOKEN=xxx  # From @BotFather
 TELEGRAM_API_URL=https://api.yourdomain.com
-TELEGRAM_LOG_DETAILED_PII=false  # Privacy: hash user IDs in logs
+TELEGRAM_LOG_DETAILED_PII=false  # Privacy: hash user IDs in logs (MUST be false in production)
 ```
 
 **Privacy:**
 - User IDs hashed (SHA-256) in logs by default
-- Detailed PII logging opt-in only (for debugging)
-- Never store Telegram usernames
+- **CRITICAL: `TELEGRAM_LOG_DETAILED_PII` MUST be false in production**
+  - Read-only in production runtime (hard-coded override if environment attempts to set to true)
+  - Deployment checklist validates this before release
+  - See deployment guide for production configuration validation
+- Detailed PII logging permitted ONLY in local development environments
+- Never store Telegram usernames in database
 - Comply with GDPR, CCPA
+
+**Message Retention Policy:**
+- Telegram messages: Not stored (ephemeral processing only)
+- Uploaded photos: Stored in R2/Supabase Storage with route records
+  - Retention: Indefinite for authenticated users (user-controlled deletion)
+  - Retention: 90 days for anonymous users, then auto-deleted
+- Analysis results: Stored in database with route records
+  - Same retention as photos
+
+**GDPR Compliance - Right to Be Forgotten:**
+- User data deletion endpoint: `DELETE /api/v1/users/{user_id}`
+  - Deletes user account record
+  - Deletes all associated routes, predictions, feedback
+  - Deletes all associated images from storage (R2/Supabase)
+  - Cascades to all related tables via ON DELETE CASCADE
+- Anonymous user cleanup: Automatic deletion of routes older than 90 days for anonymous users
+- Deletion confirmation: Returns deleted resource counts
+- Audit log: Record deletion requests (timestamp, user_id, deleted resource counts) for compliance
+
+**Deployment Checklist - Privacy Enforcement:**
+- [ ] Verify `TELEGRAM_LOG_DETAILED_PII=false` in production environment variables
+- [ ] Test production startup to confirm PII logging is disabled
+- [ ] Validate automatic anonymous route cleanup job is scheduled (cron or Railway scheduler)
+- [ ] Test GDPR deletion endpoint with test user data
 
 **Rate Limiting:**
 - Anonymous bot users: 5 uploads/hour
@@ -726,12 +796,18 @@ feedback_response_rate
 - Error rate > 1% (hourly)
 - Celery queue depth > 100 (5 minutes)
 - Database connections > 80% (immediate)
-- Disk usage > 80% (daily)
+- **Disk usage > 80% (hourly)** - Changed from daily to hourly checks for faster response
+- **Redis memory > 80% (immediate)** - Redis allocation: 256MB, alert at ~205MB usage
+- **R2 storage > 8GB (daily)** - Cloudflare R2 free tier: 10GB, alert at 80% (8GB) before quota exhaustion
+- **Sentry quota > 4,000 events (daily)** - Sentry free tier: 5K events/month, alert at 80% (4,000 events/month)
 
 **Warning Alerts:**
 - Analysis latency P95 > 20s
 - Cache hit rate < 20%
 - Worker utilization > 80%
+- Redis memory > 60% (warning threshold before critical)
+- R2 storage > 6GB (60% warning before 80% critical)
+- Sentry quota > 3,000 events (60% warning)
 
 **Channels:**
 - Email (Railway notifications)
@@ -841,23 +917,38 @@ BA_APP_NAME=bouldering-analysis
 BA_DEBUG=false
 BA_LOG_LEVEL=INFO
 
-# Database
-DATABASE_URL=${POSTGRES_URL}  # Railway provides
+# Database (PostgreSQL)
+# DATABASE_URL points to Railway PostgreSQL for application database (routes, users, predictions, etc.)
+DATABASE_URL=${POSTGRES_URL}  # Railway provides this automatically
+
+# Supabase (Storage Only)
+# BA_SUPABASE_URL and BA_SUPABASE_KEY are ONLY for Supabase Storage (image uploads)
+# NOT used for database - Railway PostgreSQL is the primary database
 BA_SUPABASE_URL=https://xxx.supabase.co
-BA_SUPABASE_KEY=xxx
+BA_SUPABASE_KEY=xxx  # Supabase anon/service key for storage access
 
 # Redis
-REDIS_URL=${REDIS_URL}  # Railway provides
+REDIS_URL=${REDIS_URL}  # Railway provides this automatically
 
-# Storage
+# Storage (Cloudflare R2 for images - alternative to Supabase Storage)
 R2_ACCESS_KEY_ID=xxx
 R2_SECRET_ACCESS_KEY=xxx
 R2_BUCKET_NAME=route-images
 R2_ENDPOINT=https://xxx.r2.cloudflarestorage.com
 
 # Authentication
-JWT_SECRET=random-secret-key-change-in-production
-JWT_EXPIRATION_DAYS=30
+# CRITICAL: JWT_SECRET must be cryptographically secure
+# Generate: openssl rand -hex 32  (for HS256)
+# OR: openssl genrsa -out private.pem 2048 && openssl rsa -in private.pem -pubout -out public.pem  (for RS256)
+# DO NOT use placeholder values in production
+JWT_SECRET=<GENERATE_SECURE_SECRET>  # Min 32 chars for HS256, store in Railway secrets
+JWT_ALGORITHM=RS256  # RS256 (recommended) or HS256
+JWT_ACCESS_TOKEN_TTL=60  # Access token lifetime in minutes (default: 60)
+JWT_REFRESH_TOKEN_TTL=30  # Refresh token lifetime in days (default: 30)
+# For RS256:
+# JWT_PRIVATE_KEY=<PEM_PRIVATE_KEY>  # Store in Railway secrets
+# JWT_PUBLIC_KEY=<PEM_PUBLIC_KEY>    # Can be public
+JWT_EXPIRATION_DAYS=30  # Deprecated - use JWT_REFRESH_TOKEN_TTL instead
 
 # Rate Limiting
 BA_MAX_UPLOAD_SIZE_MB=10
@@ -957,7 +1048,21 @@ jobs:
 
 ### 11.3 Go-Live Checklist
 
-**Pre-Launch:**
+**Pre-Launch - Security:**
+- [ ] **Generate secure JWT_SECRET** using cryptographically secure method:
+  - For HS256: `openssl rand -hex 32` (minimum 32 characters)
+  - For RS256: `openssl genrsa -out private.pem 2048 && openssl rsa -in private.pem -pubout -out public.pem`
+- [ ] **Store JWT_SECRET in Railway secrets** (or chosen secrets manager)
+  - Never commit secrets to Git
+  - Verify secrets are not exposed in logs or error messages
+- [ ] **Verify JWT_SECRET is set and valid** before production deployment
+  - Test JWT generation and validation with production secret
+  - Confirm JWT_ALGORITHM matches key type (RS256 vs HS256)
+- [ ] **Validate TELEGRAM_LOG_DETAILED_PII=false** in production environment
+  - Verify production bootstrap code overrides any attempt to set to true
+  - Test that user IDs are hashed in production logs
+
+**Pre-Launch - Testing:**
 - [ ] All endpoints tested end-to-end
 - [ ] Load testing passed (100 concurrent users)
 - [ ] Security audit completed
@@ -965,10 +1070,12 @@ jobs:
 - [ ] Documentation complete (user guide, API docs)
 - [ ] Backup and recovery tested
 - [ ] Incident response plan documented
+- [ ] GDPR deletion endpoint tested with test data
 
 **Launch Day:**
 - [ ] Deploy to production
 - [ ] Verify health checks passing
+- [ ] Verify environment variables set correctly (JWT_SECRET, TELEGRAM_LOG_DETAILED_PII, etc.)
 - [ ] Invite 10-20 alpha users
 - [ ] Monitor metrics closely (hourly)
 - [ ] Be ready for hotfixes

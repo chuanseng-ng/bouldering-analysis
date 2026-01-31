@@ -48,7 +48,7 @@ The production MVP infrastructure (async architecture, optimizations, deployment
 | Phase | Status | Progress | Target Date | Dependencies |
 |-------|--------|----------|-------------|--------------|
 | **Prerequisites** | 🚧 In Progress | 21% | TBD | Complete MIGRATION_PLAN M1-M7 |
-| **Phase 1: Foundation** | 🚧 Partial | 50% | 2026-01-26 | MIGRATION_PLAN M1-M2 (M1 ✅, M2 50%) |
+| **Phase 1: Foundation** | 🚧 Partial | 75% | 2026-01-26 | MIGRATION_PLAN M1-M2 (M1 ✅ 100%, M2 🚧 50%) |
 | **Phase 2: Infrastructure** | ⚠️ Blocked | 0% | After M1-M7 | MIGRATION_PLAN M3-M7 complete |
 | **Phase 3: Features** | ⚠️ Blocked | 0% | After Phase 2 | Phase 2 + MIGRATION_PLAN M8-M9 |
 | **Phase 4: Deployment** | ⚠️ Blocked | 0% | After Phase 3 | Phase 3 complete |
@@ -116,7 +116,7 @@ The production MVP infrastructure (async architecture, optimizations, deployment
 ---
 
 ## Phase 2: Infrastructure Setup (⚠️ BLOCKED)
-**Target Duration**: Month 1 (50-60 hours)
+**Target Duration**: Month 1 (4 calendar weeks, ~50-60 hours total effort)
 **Status**: ⚠️ **BLOCKED - Waiting for MIGRATION_PLAN M3-M7 completion**
 
 **Blocker:** Cannot implement production infrastructure without working ML pipeline to deploy.
@@ -201,7 +201,7 @@ The 8-12 week estimate accounts for small-team cadence and includes:
 ---
 
 ## Phase 3: Feature Implementation (⚠️ BLOCKED)
-**Target Duration**: Month 2 (60-70 hours)
+**Target Duration**: Month 2 (4 calendar weeks, ~60-70 hours total effort)
 **Status**: ⚠️ **BLOCKED - Waiting for Phase 2 + MIGRATION_PLAN M8-M9**
 
 **Blocker:** Depends on Phase 2 (Infrastructure) completion + additional MIGRATION_PLAN milestones
@@ -313,7 +313,7 @@ The 8-12 week estimate accounts for small-team cadence and includes:
 ---
 
 ## Phase 4: Deployment & Testing (⚠️ BLOCKED)
-**Target Duration**: Month 3 (40-50 hours)
+**Target Duration**: Month 3 (4 calendar weeks, ~40-50 hours total effort)
 **Status**: ⚠️ **BLOCKED - Waiting for Phase 3 completion**
 
 **Blocker:** Depends on Phase 3 (Features) completion
@@ -421,7 +421,7 @@ The 8-12 week estimate accounts for small-team cadence and includes:
 ---
 
 ## Phase 5: Beta Launch (⚠️ BLOCKED)
-**Target Duration**: Month 4 (30-40 hours)
+**Target Duration**: Month 4 (4 calendar weeks, ~30-40 hours total effort)
 **Status**: ⚠️ **BLOCKED - Waiting for Phase 4 completion**
 
 **Blocker:** Depends on Phase 4 (Deployment & Testing) completion
@@ -662,7 +662,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
   - All 4 features (annotation, history, feedback, sharing)
   - 6-month beta duration
 - ✅ Infrastructure architecture finalized ($80/month)
-- ⚠️ Timeline now depends on MIGRATION_PLAN M3-M7 completion (estimated 6-8 weeks)
+- ⚠️ Timeline now depends on MIGRATION_PLAN M3-M7 completion (estimated 8-12 weeks)
 - 📋 Created 15 implementation tasks for when ML pipeline is ready
 
 ### 2026-01-31 (Earlier)
@@ -690,9 +690,9 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 
 ## Next Steps
 
-### ⚠️ DECISION REQUIRED: Choose Development Path
+### ⚠️ DECISION REQUIRED: Choose Development Option
 
-**Path A: Complete ML Pipeline First (Recommended)**
+**Option A: Complete ML Pipeline First (Recommended)**
 1. Implement MIGRATION_PLAN M2 (Route Records) - PR-2.2
 2. Implement MIGRATION_PLAN M3 (Hold Detection) - PRs 3.1-3.4
 3. Implement MIGRATION_PLAN M4 (Hold Classification) - PRs 4.1-4.5
@@ -701,7 +701,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 6. Implement MIGRATION_PLAN M7 (Grade Estimation) - PRs 7.1-7.2
 7. Then begin Phase 2 (Infrastructure) with real ML pipeline
 
-**Path B: Mock ML + Build Infrastructure in Parallel**
+**Option B: Mock ML + Build Infrastructure in Parallel**
 1. Create mock ML endpoints (detection, classification, grading)
 2. Implement Phase 2 (Infrastructure) with mock data
 3. Replace mocks when MIGRATION_PLAN M3-M7 complete
@@ -709,7 +709,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 
 ---
 
-### Immediate (This Week) - Path A
+### Immediate (This Week) - Option A
 
 **PRIORITY 1: Complete MIGRATION_PLAN M2**
 1. Create `routes` table in Supabase (see MIGRATION_PLAN schema)
@@ -724,7 +724,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 3. Create detection inference module (PR-3.4)
 4. Test detection on sample images
 
-### Short-term (Next 2-4 Weeks) - Path A
+### Short-term (Next 2-4 Weeks) - Option A
 
 **Complete MIGRATION_PLAN M3-M4:**
 1. Implement hold detection inference (M3)
@@ -733,7 +733,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 4. Store detected holds in database
 5. Test end-to-end: upload → detect → store
 
-### Medium-term (Next 1-2 Months) - Path A
+### Medium-term (Next 1-2 Months) - Option A
 
 **Complete MIGRATION_PLAN M5-M7:**
 1. Implement route graph construction (M5)
@@ -744,7 +744,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 
 ---
 
-### Immediate (This Week) - Path B (If Chosen)
+### Immediate (This Week) - Option B (If Chosen)
 
 **Create Mock ML Pipeline:**
 1. Create `src/inference/mock_detection.py` - returns random holds
@@ -753,7 +753,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 4. Implement analyze endpoint using mocks
 5. Begin Phase 2 (async architecture, caching, rate limiting)
 
-**Note:** Path B allows faster infrastructure development but requires rework later.
+**Note:** Option B allows faster infrastructure development but requires rework later.
 
 ---
 
