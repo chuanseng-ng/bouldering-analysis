@@ -93,9 +93,9 @@ The production MVP infrastructure (async architecture, optimizations, deployment
 - [x] Test coverage: 97%
 
 ### Milestone 4: Route Records (⏸️ PR-2.2 - MIGRATION_PLAN M2 - PENDING)
-- [ ] Create `routes` table in Supabase
-- [ ] Implement `POST /api/v1/routes` endpoint
-- [ ] Link uploaded images to route records
+- [ ] Create `routes` table in **Railway PostgreSQL** (primary production database)
+- [ ] Implement `POST /api/v1/routes` endpoint (writes to Railway PostgreSQL)
+- [ ] Link uploaded images to route records (images stored in Supabase Storage, referenced by URL in Railway `routes.image_url`)
 - [ ] Return route ID and metadata
 - [ ] Test coverage: ≥85%
 

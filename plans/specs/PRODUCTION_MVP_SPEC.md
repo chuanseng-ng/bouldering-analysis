@@ -203,6 +203,74 @@ GET /api/v1/tasks/{task_id}   - Get task status (polling)
 GET /api/v1/stream/{task_id}  - Stream task progress (SSE)
 ```
 
+**Task Access Control:**
+- **Authentication Required**: Both endpoints require authenticated caller (JWT token or session cookie)
+- **Authorization**: Task ownership verification
+  - Match `task.session_id` to caller's session ID (anonymous users)
+  - OR match `task.user_id` to caller's user ID (authenticated users)
+  - Admin/service roles (role='admin' or role='service') bypass ownership checks
+- **Error Responses**:
+  - `401 Unauthorized` - No valid JWT token or session cookie
+  - `403 Forbidden` - Task exists but caller is not the owner (ownership mismatch)
+  - `404 Not Found` - Task does not exist OR caller is not owner (prevents task ID enumeration)
+
+**Implementation Notes:**
+```python
+@router.get("/api/v1/tasks/{task_id}")
+async def get_task_status(
+    task_id: str,
+    request: Request,
+    user: User | None = Depends(get_current_user)  # JWT or session
+):
+    """Get task status with ownership verification."""
+    task = await get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    # Verify ownership (unless admin/service role)
+    if user and user.role in ['admin', 'service']:
+        # Admins and services can view any task
+        pass
+    elif user and task.user_id == user.id:
+        # Authenticated user owns this task
+        pass
+    elif not user and task.session_id == request.state.session_id:
+        # Anonymous session owns this task
+        pass
+    else:
+        # Ownership mismatch - return 404 to prevent enumeration
+        raise HTTPException(404, "Task not found")
+
+    return task.to_dict()
+
+@router.get("/api/v1/stream/{task_id}")
+async def stream_task_progress(
+    task_id: str,
+    request: Request,
+    user: User | None = Depends(get_current_user)
+):
+    """Stream task progress via SSE with ownership verification."""
+    # Same ownership verification as get_task_status
+    task = await get_task(task_id)
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    # Verify ownership (same logic as above)
+    if not await verify_task_ownership(task, user, request.state.session_id):
+        raise HTTPException(404, "Task not found")
+
+    # Start SSE stream
+    async def event_generator():
+        while True:
+            task = await get_task(task_id)
+            yield f"data: {task.to_json()}\n\n"
+            if task.status in ['completed', 'failed']:
+                break
+            await asyncio.sleep(1)
+
+    return EventSourceResponse(event_generator())
+```
+
 **Sharing:**
 ```
 GET /api/v1/routes/{id}/share  - Generate shareable link
@@ -229,13 +297,14 @@ CREATE TABLE users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     last_login TIMESTAMPTZ,
     is_active BOOLEAN DEFAULT true,
-    quota_daily INT DEFAULT 50,
-    quota_monthly INT DEFAULT 200
+    quota_hourly INT DEFAULT 10,    -- Authenticated users: 10 uploads/hour
+    quota_daily INT DEFAULT 50,     -- Authenticated users: 50 uploads/day
+    quota_monthly INT DEFAULT 200   -- Authenticated users: 200 uploads/month
 );
 
 -- Column comments documenting password complexity requirements
 COMMENT ON COLUMN users.email IS 'User email address. Must match basic email format regex.';
-COMMENT ON COLUMN users.password_hash IS 'Bcrypt password hash. Must be at least 60 characters (bcrypt standard). Password requirements: minimum 8 characters, at least one uppercase, one lowercase, one number. See authentication spec for full complexity rules.';
+COMMENT ON COLUMN users.password_hash IS 'Bcrypt password hash. Must be at least 60 characters (bcrypt standard). Password requirements: minimum 10-12 characters (configurable, default 10), at least one uppercase, one lowercase, one number, one special character (!@#$%^&*()_+-=[]{}|;:,.<>?). See authentication spec (section 6.3) for full complexity rules.';
 COMMENT ON COLUMN users.last_login IS 'Timestamp of user''s most recent login. NULL if user has never logged in.';
 COMMENT ON COLUMN users.is_active IS 'Account active status. Set to false to disable account without deletion.';
 ```
@@ -502,13 +571,33 @@ POST /api/v1/routes/{id}/analyze:
 - Automatic session creation on first visit
 - Session stored in HTTP-only cookie (30-day expiry)
 - Session ID used as owner_id in database
-- Rate limits apply (lower quotas)
+- **Rate limits (anonymous):**
+  - 10 uploads per hour
+  - 50 uploads per day
+  - 200 uploads per month
 
 **Authenticated Users:**
 - Email + password signup/login
-- JWT token issued (30-day expiry)
-- Token stored in localStorage or HTTP-only cookie
-- Higher rate limits and quotas
+- JWT token issued (access: 15-60 min, refresh: 30 days)
+- **Token storage (production recommendation):**
+  - **PREFERRED**: HTTP-only cookie with SameSite=Strict attribute
+    - Automatic CSRF protection
+    - Immune to XSS token theft
+    - No JavaScript access to tokens
+  - **ALTERNATIVE**: localStorage (requires explicit security mitigations)
+    - ⚠️ Only use if HTTP-only cookies are not feasible (e.g., cross-origin API)
+    - **Required mitigations if using localStorage:**
+      - Content Security Policy (CSP) with strict directives (`script-src 'self'`)
+      - Strict XSS input sanitization and output encoding
+      - Short-lived access tokens (15 min max, configurable via `JWT_ACCESS_TOKEN_TTL`)
+      - Automatic refresh token rotation on each use
+      - Token revocation endpoint (`POST /api/v1/auth/revoke`)
+      - Regular security audits for XSS vulnerabilities
+- **Rate limits (authenticated):**
+  - 10 uploads per hour (same as anonymous)
+  - 50 uploads per day
+  - 200 uploads per month
+- Configurable per-user quotas via database (quota_hourly, quota_daily, quota_monthly)
 
 **Migration Path:**
 - When anonymous user creates account:
@@ -943,17 +1032,31 @@ R2_ENDPOINT=https://xxx.r2.cloudflarestorage.com
 # DO NOT use placeholder values in production
 JWT_SECRET=<GENERATE_SECURE_SECRET>  # Min 32 chars for HS256, store in Railway secrets
 JWT_ALGORITHM=RS256  # RS256 (recommended) or HS256
-JWT_ACCESS_TOKEN_TTL=60  # Access token lifetime in minutes (default: 60)
-JWT_REFRESH_TOKEN_TTL=30  # Refresh token lifetime in days (default: 30)
-# For RS256:
-# JWT_PRIVATE_KEY=<PEM_PRIVATE_KEY>  # Store in Railway secrets
-# JWT_PUBLIC_KEY=<PEM_PUBLIC_KEY>    # Can be public
-JWT_EXPIRATION_DAYS=30  # Deprecated - use JWT_REFRESH_TOKEN_TTL instead
+
+# Token Lifetime Configuration (Precedence: specific TTL settings override deprecated JWT_EXPIRATION_DAYS)
+JWT_ACCESS_TOKEN_TTL=60   # Access token lifetime in MINUTES (default: 60 min = 1 hour)
+JWT_REFRESH_TOKEN_TTL=30  # Refresh token lifetime in DAYS (default: 30 days)
+# For RS256 (asymmetric key pairs):
+# JWT_PRIVATE_KEY=<PEM_PRIVATE_KEY>  # Store in Railway secrets, used for signing
+# JWT_PUBLIC_KEY=<PEM_PUBLIC_KEY>    # Can be public, used for verification
+
+# DEPRECATED: JWT_EXPIRATION_DAYS - DO NOT USE
+# JWT_EXPIRATION_DAYS=30  # REMOVED - Use JWT_REFRESH_TOKEN_TTL instead
+# This variable is deprecated and ignored if JWT_ACCESS_TOKEN_TTL or JWT_REFRESH_TOKEN_TTL are set.
+# Migration: Replace JWT_EXPIRATION_DAYS with:
+#   - JWT_ACCESS_TOKEN_TTL (in minutes) for access token lifetime
+#   - JWT_REFRESH_TOKEN_TTL (in days) for refresh token lifetime
 
 # Rate Limiting
+# Canonical quota policy (applied to both anonymous and authenticated by default):
+# - 10 uploads per hour
+# - 50 uploads per day
+# - 200 uploads per month
+# Authenticated users can have custom quotas via database (quota_hourly, quota_daily, quota_monthly)
 BA_MAX_UPLOAD_SIZE_MB=10
-BA_UPLOADS_PER_MINUTE=10
-BA_UPLOADS_PER_DAY=200
+BA_UPLOADS_PER_HOUR=10     # Anonymous & default authenticated: 10/hour
+BA_UPLOADS_PER_DAY=50      # Anonymous & default authenticated: 50/day
+BA_UPLOADS_PER_MONTH=200   # Anonymous & default authenticated: 200/month
 
 # Monitoring
 SENTRY_DSN=https://xxx@sentry.io/xxx
