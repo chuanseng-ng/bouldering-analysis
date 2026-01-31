@@ -692,7 +692,13 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 
 ### ⚠️ DECISION REQUIRED: Choose Development Option
 
-**Option A: Complete ML Pipeline First (Recommended)**
+**Option A: Mock ML + Build Infrastructure in Parallel**
+1. Create mock ML endpoints (detection, classification, grading)
+2. Implement Phase 2 (Infrastructure) with mock data
+3. Replace mocks when MIGRATION_PLAN M3-M7 complete
+4. Risk: Potential rework, harder to test end-to-end
+
+**Option B: Complete ML Pipeline First (Recommended)**
 1. Implement MIGRATION_PLAN M2 (Route Records) - PR-2.2
 2. Implement MIGRATION_PLAN M3 (Hold Detection) - PRs 3.1-3.4
 3. Implement MIGRATION_PLAN M4 (Hold Classification) - PRs 4.1-4.5
@@ -701,15 +707,9 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 6. Implement MIGRATION_PLAN M7 (Grade Estimation) - PRs 7.1-7.2
 7. Then begin Phase 2 (Infrastructure) with real ML pipeline
 
-**Option B: Mock ML + Build Infrastructure in Parallel**
-1. Create mock ML endpoints (detection, classification, grading)
-2. Implement Phase 2 (Infrastructure) with mock data
-3. Replace mocks when MIGRATION_PLAN M3-M7 complete
-4. Risk: Potential rework, harder to test end-to-end
-
 ---
 
-### Immediate (This Week) - Option A
+### Immediate (This Week) - Option B
 
 **PRIORITY 1: Complete MIGRATION_PLAN M2**
 1. Create `routes` table in Supabase (see MIGRATION_PLAN schema)
@@ -724,7 +724,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 3. Create detection inference module (PR-3.4)
 4. Test detection on sample images
 
-### Short-term (Next 2-4 Weeks) - Option A
+### Short-term (Next 2-4 Weeks) - Option B
 
 **Complete MIGRATION_PLAN M3-M4:**
 1. Implement hold detection inference (M3)
@@ -733,7 +733,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 4. Store detected holds in database
 5. Test end-to-end: upload → detect → store
 
-### Medium-term (Next 1-2 Months) - Option A
+### Medium-term (Next 1-2 Months) - Option B
 
 **Complete MIGRATION_PLAN M5-M7:**
 1. Implement route graph construction (M5)
@@ -744,7 +744,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 
 ---
 
-### Immediate (This Week) - Option B (If Chosen)
+### Immediate (This Week) - Option A (If Chosen)
 
 **Create Mock ML Pipeline:**
 1. Create `src/inference/mock_detection.py` - returns random holds
@@ -753,7 +753,7 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 4. Implement analyze endpoint using mocks
 5. Begin Phase 2 (async architecture, caching, rate limiting)
 
-**Note:** Option B allows faster infrastructure development but requires rework later.
+**Note:** Option A allows faster infrastructure development but requires rework later.
 
 ---
 

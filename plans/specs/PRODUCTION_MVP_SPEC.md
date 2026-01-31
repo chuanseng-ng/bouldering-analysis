@@ -580,8 +580,9 @@ POST /api/v1/routes/{id}/analyze:
 - Email + password signup/login
 - JWT token issued (access: 15-60 min, refresh: 30 days)
 - **Token storage (production recommendation):**
-  - **PREFERRED**: HTTP-only cookie with SameSite=Strict attribute
-    - Automatic CSRF protection
+  - **PREFERRED**: HTTP-only cookie with SameSite=Lax attribute
+    - SameSite=Lax balances security and usability: provides CSRF protection while allowing cookies on top-level navigation (e.g., clicking email links or shared routes)
+    - Automatic CSRF protection for state-changing requests (POST, PUT, DELETE)
     - Immune to XSS token theft
     - No JavaScript access to tokens
   - **ALTERNATIVE**: localStorage (requires explicit security mitigations)
@@ -619,7 +620,7 @@ Content-Type: application/json
 
 Response:
 {
-  "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "token": "<JWT_ACCESS_TOKEN>",
   "user": {
     "id": "uuid",
     "email": "user@example.com",
@@ -640,7 +641,7 @@ Content-Type: application/json
 
 Response:
 {
-  "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "token": "<JWT_ACCESS_TOKEN>",
   "user": { ... }
 }
 ```
@@ -716,7 +717,7 @@ Response:
 **HTTPS:**
 - All endpoints require HTTPS in production
 - HTTP-only cookies for session/token storage
-- SameSite=Lax cookie attribute
+- SameSite=Lax cookie attribute (balances CSRF protection with cross-site usability for email links and shared routes)
 - Secure flag on cookies in production
 
 ---
