@@ -22,9 +22,10 @@ The production MVP infrastructure (async architecture, optimizations, deployment
 
 | Milestone | Description | Status | Progress |
 |-----------|-------------|--------|----------|
-| **M1** | Backend Foundation | 🚧 Partial | 75% |
+| **M1** | Backend Foundation | ✅ Complete | 100% |
 | ├─ PR-1.1 | FastAPI Bootstrap | ✅ Complete | 100% |
-| ├─ PR-1.2 | Supabase Client | ✅ Complete | 100% |
+| └─ PR-1.2 | Supabase Client | ✅ Complete | 100% |
+| **M2** | Image & Route Creation | 🚧 Partial | 50% |
 | ├─ PR-2.1 | Upload Route Image | ✅ Complete | 100% |
 | └─ PR-2.2 | Create Route Record | ⏸️ Not Started | 0% |
 | **M3** | Hold Detection | ⏸️ Not Started | 0% |
@@ -46,8 +47,8 @@ The production MVP infrastructure (async architecture, optimizations, deployment
 
 | Phase | Status | Progress | Target Date | Dependencies |
 |-------|--------|----------|-------------|--------------|
-| **Prerequisites** | 🚧 In Progress | 15% | TBD | Complete MIGRATION_PLAN M1-M7 |
-| **Phase 1: Foundation** | 🚧 Partial | 75% | 2026-01-26 | MIGRATION_PLAN M1-M2 |
+| **Prerequisites** | 🚧 In Progress | 21% | TBD | Complete MIGRATION_PLAN M1-M7 |
+| **Phase 1: Foundation** | 🚧 Partial | 50% | 2026-01-26 | MIGRATION_PLAN M1-M2 (M1 ✅, M2 50%) |
 | **Phase 2: Infrastructure** | ⚠️ Blocked | 0% | After M1-M7 | MIGRATION_PLAN M3-M7 complete |
 | **Phase 3: Features** | ⚠️ Blocked | 0% | After Phase 2 | Phase 2 + MIGRATION_PLAN M8-M9 |
 | **Phase 4: Deployment** | ⚠️ Blocked | 0% | After Phase 3 | Phase 3 complete |
@@ -122,14 +123,22 @@ The production MVP infrastructure (async architecture, optimizations, deployment
 
 **Dependencies:**
 - ✅ MIGRATION_PLAN M1 (FastAPI + Supabase) - Complete
-- ✅ MIGRATION_PLAN M2 (Image Upload) - 75% complete (PR-2.2 pending)
+- 🚧 MIGRATION_PLAN M2 (Image & Route Creation) - 50% complete (PR-2.2 pending)
 - ❌ **MIGRATION_PLAN M3 (Hold Detection) - Required**
 - ❌ **MIGRATION_PLAN M4 (Hold Classification) - Required**
 - ❌ **MIGRATION_PLAN M5 (Route Graph) - Required**
 - ❌ **MIGRATION_PLAN M6 (Feature Extraction) - Required**
 - ❌ **MIGRATION_PLAN M7 (Grade Estimation) - Required**
 
-**Estimated Time to Unblock:** 6-8 weeks (complete MIGRATION_PLAN M3-M7)
+**Estimated Time to Unblock:** 8-12 weeks (complete MIGRATION_PLAN M3-M7)
+
+**Timeline Buffer Rationale:**
+The 8-12 week estimate accounts for small-team cadence and includes:
+- ML model integration debugging (YOLO detection, ResNet classification)
+- Model optimization and hyperparameter tuning (accuracy vs latency tradeoffs)
+- Extensive testing and validation (precision/recall metrics, edge cases)
+- Iteration cycles based on initial results (data augmentation, threshold tuning)
+- End-to-end pipeline integration (detection → classification → graph → features → grading)
 
 ---
 
@@ -608,11 +617,11 @@ The production MVP infrastructure (async architecture, optimizations, deployment
 **Impact:** Cannot implement production infrastructure (Phase 2+) without working ML pipeline
 
 **Required to Unblock:**
-1. ✅ ~~Hold detection (MIGRATION_PLAN M3)~~ → Use pre-trained YOLOv8 temporarily
-2. ✅ ~~Hold classification (MIGRATION_PLAN M4)~~ → Use pre-trained ResNet temporarily
-3. ✅ ~~Route graph (MIGRATION_PLAN M5)~~ → Implement basic graph builder
-4. ✅ ~~Feature extraction (MIGRATION_PLAN M6)~~ → Implement geometry + hold features
-5. ✅ ~~Grade estimation (MIGRATION_PLAN M7)~~ → Implement heuristic estimator
+1. ⏸️ Hold detection (MIGRATION_PLAN M3) - **Not Started** *(Proposed workaround: Use pre-trained YOLOv8 temporarily)*
+2. ⏸️ Hold classification (MIGRATION_PLAN M4) - **Not Started** *(Proposed workaround: Use pre-trained ResNet temporarily)*
+3. ⏸️ Route graph (MIGRATION_PLAN M5) - **Not Started** *(Proposed workaround: Implement basic graph builder)*
+4. ⏸️ Feature extraction (MIGRATION_PLAN M6) - **Not Started** *(Proposed workaround: Implement geometry + hold features)*
+5. ⏸️ Grade estimation (MIGRATION_PLAN M7) - **Not Started** *(Proposed workaround: Implement heuristic estimator)*
 
 **Alternative: Mock ML Pipeline for Infrastructure Development**
 
@@ -632,7 +641,9 @@ If we want to proceed with Phase 2 (Infrastructure) in parallel with ML developm
 **Current Recommendation:** Option B (wait for MIGRATION_PLAN M3-M7)
 
 **Estimated Time to Unblock:**
-- MIGRATION_PLAN M3-M7: ~6-8 weeks of development
+- MIGRATION_PLAN M3-M7: ~8-12 weeks of development
+  - Includes time for model iteration, validation, debugging ML integration, and optimization
+  - Accounts for small-team cadence and testing cycles
 - Then Phase 2 (Infrastructure) can begin
 
 ---

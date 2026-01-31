@@ -222,12 +222,22 @@ GET /metrics        - Prometheus metrics
 ```sql
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL
+        CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    password_hash VARCHAR(255) NOT NULL
+        CHECK (LENGTH(password_hash) >= 60),  -- bcrypt hashes are 60 chars
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_login TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT true,
     quota_daily INT DEFAULT 50,
     quota_monthly INT DEFAULT 200
 );
+
+-- Column comments documenting password complexity requirements
+COMMENT ON COLUMN users.email IS 'User email address. Must match basic email format regex.';
+COMMENT ON COLUMN users.password_hash IS 'Bcrypt password hash. Must be at least 60 characters (bcrypt standard). Password requirements: minimum 8 characters, at least one uppercase, one lowercase, one number. See authentication spec for full complexity rules.';
+COMMENT ON COLUMN users.last_login IS 'Timestamp of user''s most recent login. NULL if user has never logged in.';
+COMMENT ON COLUMN users.is_active IS 'Account active status. Set to false to disable account without deletion.';
 ```
 
 **routes table:**
@@ -1023,7 +1033,8 @@ jobs:
 **Revenue Target:**
 - 1000 users × 10% conversion × $5/month = $500/month
 - Covers infrastructure ($140/month at 1000 users)
-- 3.5x profit margin
+- 72% profit margin (($500 - $140) / $500)
+- 3.57x revenue-to-cost ratio ($500 / $140)
 
 ### 13.3 Feature Roadmap
 
