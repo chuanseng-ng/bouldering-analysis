@@ -297,9 +297,9 @@ CREATE TABLE users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     last_login TIMESTAMPTZ,
     is_active BOOLEAN DEFAULT true,
-    quota_hourly INT DEFAULT 10,    -- Authenticated users: 10 uploads/hour
-    quota_daily INT DEFAULT 50,     -- Authenticated users: 50 uploads/day
-    quota_monthly INT DEFAULT 200   -- Authenticated users: 200 uploads/month
+    quota_hourly INT DEFAULT 50,     -- Authenticated users: 50 uploads/hour
+    quota_daily INT DEFAULT 200,     -- Authenticated users: 200 uploads/day
+    quota_monthly INT DEFAULT 1000   -- Authenticated users: 1000 uploads/month
 );
 
 -- Column comments documenting password complexity requirements
@@ -595,9 +595,9 @@ POST /api/v1/routes/{id}/analyze:
       - Token revocation endpoint (`POST /api/v1/auth/revoke`)
       - Regular security audits for XSS vulnerabilities
 - **Rate limits (authenticated):**
-  - 10 uploads per hour (same as anonymous)
-  - 50 uploads per day
-  - 200 uploads per month
+  - 50 uploads per hour (5x higher than anonymous)
+  - 200 uploads per day (4x higher than anonymous)
+  - 1000 uploads per month (5x higher than anonymous)
 - Configurable per-user quotas via database (quota_hourly, quota_daily, quota_monthly)
 
 **Migration Path:**
@@ -1049,15 +1049,20 @@ JWT_REFRESH_TOKEN_TTL=30  # Refresh token lifetime in DAYS (default: 30 days)
 #   - JWT_REFRESH_TOKEN_TTL (in days) for refresh token lifetime
 
 # Rate Limiting
-# Canonical quota policy (applied to both anonymous and authenticated by default):
-# - 10 uploads per hour
-# - 50 uploads per day
-# - 200 uploads per month
-# Authenticated users can have custom quotas via database (quota_hourly, quota_daily, quota_monthly)
+# Canonical quota policy with separate limits for anonymous vs authenticated users:
+# - Anonymous: 10/hour, 50/day, 200/month
+# - Authenticated: 50/hour, 200/day, 1000/month (defaults, customizable via DB quota_hourly/quota_daily/quota_monthly)
 BA_MAX_UPLOAD_SIZE_MB=10
-BA_UPLOADS_PER_HOUR=10     # Anonymous & default authenticated: 10/hour
-BA_UPLOADS_PER_DAY=50      # Anonymous & default authenticated: 50/day
-BA_UPLOADS_PER_MONTH=200   # Anonymous & default authenticated: 200/month
+
+# Anonymous user limits (session-based)
+BA_ANONYMOUS_UPLOADS_PER_HOUR=10     # Anonymous: 10 uploads/hour
+BA_ANONYMOUS_UPLOADS_PER_DAY=50      # Anonymous: 50 uploads/day
+BA_ANONYMOUS_UPLOADS_PER_MONTH=200   # Anonymous: 200 uploads/month
+
+# Authenticated user default limits (can be overridden per-user in database)
+BA_AUTH_UPLOADS_PER_HOUR=50          # Authenticated default: 50 uploads/hour
+BA_AUTH_UPLOADS_PER_DAY=200          # Authenticated default: 200 uploads/day
+BA_AUTH_UPLOADS_PER_MONTH=1000       # Authenticated default: 1000 uploads/month
 
 # Monitoring
 SENTRY_DSN=https://xxx@sentry.io/xxx
