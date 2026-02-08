@@ -32,7 +32,7 @@ echo ""
 echo "🐍 Setting up Python environment..."
 
 # Install Python 3.11 if not available
-if ! uv python list | grep -q "3.11"; then
+if ! uv python list | grep -Eq '3\.11\.'; then
     echo "📥 Installing Python 3.11..."
     uv python install 3.11
 fi
@@ -51,8 +51,8 @@ echo ""
 echo "📝 Next steps:"
 echo "   1. Activate the virtual environment:"
 echo "      - macOS/Linux: source .venv/bin/activate"
-echo "      - Windows (PowerShell): .venv\\Scripts\\Activate.ps1"
-echo "      - Windows (CMD): .venv\\Scripts\\activate.bat"
+printf '%s\n' '      - Windows (PowerShell): .venv\Scripts\Activate.ps1'
+printf '%s\n' '      - Windows (CMD): .venv\Scripts\activate.bat'
 echo ""
 echo "   2. Or run commands directly with uv:"
 echo "      - uv run pytest tests/"

@@ -147,6 +147,17 @@ python test_supabase_connection.py
 uvicorn src.app:application --reload
 ```
 
+**Keeping requirements.txt in sync with pyproject.toml**:
+
+The `requirements.txt` file is generated from `pyproject.toml` and should be regenerated when dependencies change:
+
+```bash
+# Regenerate requirements.txt from pyproject.toml
+uv pip compile pyproject.toml -o requirements.txt
+```
+
+> **Note**: Consider adding a CI/pre-commit check to ensure `requirements.txt` stays synchronized with `pyproject.toml`. Add this to `.pre-commit-config.yaml` to automatically fail the build if they're out of sync.
+
 > 💡 **Why uv?** [uv](https://github.com/astral-sh/uv) is 10-100x faster than pip with automatic dependency locking for reproducible builds. See [docs/UV_SETUP.md](docs/UV_SETUP.md) for details.
 
 The API will be available at [http://localhost:8000](http://localhost:8000)

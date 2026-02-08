@@ -39,7 +39,7 @@ Write-Host "🐍 Setting up Python environment..." -ForegroundColor Cyan
 
 # Install Python 3.11 if not available
 $pythonList = & uv python list
-if ($pythonList -notmatch "3.11") {
+if ($pythonList -notmatch "3\.11\b") {
     Write-Host "📥 Installing Python 3.11..." -ForegroundColor Yellow
     & uv python install 3.11
 }

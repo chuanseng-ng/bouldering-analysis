@@ -910,6 +910,7 @@ class UploadResponse(BaseModel):
 ### Key Commands
 
 **With uv (Recommended)**:
+
 ```bash
 # Setup
 uv sync --no-install-project --all-extras      # Install all dependencies (including dev)
@@ -935,6 +936,7 @@ uv run pylint src/ --ignore=archive
 ```
 
 **Without uv (Traditional)**:
+
 ```bash
 # Setup
 pip install -r requirements.txt
