@@ -347,8 +347,12 @@ bouldering-analysis/
 ├── models/                       # Trained model weights (gitignored)
 │   └── hold_detection/           # Detection model versions
 │
-├── requirements.txt              # Pip dependencies
-├── pyproject.toml                # Pytest and coverage config
+├── requirements.txt              # Pip dependencies (can be generated from pyproject.toml)
+├── pyproject.toml                # Project metadata, dependencies, pytest & coverage config
+├── uv.lock                       # Locked dependency versions (committed to git)
+├── .python-version               # Python version specification for uv
+├── setup_uv.sh                   # uv setup script (Unix/macOS)
+├── setup_uv.ps1                  # uv setup script (Windows)
 ├── mypy.ini                      # Type checking config
 ├── .pylintrc                     # Pylint config
 └── .flake8                       # Flake8 config
@@ -373,10 +377,15 @@ bouldering-analysis/
 | `docs/MODEL_PRETRAIN.md` | ML spec | Detection, classification |
 | `docs/PRE_COMMIT_HOOKS.md` | Pre-commit guide | Setup, usage, troubleshooting |
 | `docs/SUPABASE_SETUP.md` | Supabase setup guide | Step-by-step setup instructions |
+| `docs/UV_SETUP.md` | uv setup guide | Fast dependency management with uv |
 | `docs/FRONTEND_WORKFLOW.md` | Frontend development guide | Lovable → Claude Code → Vercel |
 | `docs/VERCEL_SETUP.md` | Vercel deployment guide | Step-by-step deployment |
 | `docs/TELEGRAM_BOT.md` | Telegram bot guide | Bot setup and implementation |
 | `plans/MIGRATION_PLAN.md` | Migration roadmap | PR breakdown, phases |
+| `setup_uv.sh` | uv setup script (Unix) | Quick setup with uv |
+| `setup_uv.ps1` | uv setup script (Windows) | Quick setup with uv |
+| `.python-version` | Python version | Version specification for uv |
+| `uv.lock` | Dependency lockfile | Reproducible builds |
 
 ---
 
@@ -432,12 +441,33 @@ Tested on: **Python 3.10, 3.11, 3.12, 3.13**
 
 ### Initial Setup
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
+**Recommended: Using uv (10-100x faster than pip)**
 
-# Install pre-commit hooks (recommended)
-pre-commit install
+```bash
+# Option 1: Quick setup with setup script
+# macOS/Linux:
+./setup_uv.sh
+
+# Windows (PowerShell):
+.\setup_uv.ps1
+
+# Option 2: Manual setup
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # macOS/Linux
+# OR: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+
+# Create venv and install dependencies (production + dev)
+# Note: --no-install-project is used because this is an application, not a library
+# --all-extras installs dev dependencies (testing, linting, etc.)
+uv sync --no-install-project --all-extras
+
+# Activate virtual environment
+source .venv/bin/activate  # macOS/Linux
+# OR: .venv\Scripts\Activate.ps1  # Windows (PowerShell)
+
+# Or run commands without activation
+uv run pytest tests/
+uv run uvicorn src.app:application --reload
 
 # Configure Supabase (required for upload functionality)
 # 1. Create a .env file in the project root
@@ -446,12 +476,30 @@ pre-commit install
 #    BA_SUPABASE_KEY=your-anon-or-service-role-key
 # See docs/SUPABASE_SETUP.md for detailed instructions
 
+# Install pre-commit hooks (recommended)
+uv run pre-commit install
+
 # Verify installation
-python -c "from src.app import create_app; print('OK')"
+uv run python -c "from src.app import create_app; print('OK')"
 
 # Test Supabase connection (optional)
-python test_supabase_connection.py
+uv run python test_supabase_connection.py
 ```
+
+**Alternative: Traditional pip setup (slower but works)**
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Install pre-commit hooks (recommended)
+pre-commit install
+
+# Configure Supabase (see above)
+# Verify installation (see above)
+```
+
+**See [docs/UV_SETUP.md](docs/UV_SETUP.md) for comprehensive uv documentation.**
 
 ### Pre-commit Hooks (Recommended)
 
@@ -861,7 +909,38 @@ class UploadResponse(BaseModel):
 
 ### Key Commands
 
+**With uv (Recommended)**:
+
 ```bash
+# Setup
+uv sync --no-install-project --all-extras      # Install all dependencies (including dev)
+uv sync --no-install-project --all-extras --upgrade  # Update dependencies
+
+# Start server
+uv run uvicorn src.app:application --reload
+
+# Run tests
+uv run pytest tests/ --cov=src --cov-report=term-missing
+
+# Type checking
+uv run mypy src/ tests/
+
+# Linting
+uv run ruff check src/ tests/ --ignore E501
+
+# Format
+uv run ruff format src/ tests/
+
+# Pylint
+uv run pylint src/ --ignore=archive
+```
+
+**Without uv (Traditional)**:
+
+```bash
+# Setup
+pip install -r requirements.txt
+
 # Start server
 uvicorn src.app:application --reload
 
@@ -896,10 +975,12 @@ pylint src/ --ignore=archive
 | Connection test | `test_supabase_connection.py` |
 | Design spec | `docs/DESIGN.md` |
 | Supabase setup | `docs/SUPABASE_SETUP.md` |
+| uv setup guide | `docs/UV_SETUP.md` |
 | Frontend workflow | `docs/FRONTEND_WORKFLOW.md` |
 | Vercel setup | `docs/VERCEL_SETUP.md` |
 | Telegram bot guide | `docs/TELEGRAM_BOT.md` |
 | Migration plan | `plans/MIGRATION_PLAN.md` |
+| uv setup scripts | `setup_uv.sh`, `setup_uv.ps1` |
 
 ---
 
@@ -910,26 +991,42 @@ The following commands are pre-approved for AI assistants to execute without add
 ### Quality Assurance Commands
 
 ```bash
-# Type checking
+# UV Dependency Management
+uv sync --no-install-project --all-extras  # Install/update all dependencies (including dev)
+uv sync --no-install-project --all-extras --upgrade  # Update all dependencies
+uv sync --no-install-project --no-dev   # Install production only
+uv add <package>                     # Add dependency
+uv add --dev <package>               # Add dev dependency
+uv remove <package>                  # Remove dependency
+uv lock                              # Update lockfile
+uv pip list                          # List installed packages
+
+# Type checking (with or without uv)
 mypy src/
 mypy tests/
 mypy src/ tests/
+uv run mypy src/ tests/
 
 # Linting
 ruff check .
 ruff check src/
 ruff check tests/
 ruff check --fix .
+uv run ruff check .
+uv run ruff check --fix .
 
 # Code formatting
 ruff format .
 ruff format --check .
 ruff format src/
 ruff format tests/
+uv run ruff format .
+uv run ruff format --check .
 
 # Code quality
 pylint src/
 pylint src/ --output-format=colorized
+uv run pylint src/
 
 # Testing
 pytest
@@ -942,6 +1039,8 @@ pytest tests/test_main.py -v
 pytest tests/test_models.py -v
 pytest -x  # Stop on first failure
 pytest -k "test_name"  # Run specific test by name pattern
+uv run pytest tests/
+uv run pytest tests/ --cov=src/
 ```
 
 ### File System Commands

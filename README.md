@@ -91,10 +91,41 @@ See [CLAUDE.md - Database Implementation Status](CLAUDE.md#database-implementati
 ### Prerequisites
 
 - Python 3.10+
-- pip
+- [uv](https://github.com/astral-sh/uv) (recommended) or pip
 - Supabase account (for storage and database features)
 
 ### Installation
+
+**Option 1: Quick Setup with uv (Recommended - 10-100x faster)**
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/bouldering-analysis.git
+cd bouldering-analysis
+
+# Quick setup script (installs uv if needed)
+./setup_uv.sh          # macOS/Linux
+# OR: .\setup_uv.ps1   # Windows PowerShell
+
+# Configure Supabase (required for upload functionality)
+# Create a .env file in the project root:
+cat > .env << EOF
+BA_SUPABASE_URL=https://your-project.supabase.co
+BA_SUPABASE_KEY=your-anon-or-service-role-key
+EOF
+# See docs/SUPABASE_SETUP.md for detailed setup instructions
+
+# Install pre-commit hooks (recommended)
+uv run pre-commit install
+
+# Test Supabase connection (optional)
+uv run python test_supabase_connection.py
+
+# Start the server
+uv run uvicorn src.app:application --reload
+```
+
+**Option 2: Traditional pip setup**
 
 ```bash
 # Clone repository
@@ -107,15 +138,7 @@ pip install -r requirements.txt
 # Install pre-commit hooks (recommended)
 pre-commit install
 
-# Configure Supabase (required for upload functionality)
-# 1. Create a .env file in the project root
-# 2. Add your Supabase credentials:
-cat > .env << EOF
-BA_SUPABASE_URL=https://your-project.supabase.co
-BA_SUPABASE_KEY=your-anon-or-service-role-key
-EOF
-
-# See docs/SUPABASE_SETUP.md for detailed setup instructions
+# Configure Supabase (see above)
 
 # Test Supabase connection (optional)
 python test_supabase_connection.py
@@ -123,6 +146,19 @@ python test_supabase_connection.py
 # Start the server
 uvicorn src.app:application --reload
 ```
+
+**Keeping requirements.txt in sync with pyproject.toml**:
+
+The `requirements.txt` file is generated from `pyproject.toml` and should be regenerated when dependencies change:
+
+```bash
+# Regenerate requirements.txt from pyproject.toml
+uv pip compile pyproject.toml -o requirements.txt
+```
+
+> **Note**: Consider adding a CI/pre-commit check to ensure `requirements.txt` stays synchronized with `pyproject.toml`. Add this to `.pre-commit-config.yaml` to automatically fail the build if they're out of sync.
+>
+> 💡 **Why uv?** [uv](https://github.com/astral-sh/uv) is 10-100x faster than pip with automatic dependency locking for reproducible builds. See [docs/UV_SETUP.md](docs/UV_SETUP.md) for details.
 
 The API will be available at [http://localhost:8000](http://localhost:8000)
 
