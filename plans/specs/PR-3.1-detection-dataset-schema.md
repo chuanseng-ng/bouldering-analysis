@@ -90,6 +90,7 @@ Each `.txt` file contains one bounding box per line:
 - `width`, `height`: Dimensions of bounding box
 
 **Example** (image_001.txt):
+
 ```text
 0 0.5 0.3 0.1 0.15
 1 0.7 0.6 0.2 0.25

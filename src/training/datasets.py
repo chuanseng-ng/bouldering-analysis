@@ -14,19 +14,20 @@ Example:
     500
 """
 
-import logging
+import warnings
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from src.logging_config import get_logger
 from src.training.exceptions import (
     ClassTaxonomyError,
     DatasetNotFoundError,
     DatasetValidationError,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Expected class configuration for hold detection
 EXPECTED_CLASSES = ["hold", "volume"]
@@ -183,7 +184,7 @@ def validate_data_yaml(yaml_path: Path, strict: bool = True) -> dict[str, Any]:
 
 def _validate_class_taxonomy(
     config: dict[str, Any],
-    _strict: bool = True,  # Reserved for future non-strict mode
+    _strict: bool = True,  # noqa: ARG001 - Reserved for future non-strict mode
 ) -> None:
     """Validate that class configuration matches expected taxonomy.
 
@@ -193,6 +194,11 @@ def _validate_class_taxonomy(
 
     Raises:
         ClassTaxonomyError: If class configuration is incorrect.
+
+    Note:
+        The _strict parameter is currently unused but reserved for future
+        non-strict validation mode where mismatches would emit warnings
+        instead of raising exceptions.
     """
     nc = config.get("nc")
     names = config.get("names")
@@ -272,37 +278,47 @@ def validate_directory_structure(
 def _validate_split_directory(
     split_path: Path,
     split_name: str,
-    _strict: bool,  # Reserved for future non-strict mode
+    _strict: bool,
 ) -> None:
     """Validate a single split directory (train/val/test).
 
     Args:
         split_path: Path to the split directory.
         split_name: Name of the split for error messages.
-        _strict: Reserved for future use. Currently always raises on error.
+        _strict: If True, raise errors for validation failures.
+            If False, emit warnings instead.
 
     Raises:
-        DatasetValidationError: If directory structure is invalid.
+        DatasetValidationError: If directory structure is invalid (strict mode only).
     """
     if not split_path.exists():
-        raise DatasetValidationError(
-            f"{split_name.capitalize()} directory not found: {split_path}"
-        )
+        msg = f"{split_name.capitalize()} directory not found: {split_path}"
+        if _strict:
+            raise DatasetValidationError(msg)
+        warnings.warn(msg, stacklevel=2)
+        return
 
     if not split_path.is_dir():
-        raise DatasetValidationError(
-            f"{split_name.capitalize()} path is not a directory: {split_path}"
-        )
+        msg = f"{split_name.capitalize()} path is not a directory: {split_path}"
+        if _strict:
+            raise DatasetValidationError(msg)
+        warnings.warn(msg, stacklevel=2)
+        return
 
     # Check for images subdirectory
     images_path = split_path / "images"
     if not images_path.exists():
-        raise DatasetValidationError(
-            f"Images directory not found in {split_name}: {images_path}"
-        )
+        msg = f"Images directory not found in {split_name}: {images_path}"
+        if _strict:
+            raise DatasetValidationError(msg)
+        warnings.warn(msg, stacklevel=2)
+        return
 
     if not images_path.is_dir():
-        raise DatasetValidationError(f"Images path is not a directory: {images_path}")
+        msg = f"Images path is not a directory: {images_path}"
+        if _strict:
+            raise DatasetValidationError(msg)
+        warnings.warn(msg, stacklevel=2)
 
 
 def count_dataset_images(split_path: Path | None) -> int:
