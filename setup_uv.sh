@@ -39,7 +39,7 @@ echo ""
 echo "🐍 Setting up Python environment..."
 
 # Install Python 3.11 if not available
-if ! uv python list | grep -Eq '3\.11\.'; then
+if ! uv python list | grep -Eq '3\.11($|\.)'; then
     echo "📥 Installing Python 3.11..."
     if ! uv python install 3.11; then
         echo "❌ Failed to install Python 3.11" >&2
