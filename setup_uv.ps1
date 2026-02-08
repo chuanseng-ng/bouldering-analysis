@@ -39,9 +39,18 @@ Write-Host "🐍 Setting up Python environment..." -ForegroundColor Cyan
 
 # Install Python 3.11 if not available
 $pythonList = & uv python list
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Failed to list Python versions" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
 if ($pythonList -notmatch "3\.11\b") {
     Write-Host "📥 Installing Python 3.11..." -ForegroundColor Yellow
     & uv python install 3.11
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ Failed to install Python 3.11" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
 }
 
 Write-Host ""
@@ -51,6 +60,10 @@ Write-Host "📦 Creating virtual environment and installing dependencies..." -F
 # Note: --no-install-project is used because this is an application, not a library
 # --all-extras installs dev dependencies (testing, linting, etc.)
 & uv sync --no-install-project --all-extras
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Failed to sync dependencies" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
 
 Write-Host ""
 Write-Host "✅ Setup complete!" -ForegroundColor Green

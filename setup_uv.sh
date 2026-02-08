@@ -13,17 +13,24 @@ if ! command -v uv &> /dev/null; then
 
     # Detect OS and install accordingly
     if [[ "$OSTYPE" == "linux-gnu"* ]] || [[ "$OSTYPE" == "darwin"* ]]; then
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        # Add uv to PATH for this session
-        export PATH="$HOME/.local/bin:$PATH"
+        if curl -LsSf https://astral.sh/uv/install.sh | sh; then
+            # Add uv to PATH for this session
+            export PATH="$HOME/.local/bin:$PATH"
+            echo "✅ uv installed successfully"
+        else
+            echo "❌ Failed to install uv" >&2
+            exit 1
+        fi
     elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
         echo "⚠️  Please install uv manually on Windows:"
         echo "    PowerShell: powershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\""
         echo "    Or using pip: pip install uv"
         exit 1
+    else
+        echo "❌ Unsupported or unknown operating system: $OSTYPE" >&2
+        echo "Please install uv manually from: https://github.com/astral-sh/uv" >&2
+        exit 1
     fi
-
-    echo "✅ uv installed successfully"
 else
     echo "✅ uv is already installed ($(uv --version))"
 fi
@@ -34,7 +41,10 @@ echo "🐍 Setting up Python environment..."
 # Install Python 3.11 if not available
 if ! uv python list | grep -Eq '3\.11\.'; then
     echo "📥 Installing Python 3.11..."
-    uv python install 3.11
+    if ! uv python install 3.11; then
+        echo "❌ Failed to install Python 3.11" >&2
+        exit 1
+    fi
 fi
 
 echo ""
@@ -43,7 +53,10 @@ echo "📦 Creating virtual environment and installing dependencies..."
 # Sync dependencies (creates venv if needed)
 # Note: --no-install-project is used because this is an application, not a library
 # --all-extras installs dev dependencies (testing, linting, etc.)
-uv sync --no-install-project --all-extras
+if ! uv sync --no-install-project --all-extras; then
+    echo "❌ Failed to sync dependencies" >&2
+    exit 1
+fi
 
 echo ""
 echo "✅ Setup complete!"
