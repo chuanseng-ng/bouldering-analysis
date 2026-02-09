@@ -5,6 +5,7 @@ for the bouldering route analysis perception models.
 
 Modules:
     datasets: Dataset loading and validation for YOLOv8 format
+    detection_model: YOLOv8 model definition and hyperparameters
     exceptions: Custom exception classes for training errors
 """
 
@@ -16,6 +17,14 @@ from src.training.datasets import (
     validate_data_yaml,
     validate_directory_structure,
 )
+from src.training.detection_model import (
+    DEFAULT_MODEL_SIZE,
+    INPUT_RESOLUTION,
+    DetectionHyperparameters,
+    build_hold_detector,
+    get_default_hyperparameters,
+    load_hyperparameters_from_file,
+)
 from src.training.exceptions import (
     ClassTaxonomyError,
     DatasetNotFoundError,
@@ -24,15 +33,22 @@ from src.training.exceptions import (
 )
 
 __all__ = [
-    # Main function
+    # Dataset functions
     "load_hold_detection_dataset",
-    # Validation functions
     "validate_data_yaml",
     "validate_directory_structure",
     "count_dataset_images",
-    # Constants
+    # Dataset constants
     "EXPECTED_CLASSES",
     "EXPECTED_CLASS_COUNT",
+    # Model building
+    "build_hold_detector",
+    "get_default_hyperparameters",
+    "load_hyperparameters_from_file",
+    # Model configuration
+    "DetectionHyperparameters",
+    "DEFAULT_MODEL_SIZE",
+    "INPUT_RESOLUTION",
     # Exceptions
     "TrainingError",
     "DatasetNotFoundError",
