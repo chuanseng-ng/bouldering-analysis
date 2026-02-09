@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from src.training import (
     DEFAULT_MODEL_SIZE,
     INPUT_RESOLUTION,
+    VALID_MODEL_SIZES,
     DetectionHyperparameters,
     build_hold_detector,
     get_default_hyperparameters,
@@ -24,19 +25,6 @@ from src.training import (
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-
-@pytest.fixture
-def mock_yolo_model() -> MagicMock:
-    """Create a mock YOLO model for testing.
-
-    Returns:
-        MagicMock configured to behave like a YOLO model.
-    """
-    mock = MagicMock()
-    mock.model.yaml = {"nc": 2, "names": ["hold", "volume"]}
-    mock.names = {0: "hold", 1: "volume"}
-    return mock
 
 
 @pytest.fixture
@@ -105,7 +93,7 @@ class TestDetectionHyperparameters:
 
     def test_custom_hyperparameters(self) -> None:
         """Custom hyperparameters should override defaults."""
-        hyperparams = DetectionHyperparameters(
+        hyperparams = DetectionHyperparameters(  # type: ignore[call-arg]
             epochs=200,
             batch_size=32,
             lr0=0.001,  # Use alias for learning_rate
@@ -157,28 +145,26 @@ class TestDetectionHyperparameters:
 
         assert "optimizer" in str(exc_info.value)
 
-    def test_optimizer_validation_valid(self) -> None:
+    @pytest.mark.parametrize(
+        "optimizer", ["SGD", "Adam", "AdamW", "NAdam", "RAdam", "RMSProp"]
+    )
+    def test_optimizer_validation_valid(self, optimizer: str) -> None:
         """All valid optimizer names should be accepted."""
-        valid_optimizers = ["SGD", "Adam", "AdamW", "NAdam", "RAdam", "RMSProp"]
-
-        for optimizer in valid_optimizers:
-            hyperparams = DetectionHyperparameters(optimizer=optimizer)
-            assert hyperparams.optimizer == optimizer
+        hyperparams = DetectionHyperparameters(optimizer=optimizer)
+        assert hyperparams.optimizer == optimizer
 
     def test_image_size_validation_multiple_of_32(self) -> None:
         """Image size must be a multiple of 32."""
         with pytest.raises(ValidationError) as exc_info:
-            DetectionHyperparameters(image_size=100)
+            DetectionHyperparameters(image_size=100)  # type: ignore[call-arg]
 
         assert "image_size" in str(exc_info.value)
 
-    def test_image_size_validation_valid_sizes(self) -> None:
+    @pytest.mark.parametrize("size", [32, 64, 128, 256, 512, 640, 1024])
+    def test_image_size_validation_valid_sizes(self, size: int) -> None:
         """Valid image sizes (multiples of 32) should be accepted."""
-        valid_sizes = [32, 64, 128, 256, 512, 640, 1024]
-
-        for size in valid_sizes:
-            hyperparams = DetectionHyperparameters(image_size=size)
-            assert hyperparams.image_size == size
+        hyperparams = DetectionHyperparameters(image_size=size)  # type: ignore[call-arg]
+        assert hyperparams.image_size == size
 
     def test_augmentation_parameters_range(self) -> None:
         """Augmentation parameters should be within valid ranges."""
@@ -224,12 +210,55 @@ class TestDetectionHyperparameters:
         assert config_dict["epochs"] == 150
         assert config_dict["lr0"] == 0.005  # Should use alias
         assert config_dict["optimizer"] == "Adam"
-        assert config_dict["image_size"] == INPUT_RESOLUTION
+        assert config_dict["imgsz"] == INPUT_RESOLUTION  # Should use alias
 
     def test_batch_size_auto(self) -> None:
         """Batch size -1 should be allowed for auto-batch."""
-        hyperparams = DetectionHyperparameters(batch_size=-1)
+        hyperparams = DetectionHyperparameters(batch_size=-1)  # type: ignore[call-arg]
         assert hyperparams.batch_size == -1
+
+    def test_batch_size_validation_zero(self) -> None:
+        """Batch size 0 should be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            DetectionHyperparameters(batch_size=0)  # type: ignore[call-arg]
+
+        assert "batch_size" in str(exc_info.value)
+
+    def test_yolo_compatible_aliases(self) -> None:
+        """Should accept YOLO-compatible field aliases."""
+        # Test using aliases
+        hyperparams = DetectionHyperparameters(
+            batch=32,  # alias for batch_size
+            imgsz=640,  # alias for image_size
+            lr0=0.005,  # alias for learning_rate
+        )
+
+        assert hyperparams.batch_size == 32
+        assert hyperparams.image_size == 640
+        assert hyperparams.learning_rate == 0.005
+
+    def test_populate_by_name(self) -> None:
+        """Should accept both field names and aliases."""
+        # Using field names
+        hyperparams1 = DetectionHyperparameters(  # type: ignore[call-arg]
+            batch_size=16, image_size=640, learning_rate=0.01
+        )
+        assert hyperparams1.batch_size == 16
+
+        # Using aliases
+        hyperparams2 = DetectionHyperparameters(batch=32, imgsz=320, lr0=0.005)
+        assert hyperparams2.batch_size == 32
+
+    def test_to_dict_uses_aliases(self) -> None:
+        """to_dict should use YOLO-compatible aliases."""
+        hyperparams = DetectionHyperparameters(  # type: ignore[call-arg]
+            batch_size=32, image_size=320
+        )
+        config_dict = hyperparams.to_dict()
+
+        # Should use aliases in output
+        assert config_dict["batch"] == 32
+        assert config_dict["imgsz"] == 320
 
     def test_device_configuration(self) -> None:
         """Device parameter should accept various formats."""
@@ -270,18 +299,19 @@ class TestBuildHoldDetector:
         mock_yolo_class.assert_called_once_with("yolov8m.pt")
         assert result == mock_model
 
+    @pytest.mark.parametrize(
+        "size", ["yolov8n", "yolov8s", "yolov8m", "yolov8l", "yolov8x"]
+    )
     @patch("src.training.detection_model.YOLO")
-    def test_build_detector_different_sizes(self, mock_yolo_class: MagicMock) -> None:
+    def test_build_detector_different_sizes(
+        self, mock_yolo_class: MagicMock, size: str
+    ) -> None:
         """Should support different model sizes."""
         mock_model = MagicMock()
         mock_yolo_class.return_value = mock_model
 
-        sizes = ["yolov8n", "yolov8s", "yolov8m", "yolov8l", "yolov8x"]
-
-        for size in sizes:
-            mock_yolo_class.reset_mock()
-            build_hold_detector(model_size=size)
-            mock_yolo_class.assert_called_once_with(f"{size}.pt")
+        build_hold_detector(model_size=size)
+        mock_yolo_class.assert_called_once_with(f"{size}.pt")
 
     @patch("src.training.detection_model.YOLO")
     def test_build_detector_without_pretrained(
@@ -436,6 +466,18 @@ class TestLoadHyperparametersFromFile:
         assert isinstance(result, DetectionHyperparameters)
         assert result.epochs == 150
 
+    def test_load_invalid_yaml_syntax(self, tmp_path: Path) -> None:
+        """Should raise ValueError for malformed YAML."""
+        malformed_yaml = tmp_path / "malformed.yaml"
+        # Write invalid YAML syntax
+        malformed_yaml.write_text("key: [unclosed list", encoding="utf-8")
+
+        with pytest.raises(ValueError) as exc_info:
+            load_hyperparameters_from_file(malformed_yaml)
+
+        assert "Failed to parse YAML config file" in str(exc_info.value)
+        assert str(malformed_yaml) in str(exc_info.value)
+
 
 # ============================================================================
 # Module Constants Tests
@@ -453,3 +495,9 @@ class TestModuleConstants:
         """INPUT_RESOLUTION should be 640."""
         assert INPUT_RESOLUTION == 640
         assert INPUT_RESOLUTION % 32 == 0  # Must be multiple of 32
+
+    def test_valid_model_sizes(self) -> None:
+        """VALID_MODEL_SIZES should contain all YOLOv8 variants."""
+        expected_sizes = ["yolov8n", "yolov8s", "yolov8m", "yolov8l", "yolov8x"]
+        assert VALID_MODEL_SIZES == expected_sizes
+        assert DEFAULT_MODEL_SIZE in VALID_MODEL_SIZES

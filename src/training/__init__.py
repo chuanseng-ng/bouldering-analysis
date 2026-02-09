@@ -20,6 +20,7 @@ from src.training.datasets import (
 from src.training.detection_model import (
     DEFAULT_MODEL_SIZE,
     INPUT_RESOLUTION,
+    VALID_MODEL_SIZES,
     DetectionHyperparameters,
     build_hold_detector,
     get_default_hyperparameters,
@@ -49,6 +50,7 @@ __all__ = [
     "DetectionHyperparameters",
     "DEFAULT_MODEL_SIZE",
     "INPUT_RESOLUTION",
+    "VALID_MODEL_SIZES",
     # Exceptions
     "TrainingError",
     "DatasetNotFoundError",

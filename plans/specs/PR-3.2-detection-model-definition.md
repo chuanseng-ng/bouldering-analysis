@@ -103,7 +103,7 @@ Implemented YOLOv8 detection model definition with hyperparameter configuration 
 
 ## Files Created
 
-```
+```text
 src/training/detection_model.py          (270 lines)
 tests/test_detection_model.py            (450 lines)
 plans/specs/PR-3.2-detection-model-definition.md
@@ -111,7 +111,7 @@ plans/specs/PR-3.2-detection-model-definition.md
 
 ## Files Modified
 
-```
+```text
 src/training/__init__.py                 (Added exports)
 ```
 

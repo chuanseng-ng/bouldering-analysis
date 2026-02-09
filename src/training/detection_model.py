@@ -16,7 +16,7 @@ Example:
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from ultralytics import YOLO
 
 from src.logging_config import get_logger
@@ -27,6 +27,7 @@ logger = get_logger(__name__)
 # Model architecture configuration
 DEFAULT_MODEL_SIZE = "yolov8m"  # Medium model for balance of speed and accuracy
 INPUT_RESOLUTION = 640  # Standard YOLOv8 resolution (640x640)
+VALID_MODEL_SIZES = ["yolov8n", "yolov8s", "yolov8m", "yolov8l", "yolov8x"]
 
 
 class DetectionHyperparameters(BaseModel):
@@ -64,10 +65,13 @@ class DetectionHyperparameters(BaseModel):
         seed: Random seed for reproducibility.
     """
 
+    # Pydantic configuration
+    model_config = ConfigDict(populate_by_name=True)
+
     # Training schedule
     epochs: int = Field(default=100, ge=1, le=1000)
-    batch_size: int = Field(default=16, ge=-1)  # -1 for auto-batch
-    image_size: int = Field(default=INPUT_RESOLUTION, ge=32)
+    batch_size: int = Field(default=16, ge=-1, alias="batch")  # -1 for auto-batch
+    image_size: int = Field(default=INPUT_RESOLUTION, ge=32, alias="imgsz")
     learning_rate: float = Field(default=0.01, gt=0.0, le=1.0, alias="lr0")
     weight_decay: float = Field(default=0.0005, ge=0.0, le=1.0)
     patience: int = Field(default=50, ge=0)
@@ -97,6 +101,14 @@ class DetectionHyperparameters(BaseModel):
     pretrained: bool = Field(default=True)
     verbose: bool = Field(default=True)
     seed: int = Field(default=0, ge=0)
+
+    @field_validator("batch_size")
+    @classmethod
+    def validate_batch_size(cls, v: int) -> int:
+        """Validate batch_size is -1 (auto) or a positive integer."""
+        if v == 0 or not (v == -1 or v > 0):
+            raise ValueError("batch_size must be -1 (auto) or a positive integer")
+        return v
 
     @field_validator("optimizer")
     @classmethod
@@ -177,9 +189,10 @@ def build_hold_detector(
         )
 
     # Validate model size
-    valid_sizes = ["yolov8n", "yolov8s", "yolov8m", "yolov8l", "yolov8x"]
-    if model_size not in valid_sizes:
-        raise ValueError(f"model_size must be one of {valid_sizes}, got '{model_size}'")
+    if model_size not in VALID_MODEL_SIZES:
+        raise ValueError(
+            f"model_size must be one of {VALID_MODEL_SIZES}, got '{model_size}'"
+        )
 
     logger.info(
         "Building %s detection model (pretrained=%s, num_classes=%d)",
@@ -252,8 +265,13 @@ def load_hyperparameters_from_file(config_path: Path | str) -> DetectionHyperpar
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    with open(path, "r", encoding="utf-8") as f:
-        config_dict = yaml.safe_load(f)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            config_dict = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        raise ValueError(
+            f"Failed to parse YAML config file '{config_path}': {e}"
+        ) from e
 
     if config_dict is None:
         config_dict = {}
