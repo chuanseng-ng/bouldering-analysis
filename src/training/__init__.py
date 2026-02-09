@@ -1,0 +1,41 @@
+"""Training module for hold detection and classification models.
+
+This package provides dataset loading, model training, and related utilities
+for the bouldering route analysis perception models.
+
+Modules:
+    datasets: Dataset loading and validation for YOLOv8 format
+    exceptions: Custom exception classes for training errors
+"""
+
+from src.training.datasets import (
+    EXPECTED_CLASS_COUNT,
+    EXPECTED_CLASSES,
+    count_dataset_images,
+    load_hold_detection_dataset,
+    validate_data_yaml,
+    validate_directory_structure,
+)
+from src.training.exceptions import (
+    ClassTaxonomyError,
+    DatasetNotFoundError,
+    DatasetValidationError,
+    TrainingError,
+)
+
+__all__ = [
+    # Main function
+    "load_hold_detection_dataset",
+    # Validation functions
+    "validate_data_yaml",
+    "validate_directory_structure",
+    "count_dataset_images",
+    # Constants
+    "EXPECTED_CLASSES",
+    "EXPECTED_CLASS_COUNT",
+    # Exceptions
+    "TrainingError",
+    "DatasetNotFoundError",
+    "DatasetValidationError",
+    "ClassTaxonomyError",
+]
