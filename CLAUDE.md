@@ -46,7 +46,7 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 
 ### Key Technologies
 
-- **Backend**: FastAPI 0.115.6 with Pydantic Settings
+- **Backend**: FastAPI 0.128.6 with Pydantic Settings
 - **ML/CV**: PyTorch 2.9.1 + Ultralytics YOLOv8 8.3.233
 - **Database**: Supabase (Postgres + Storage) - planned
 - **Frontend**: React/Next.js (via Lovable export), deployed on Vercel
@@ -395,8 +395,9 @@ bouldering-analysis/
 
 ```text
 # Web Framework
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+fastapi==0.128.6
+starlette>=0.49.1  # CVE-2025-62727 fix
+uvicorn[standard]==0.40.0
 pydantic-settings==2.7.1
 
 # Database & Storage
