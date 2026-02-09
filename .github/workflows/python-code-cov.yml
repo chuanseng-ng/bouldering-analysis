@@ -22,23 +22,23 @@ jobs:
         persist-credentials: false
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Add conda to system path
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
 
     - name: Install dependencies
       run: |
-        conda env update --file environment.yml --name base
+        uv sync --no-install-project --all-extras
 
     - name: Lint with ruff
       run: |
-        ruff check
-        ruff format --check
+        uv run ruff check
+        uv run ruff format --check
 
     #- name: Lint with flake8
     #  run: |
@@ -50,7 +50,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
+        uv run pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
 
     - name: Pytest coverage comment
       if: ${{ github.ref == 'refs/heads/python/pre_release' }}
