@@ -396,7 +396,6 @@ bouldering-analysis/
 ```text
 # Web Framework
 fastapi==0.128.6
-starlette>=0.49.1  # CVE-2025-62727 fix
 uvicorn[standard]==0.40.0
 pydantic-settings==2.7.1
 
