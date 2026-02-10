@@ -7,7 +7,7 @@
 ![Project Status](https://img.shields.io/badge/status-development-yellow)
 
 [![Python QA](https://github.com/chuanseng-ng/bouldering-analysis/actions/workflows/pylint.yml/badge.svg?branch=main&event=push)](https://github.com/chuanseng-ng/bouldering-analysis/actions/workflows/pylint.yml)
-[![Python Package](https://github.com/chuanseng-ng/bouldering-analysis/actions/workflows/python-package-conda.yml/badge.svg?branch=main&event=push)](https://github.com/chuanseng-ng/bouldering-analysis/actions/workflows/python-package-conda.yml)
+[![Python Package](https://github.com/chuanseng-ng/bouldering-analysis/actions/workflows/python-package-uv.yml/badge.svg?branch=main&event=push)](https://github.com/chuanseng-ng/bouldering-analysis/actions/workflows/python-package-uv.yml)
 
 A web-based system that estimates bouldering route difficulty (V-scale) from images using computer vision and machine learning.
 
