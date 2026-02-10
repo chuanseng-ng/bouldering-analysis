@@ -40,14 +40,6 @@ jobs:
         uv run ruff check
         uv run ruff format --check
 
-    #- name: Lint with flake8
-    #  run: |
-    #    conda install flake8
-    #    # stop the build if there are Python syntax errors or undefined names
-    #    flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-    #    # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-    #    flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
     - name: Test with pytest
       run: |
         uv run pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
@@ -55,23 +47,11 @@ jobs:
     - name: Pytest coverage comment
       if: ${{ github.ref == 'refs/heads/python/pre_release' }}
       id: coverageComment
-      uses: MishaKav/pytest-coverage-comment@main
+      uses: MishaKav/pytest-coverage-comment@v1.2.0
       with:
         default-branch: python/pre_release
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml
-
-    #- name: Rerun coverage generation for Codacy
-    #  if: ${{ github.ref == 'refs/heads/python/pre_release' }}
-    #  run: |
-    #    coverage report -m --skip-covered
-    #    coverage xml
-
-    #- name: Upload coverage report to Codacy
-    #  if: ${{ github.ref == 'refs/heads/python/pre_release' }}
-    #  run: |
-    #    export CODACY_PROJECT_TOKEN=${{ secrets.CODACY_PROJECT_TOKEN }}
-    #    bash <(curl -s https://coverage.codacy.com/get.sh) report -r coverage.xml
 
     - name: Update README with Coverage HTML
       if: ${{ github.ref == 'refs/heads/python/pre_release' }}
@@ -80,7 +60,7 @@ jobs:
 
     - name: Commit & Push changes to README
       if: ${{ github.ref == 'refs/heads/python/pre_release' }}
-      uses: actions-js/push@master
+      uses: actions-js/push@v1.5
       with:
         branch: python/pre_release
         message: Update coverage in README [skip ci]

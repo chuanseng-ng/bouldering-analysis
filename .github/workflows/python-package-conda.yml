@@ -8,7 +8,8 @@ on:
 
 jobs:
   build-linux:
-    permissions: write-all
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
@@ -38,19 +39,3 @@ jobs:
       run: |
         uv run ruff check
         uv run ruff format --check
-
-    #- name: Lint with flake8
-    #  run: |
-    #    conda install flake8
-    #    # stop the build if there are Python syntax errors or undefined names
-    #    flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-    #    # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-    #    flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-    # Uncomment the following lines if you want to run tests and generate coverage reports
-    # Note: This section is commented out to avoid running tests and coverage reports during repo setup phase
-    #- name: Test with pytest
-    #  run: |
-    #    conda install pytest
-    #    conda install pytest-cov
-    #    pytest tests -v --cov --cov-report=term-missing:skip-covered
