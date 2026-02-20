@@ -11,7 +11,8 @@ Tests follow TDD: written before implementation.
 
 import json
 import re
-import time
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -232,10 +233,14 @@ class TestGenerateVersion:
         assert _generate_version().startswith("v")
 
     def test_versions_are_unique(self) -> None:
-        """Two calls separated in time produce different versions."""
-        v1 = _generate_version()
-        time.sleep(1.1)
-        v2 = _generate_version()
+        """Two calls with different timestamps produce different versions."""
+        t1 = datetime(2026, 2, 20, 14, 30, 22, tzinfo=timezone.utc)
+        t2 = datetime(2026, 2, 20, 14, 30, 23, tzinfo=timezone.utc)
+        with patch("src.training.train_detection.datetime") as mock_dt:
+            mock_dt.now.return_value = t1
+            v1 = _generate_version()
+            mock_dt.now.return_value = t2
+            v2 = _generate_version()
         assert v1 != v2
 
 
@@ -247,6 +252,10 @@ class TestGenerateVersion:
 class TestGetGitCommitHash:
     """Tests for _get_git_commit_hash helper."""
 
+    @pytest.mark.skipif(
+        shutil.which("git") is None or not Path(".git").exists(),
+        reason="requires a git repository with git installed",
+    )
     def test_returns_string_in_git_repo(self) -> None:
         """_get_git_commit_hash returns a non-empty string in a git repo."""
         result = _get_git_commit_hash()

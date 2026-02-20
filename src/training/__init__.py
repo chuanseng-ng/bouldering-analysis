@@ -31,7 +31,6 @@ from src.training.exceptions import (
     ClassTaxonomyError,
     DatasetNotFoundError,
     DatasetValidationError,
-    InferenceError,
     ModelArtifactError,
     TrainingError,
     TrainingRunError,
@@ -71,5 +70,4 @@ __all__ = [
     "ClassTaxonomyError",
     "TrainingRunError",
     "ModelArtifactError",
-    "InferenceError",
 ]

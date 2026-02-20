@@ -125,10 +125,13 @@ def _get_git_commit_hash() -> str | None:
             capture_output=True,
             text=True,
             check=False,
+            timeout=10,
         )
         if result.returncode != 0:
             return None
         return result.stdout.strip() or None
+    except subprocess.TimeoutExpired:
+        return None
     except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
         return None
 
@@ -358,15 +361,20 @@ def train_hold_detector(  # pylint: disable=too-many-arguments,too-many-locals
         hyperparameters = DetectionHyperparameters()
 
     resolved_root = Path(dataset_root).resolve()
-    resolved_output = Path(output_dir) if output_dir is not None else MODELS_BASE_DIR
+    resolved_output = (
+        Path(output_dir).resolve()
+        if output_dir is not None
+        else MODELS_BASE_DIR.resolve()
+    )
 
     # Validate data.yaml exists
     data_yaml_path = _resolve_data_yaml(resolved_root)
 
-    # Generate version and capture git commit
-    version = _generate_version()
+    # Capture a single timestamp for version and trained_at so they match exactly
+    now = datetime.now(tz=timezone.utc)
+    version = now.strftime(VERSION_FORMAT)
     git_commit = _get_git_commit_hash()
-    trained_at = datetime.now(tz=timezone.utc).isoformat()
+    trained_at = now.isoformat()
 
     logger.info(
         "Starting training run %s with model=%s, epochs=%d",

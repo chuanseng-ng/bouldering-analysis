@@ -91,26 +91,3 @@ class ModelArtifactError(TrainingError):
     Example:
         >>> raise ModelArtifactError("Failed to copy best.pt to output dir")
     """
-
-
-class InferenceError(Exception):
-    """Raised when hold detection inference fails.
-
-    This is a sibling of TrainingError (not a subclass) as it represents
-    a separate operational context: real-time inference rather than training.
-
-    Attributes:
-        message: Human-readable description of the error.
-
-    Example:
-        >>> raise InferenceError("Model weights not found: /path/to/model.pt")
-    """
-
-    def __init__(self, message: str) -> None:
-        """Initialize InferenceError with a message.
-
-        Args:
-            message: Description of the inference error that occurred.
-        """
-        self.message = message
-        super().__init__(self.message)
