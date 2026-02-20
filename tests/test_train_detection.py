@@ -281,11 +281,11 @@ class TestGetGitCommitHash:
 
 
 # ---------------------------------------------------------------------------
-# TestResolveDatYaml
+# TestResolveDataYaml
 # ---------------------------------------------------------------------------
 
 
-class TestResolveDatYaml:
+class TestResolveDataYaml:
     """Tests for _resolve_data_yaml helper."""
 
     def test_returns_path_when_yaml_exists(self, tmp_path: Path) -> None:
