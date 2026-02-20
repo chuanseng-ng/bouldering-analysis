@@ -10,6 +10,7 @@ Tests follow TDD: written before implementation.
 # pylint: disable=redefined-outer-name  # standard pytest fixture pattern
 
 from pathlib import Path
+from typing import Iterator
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -39,7 +40,7 @@ from src.inference.detection import (
 
 
 @pytest.fixture(autouse=True)
-def clear_cache() -> object:
+def clear_cache() -> Iterator[None]:
     """Clear the model cache before and after every test."""
     _clear_model_cache()
     yield
@@ -453,6 +454,21 @@ class TestDetectHolds:
         holds = detect_holds(arr, fake_weights)
         assert isinstance(holds, list)
 
+    @patch("src.inference.detection._load_model_cached")
+    def test_wraps_predict_exception_in_inference_error(
+        self,
+        mock_load: MagicMock,
+        fake_image_file: Path,
+        fake_weights: Path,
+    ) -> None:
+        """detect_holds wraps model.predict() exceptions in InferenceError."""
+        failing_model = MagicMock()
+        failing_model.predict.side_effect = RuntimeError("GPU failure")
+        mock_load.return_value = failing_model
+
+        with pytest.raises(InferenceError, match="Hold detection failed"):
+            detect_holds(fake_image_file, fake_weights)
+
 
 # ---------------------------------------------------------------------------
 # TestDetectHoldsBatch
@@ -471,6 +487,11 @@ class TestDetectHoldsBatch:
         fake_weights: Path,
     ) -> None:
         """detect_holds_batch returns one list per input image."""
+        single_result = mock_yolo_predict.predict.return_value[0]
+        # Real YOLO returns one Results object per image in the batch
+        mock_yolo_predict.predict.side_effect = lambda imgs, **kw: [
+            single_result
+        ] * len(imgs)
         mock_load.return_value = mock_yolo_predict
 
         results = detect_holds_batch(

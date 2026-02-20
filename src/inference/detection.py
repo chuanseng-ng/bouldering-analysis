@@ -188,10 +188,13 @@ def _parse_yolo_results(
         cls_arr: np.ndarray = boxes.cls.cpu().numpy()
         conf_arr: np.ndarray = boxes.conf.cpu().numpy()
 
-        for j in range(len(conf_arr)):
-            if conf_arr[j] < conf_threshold:
+        for j, conf in enumerate(conf_arr):
+            if conf < conf_threshold:
                 continue
             class_id = int(cls_arr[j])
+            if not 0 <= class_id < len(CLASS_NAMES):
+                logger.warning("Skipping detection with unknown class_id: %d", class_id)
+                continue
             holds.append(
                 DetectedHold(
                     x_center=float(xywhn[j][0]),
@@ -200,7 +203,7 @@ def _parse_yolo_results(
                     height=float(xywhn[j][3]),
                     class_id=class_id,
                     class_name=cast(Literal["hold", "volume"], CLASS_NAMES[class_id]),
-                    confidence=float(conf_arr[j]),
+                    confidence=float(conf),
                 )
             )
 
@@ -286,7 +289,20 @@ def detect_holds_batch(
     if not images:
         raise ValueError("images list must not be empty")
 
-    return [
-        detect_holds(image, weights_path, conf_threshold, iou_threshold)
-        for image in images
-    ]
+    for image in images:
+        _validate_image_input(image)
+
+    model = _load_model_cached(weights_path)
+
+    try:
+        batch_results = model.predict(
+            images,
+            conf=conf_threshold,
+            iou=iou_threshold,
+            verbose=False,
+        )
+        return [
+            _parse_yolo_results([result], conf_threshold) for result in batch_results
+        ]
+    except Exception as exc:  # noqa: BLE001
+        raise InferenceError(f"Hold detection failed: {exc}") from exc
