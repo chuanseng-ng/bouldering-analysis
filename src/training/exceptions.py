@@ -67,3 +67,27 @@ class ClassTaxonomyError(TrainingError):
     Example:
         >>> raise ClassTaxonomyError("Expected 2 classes, found 5")
     """
+
+
+class TrainingRunError(TrainingError):
+    """Raised when YOLO model.train() itself fails at runtime.
+
+    This exception wraps errors that occur during the actual training
+    execution, such as CUDA out-of-memory errors, data loading failures,
+    or unexpected exceptions from the Ultralytics training loop.
+
+    Example:
+        >>> raise TrainingRunError("YOLO training failed: CUDA out of memory")
+    """
+
+
+class ModelArtifactError(TrainingError):
+    """Raised when saving weights/metadata.json fails after training.
+
+    This exception is raised when post-training artifact saving fails,
+    such as when the output directory cannot be created or weight files
+    cannot be copied.
+
+    Example:
+        >>> raise ModelArtifactError("Failed to copy best.pt to output dir")
+    """
