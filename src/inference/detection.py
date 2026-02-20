@@ -60,8 +60,8 @@ class InferenceError(Exception):
 # ---------------------------------------------------------------------------
 
 CLASS_NAMES: Final[tuple[str, ...]] = ("hold", "volume")
-DEFAULT_CONF_THRESHOLD: float = 0.25
-DEFAULT_IOU_THRESHOLD: float = 0.45
+DEFAULT_CONF_THRESHOLD: Final[float] = 0.25
+DEFAULT_IOU_THRESHOLD: Final[float] = 0.45
 
 # Module-level model cache: resolved path string → loaded YOLO model
 _MODEL_CACHE: dict[str, YOLO] = {}
@@ -112,7 +112,8 @@ def _clear_model_cache() -> None:
     Intended for testing and memory management. After calling this,
     the next call to _load_model_cached will reload from disk.
     """
-    _MODEL_CACHE.clear()
+    with _MODEL_CACHE_LOCK:
+        _MODEL_CACHE.clear()
 
 
 def _validate_image_input(image: ImageInput) -> None:

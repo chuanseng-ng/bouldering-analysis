@@ -535,6 +535,19 @@ class TestDetectHoldsBatch:
         assert len(results[0]) == 1
         assert isinstance(results[0][0], DetectedHold)
 
+    @patch("src.inference.detection._load_model_cached")
+    def test_wraps_predict_exception_in_inference_error(
+        self,
+        mock_load: MagicMock,
+        fake_image_file: Path,
+        fake_weights: Path,
+    ) -> None:
+        """detect_holds_batch wraps model.predict exceptions as InferenceError."""
+        mock_load.return_value.predict.side_effect = Exception("predict failed")
+
+        with pytest.raises(InferenceError, match="predict"):
+            detect_holds_batch([fake_image_file], fake_weights)
+
 
 # ---------------------------------------------------------------------------
 # TestConstants
