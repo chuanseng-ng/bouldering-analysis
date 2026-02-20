@@ -358,6 +358,18 @@ class TestParseYoloResults:
         assert holds[0].class_name == "volume"
         assert holds[0].class_id == 1
 
+    def test_skips_unknown_class_id(self) -> None:
+        """_parse_yolo_results excludes detections whose class_id is out of range."""
+        results = MagicMock()
+        boxes = MagicMock()
+        boxes.xywhn = torch.tensor([[0.5, 0.5, 0.2, 0.3]])
+        boxes.cls = torch.tensor([5.0])
+        boxes.conf = torch.tensor([0.90])
+        results.boxes = boxes
+
+        holds = _parse_yolo_results([results], conf_threshold=0.25)
+        assert holds == []
+
 
 # ---------------------------------------------------------------------------
 # TestDetectHolds
@@ -533,8 +545,8 @@ class TestConstants:
     """Tests for module-level constants."""
 
     def test_class_names(self) -> None:
-        """CLASS_NAMES contains exactly ['hold', 'volume']."""
-        assert CLASS_NAMES == ["hold", "volume"]
+        """CLASS_NAMES contains exactly ('hold', 'volume')."""
+        assert CLASS_NAMES == ("hold", "volume")
 
     def test_default_conf_threshold(self) -> None:
         """DEFAULT_CONF_THRESHOLD is between 0.0 and 1.0."""

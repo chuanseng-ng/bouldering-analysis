@@ -16,7 +16,7 @@ Example:
 
 import threading
 from pathlib import Path
-from typing import Any, Literal, Union, cast
+from typing import Any, Final, Literal, Union, cast
 
 import numpy as np
 import PIL.Image as PILImage
@@ -59,7 +59,7 @@ class InferenceError(Exception):
 # Constants
 # ---------------------------------------------------------------------------
 
-CLASS_NAMES: list[str] = ["hold", "volume"]
+CLASS_NAMES: Final[tuple[str, ...]] = ("hold", "volume")
 DEFAULT_CONF_THRESHOLD: float = 0.25
 DEFAULT_IOU_THRESHOLD: float = 0.45
 
@@ -156,12 +156,16 @@ def _load_model_cached(weights_path: Path | str) -> YOLO:
     if resolved in _MODEL_CACHE:
         return _MODEL_CACHE[resolved]
 
-    if not Path(resolved).exists():
-        raise InferenceError(f"Model weights not found: {weights_path}")
+    with _MODEL_CACHE_LOCK:
+        if resolved in _MODEL_CACHE:
+            return _MODEL_CACHE[resolved]
 
-    logger.info("Loading model from: %s", resolved)
-    model = YOLO(resolved)
-    _MODEL_CACHE[resolved] = model
+        if not Path(resolved).exists():
+            raise InferenceError(f"Model weights not found: {weights_path}")
+
+        logger.info("Loading model from: %s", resolved)
+        model = YOLO(resolved)
+        _MODEL_CACHE[resolved] = model
     return model
 
 
