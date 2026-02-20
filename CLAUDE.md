@@ -69,11 +69,11 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | 2. Image Upload | **Completed** | | 97% |
 | ├─ Upload Route Image | ✅ Completed | PR-2.1 | 97% |
 | └─ Create Route Record | ✅ Completed | PR-2.2 | - |
-| 3. Hold Detection | **In Progress** | PR-3.x | - |
+| 3. Hold Detection | **Completed** | PR-3.x | - |
 | ├─ Detection Dataset Schema | ✅ Completed | PR-3.1 | - |
 | ├─ Detection Model Definition | ✅ Completed | PR-3.2 | - |
 | ├─ Detection Training Loop | ✅ Completed | PR-3.3 | - |
-| └─ Detection Inference | Pending | PR-3.4 | - |
+| └─ Detection Inference | ✅ Completed | PR-3.4 | 94% |
 | 4. Hold Classification | Pending | PR-4.x | - |
 | 5. Route Graph | Pending | PR-5.x | - |
 | 6. Feature Extraction | Pending | PR-6.x | - |
