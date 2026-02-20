@@ -14,6 +14,7 @@ Example:
     hold 0.87
 """
 
+import threading
 from pathlib import Path
 from typing import Any, Literal, Union, cast
 
@@ -64,6 +65,7 @@ DEFAULT_IOU_THRESHOLD: float = 0.45
 
 # Module-level model cache: resolved path string → loaded YOLO model
 _MODEL_CACHE: dict[str, YOLO] = {}
+_MODEL_CACHE_LOCK: threading.Lock = threading.Lock()
 
 # Type alias for accepted image inputs
 ImageInput = Union[Path, str, np.ndarray, PILImage.Image]
