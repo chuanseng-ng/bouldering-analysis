@@ -7,6 +7,7 @@ Modules:
     datasets: Dataset loading and validation for YOLOv8 format
     detection_model: YOLOv8 model definition and hyperparameters
     exceptions: Custom exception classes for training errors
+    train_detection: Training loop and artifact management
 """
 
 from src.training.datasets import (
@@ -30,7 +31,15 @@ from src.training.exceptions import (
     ClassTaxonomyError,
     DatasetNotFoundError,
     DatasetValidationError,
+    InferenceError,
+    ModelArtifactError,
     TrainingError,
+    TrainingRunError,
+)
+from src.training.train_detection import (
+    TrainingMetrics,
+    TrainingResult,
+    train_hold_detector,
 )
 
 __all__ = [
@@ -51,9 +60,16 @@ __all__ = [
     "DEFAULT_MODEL_SIZE",
     "INPUT_RESOLUTION",
     "VALID_MODEL_SIZES",
+    # Training loop
+    "train_hold_detector",
+    "TrainingResult",
+    "TrainingMetrics",
     # Exceptions
     "TrainingError",
     "DatasetNotFoundError",
     "DatasetValidationError",
     "ClassTaxonomyError",
+    "TrainingRunError",
+    "ModelArtifactError",
+    "InferenceError",
 ]
