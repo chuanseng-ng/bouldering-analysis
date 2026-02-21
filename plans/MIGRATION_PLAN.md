@@ -674,7 +674,7 @@ Each PR must satisfy:
 4. **Testing**: 85%+ coverage (current stage), 90% when all features complete
 5. **Quality**: pylint score 8.5/10 (current stage), 9.0/10 when all features complete
 6. **Documentation**: Google-style docstrings on all functions
-7. **Agent Reviews**: python-reviewer + security-reviewer (mandatory, parallel); database-reviewer (mandatory for any Supabase change)
+7. **Agent Reviews**: python-reviewer + code-reviewer + security-reviewer (mandatory, parallel); database-reviewer (mandatory for any Supabase change)
 
 ---
 
@@ -691,7 +691,7 @@ Each PR must satisfy:
 | tdd-guide | After planning | Every new function/endpoint |
 | python-reviewer | After writing .py files | Type safety, pylint, immutability |
 | code-reviewer | After implementation | Correctness, architecture alignment |
-| security-reviewer | Before every commit | Run in parallel with code-reviewer |
+| security-reviewer | Before every commit | Run in parallel with python-reviewer and code-reviewer |
 | doc-updater | After clean code review | CLAUDE.md, specs, docstrings |
 
 ### Mandatory When Applicable
@@ -730,4 +730,5 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-02-21**: Added "Agent Reviews" quality gate (item 7) and "Agent Requirements Per PR" section with mandatory/conditional agent tables and parallel execution rule
 - **2026-01-14**: Initial migration plan created
