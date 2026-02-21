@@ -892,8 +892,8 @@ these as `everything-claude-code:<agent-name>`), or via custom agent definitions
 
 1. **planner** — before writing code (all PRs touching >1 file)
 2. **tdd-guide** — after planning, before implementation (every new function/endpoint)
-3. **python-reviewer** — after writing .py files (type safety, pylint, immutability)
-4. **database-reviewer** — when Supabase schema/SQL touched (PR-2.2, PR-9.x). If triggered, database-reviewer must complete before steps 3, 5, and 6 run in parallel.
+3. **database-reviewer** — when Supabase schema/SQL touched (PR-2.2, PR-9.x). If triggered, must complete before the parallel group (steps 4, 5, 6) runs.
+4. **python-reviewer** — after writing .py files (type safety, pylint, immutability)
 5. **code-reviewer** — after implementation (correctness, architecture alignment)
 6. **security-reviewer** — before every commit, parallel with python-reviewer and code-reviewer
 7. **doc-updater** — after clean code review (CLAUDE.md, specs, docstrings)
@@ -901,7 +901,7 @@ these as `everything-claude-code:<agent-name>`), or via custom agent definitions
 **Additional triggers:**
 - At milestone completion: **e2e-runner**
 - For design decisions: **architect**
-- **Parallel rule**: Steps 3, 5, 6 (python-reviewer, code-reviewer, security-reviewer) run in parallel
+- **Parallel rule**: Steps 4, 5, 6 (python-reviewer, code-reviewer, security-reviewer) run in parallel
 
 ### Code Review Checklist
 

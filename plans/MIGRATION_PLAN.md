@@ -687,8 +687,6 @@ Each PR must satisfy:
 
 | Agent | When | Notes |
 |-------|------|-------|
-| planner | Before writing code | All PRs touching >1 file |
-| tdd-guide | After planning | Every new function/endpoint |
 | python-reviewer | After writing .py files | Type safety, pylint, immutability |
 | code-reviewer | After implementation | Correctness, architecture alignment |
 | security-reviewer | Before every commit | Run in parallel with python-reviewer and code-reviewer |
@@ -696,15 +694,17 @@ Each PR must satisfy:
 
 ### Mandatory When Applicable
 
-| Agent | Applicable PRs | Trigger |
-|-------|---------------|---------|
+| Agent | Applicable PRs / Condition | Trigger |
+|-------|---------------------------|---------|
+| planner | PRs touching >1 file | Before writing code |
+| tdd-guide | Every new function/endpoint | After planning, before implementation |
 | database-reviewer | PR-2.2, PR-9.x | Any Supabase schema or SQL change |
 | e2e-runner | End of M3, M4, M7, M10 | Milestone completion |
 | architect | PR-5.1, PR-7.1, PR-7.2 | Design decisions required |
 
 ### Parallel Execution Rule
 
-python-reviewer + code-reviewer + security-reviewer launch simultaneously after implementation is complete.
+python-reviewer + code-reviewer + security-reviewer launch simultaneously after implementation is complete. If database-reviewer is triggered, it must complete successfully before the parallel group launches.
 
 ---
 
