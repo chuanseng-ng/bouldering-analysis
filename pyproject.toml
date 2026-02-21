@@ -29,7 +29,7 @@ dependencies = [
     # Structured Logging
     "python-json-logger==3.2.1",
     # Image Processing
-    "Pillow==10.4.0",
+    "Pillow==12.1.1",
     "opencv-python==4.12.0.88",
     # Machine Learning
     "torch==2.9.1",
