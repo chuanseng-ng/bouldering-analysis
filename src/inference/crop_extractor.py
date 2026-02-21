@@ -72,10 +72,19 @@ class CropExtractorError(Exception):
 
 
 class HoldCrop(BaseModel):
-    """A 224×224 RGB crop of a single detected hold.
+    """A crop of a single detected hold, normally 224×224 RGB.
+
+    When produced by :func:`extract_hold_crops` with the default
+    ``target_size``, ``crop`` will be 224×224.  Callers that pass a custom
+    ``target_size`` will receive crops of the requested size instead.
+    ``HoldCrop`` itself does **not** enforce any size or mode constraint —
+    size is determined entirely by the ``target_size`` argument passed to
+    :func:`extract_hold_crops`.
 
     Attributes:
-        crop: 224×224 RGB PIL image cut from the original route image.
+        crop: RGB PIL image whose size matches the ``target_size`` used during
+            extraction (224×224 by default).  No Pydantic validator enforces
+            this size.
         hold: The source ``DetectedHold`` detection (immutable reference).
         pixel_box: ``(x1, y1, x2, y2)`` pixel coordinates of the cropped
             region **after clamping** to the image boundaries.
@@ -83,7 +92,7 @@ class HoldCrop(BaseModel):
     Example::
 
         >>> hc = HoldCrop(crop=img_224, hold=detected_hold, pixel_box=(10, 20, 80, 90))
-        >>> hc.crop.size
+        >>> hc.crop.size   # size is whatever was passed in — no validation
         (224, 224)
     """
 
@@ -127,7 +136,8 @@ def _load_as_pil(image: ImageInput) -> PILImage.Image:
         path = Path(image)
         if not path.exists():
             raise CropExtractorError(f"Image file not found: {image}")
-        pil = PILImage.open(path)
+        with PILImage.open(path) as src:
+            pil = src.copy()
     elif isinstance(image, np.ndarray):
         pil = PILImage.fromarray(image)
     elif isinstance(image, PILImage.Image):
@@ -253,10 +263,6 @@ def extract_hold_crops(
         try:
             crop_img = pil_image.crop((x1, y1, x2, y2))
             crop_img = crop_img.resize(target_size, PILImage.Resampling.LANCZOS)
-            if crop_img.mode != "RGB":
-                crop_img = crop_img.convert("RGB")
-        except CropExtractorError:
-            raise
         except Exception as exc:
             raise CropExtractorError(
                 f"Crop/resize failed for hold at "

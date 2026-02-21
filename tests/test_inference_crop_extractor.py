@@ -40,7 +40,29 @@ def _make_hold(  # pylint: disable=too-many-arguments,too-many-positional-argume
     class_name: Literal["hold", "volume"] = "hold",
     confidence: float = 0.9,
 ) -> DetectedHold:
-    """Factory for DetectedHold test objects."""
+    """Factory for DetectedHold test objects.
+
+    Convenience wrapper around DetectedHold that supplies sensible defaults
+    so individual tests only need to override the fields they care about.
+
+    Args:
+        x_center: Horizontal centre of the bounding box (0–1). Defaults to 0.5.
+        y_center: Vertical centre of the bounding box (0–1). Defaults to 0.5.
+        width: Bounding-box width as a fraction of image width (0–1). Defaults to 0.4.
+        height: Bounding-box height as a fraction of image height (0–1). Defaults to 0.4.
+        class_id: Class index (0 = hold, 1 = volume). Defaults to 0.
+        class_name: Human-readable class label. Defaults to "hold".
+        confidence: Detection confidence score (0–1). Defaults to 0.9.
+
+    Returns:
+        DetectedHold: A new DetectedHold instance with the given field values.
+
+    Example::
+
+        >>> h = _make_hold(x_center=0.3, y_center=0.7, confidence=0.8)
+        >>> h.class_name
+        'hold'
+    """
     return DetectedHold(
         x_center=x_center,
         y_center=y_center,
@@ -59,14 +81,41 @@ def _make_hold(  # pylint: disable=too-many-arguments,too-many-positional-argume
 
 @pytest.fixture
 def rgb_image() -> PILImage.Image:
-    """400×300 solid-colour RGB PIL image."""
+    """400×300 solid-colour RGB PIL image.
+
+    Returns:
+        PILImage.Image: A 400×300 RGB image filled with a solid blue-grey colour,
+            suitable as a generic source image in crop extraction tests.
+
+    Example::
+
+        >>> img = PILImage.new("RGB", (400, 300), color=(100, 150, 200))
+        >>> img.size
+        (400, 300)
+        >>> img.mode
+        'RGB'
+    """
     img = PILImage.new("RGB", (400, 300), color=(100, 150, 200))
     return img
 
 
 @pytest.fixture
 def rgb_image_path(tmp_path: Path, rgb_image: PILImage.Image) -> Path:
-    """Saved JPEG version of rgb_image for path-based input tests."""
+    """Saved JPEG version of rgb_image for path-based input tests.
+
+    Args:
+        tmp_path: Pytest built-in fixture providing an isolated temporary directory.
+        rgb_image: The in-memory RGB image fixture to persist to disk.
+
+    Returns:
+        Path: Absolute path to the saved JPEG file inside tmp_path.
+
+    Example::
+
+        >>> path = tmp_path / "route.jpg"
+        >>> path.suffix
+        '.jpg'
+    """
     path = tmp_path / "route.jpg"
     rgb_image.save(str(path), format="JPEG")
     return path
@@ -74,25 +123,74 @@ def rgb_image_path(tmp_path: Path, rgb_image: PILImage.Image) -> Path:
 
 @pytest.fixture
 def center_hold() -> DetectedHold:
-    """Hold centred in the image, clearly within bounds (40% × 40%)."""
+    """Hold centred in the image, clearly within bounds (40% × 40%).
+
+    Returns:
+        DetectedHold: A hold at (x_center=0.5, y_center=0.5, width=0.4, height=0.4)
+            that maps to pixel box (120, 90, 280, 210) on a 400×300 image with
+            no clamping required.
+
+    Example::
+
+        >>> hold = _make_hold(x_center=0.5, y_center=0.5, width=0.4, height=0.4)
+        >>> hold.x_center, hold.y_center
+        (0.5, 0.5)
+    """
     return _make_hold(x_center=0.5, y_center=0.5, width=0.4, height=0.4)
 
 
 @pytest.fixture
 def edge_hold() -> DetectedHold:
-    """Hold at image boundary — box extends outside the image on all sides."""
+    """Hold at the top-left corner — box extends outside the image boundary.
+
+    Returns:
+        DetectedHold: A hold at (x_center=0.0, y_center=0.0, width=0.2, height=0.2)
+            whose raw bounding box extends into negative pixel coordinates;
+            the crop extractor clamps the box to (0, 0, 40, 30) on a 400×300 image.
+
+    Example::
+
+        >>> hold = _make_hold(x_center=0.0, y_center=0.0, width=0.2, height=0.2)
+        >>> hold.x_center, hold.y_center
+        (0.0, 0.0)
+    """
     return _make_hold(x_center=0.0, y_center=0.0, width=0.2, height=0.2)
 
 
 @pytest.fixture
 def tiny_hold() -> DetectedHold:
-    """Very small hold (1% of image dimensions)."""
+    """Very small hold (1% of image dimensions).
+
+    Returns:
+        DetectedHold: A hold at (x_center=0.5, y_center=0.5, width=0.01, height=0.01)
+            that maps to a very small pixel region; the crop extractor must
+            upsample the result to the target size.
+
+    Example::
+
+        >>> hold = _make_hold(x_center=0.5, y_center=0.5, width=0.01, height=0.01)
+        >>> hold.width, hold.height
+        (0.01, 0.01)
+    """
     return _make_hold(x_center=0.5, y_center=0.5, width=0.01, height=0.01)
 
 
 @pytest.fixture
 def volume_hold() -> DetectedHold:
-    """Volume-class hold (class_id=1)."""
+    """Volume-class hold (class_id=1).
+
+    Returns:
+        DetectedHold: A hold at (x_center=0.3, y_center=0.3, width=0.3, height=0.3)
+            with class_id=1 and class_name="volume", used to verify that
+            volume-class detections are processed identically to regular holds.
+
+    Example::
+
+        >>> hold = _make_hold(x_center=0.3, y_center=0.3, width=0.3, height=0.3,
+        ...                   class_id=1, class_name="volume")
+        >>> hold.class_name
+        'volume'
+    """
     return _make_hold(
         x_center=0.3,
         y_center=0.3,
@@ -391,5 +489,5 @@ class TestExtractHoldCrops:
         self, tmp_path: Path, center_hold: DetectedHold
     ) -> None:
         """extract_hold_crops should raise CropExtractorError for missing path."""
-        with pytest.raises(CropExtractorError):
+        with pytest.raises(CropExtractorError, match="Image file not found"):
             extract_hold_crops(tmp_path / "no_such_file.jpg", [center_hold])

@@ -25,15 +25,15 @@ from src.inference.detection import (
 )
 
 __all__ = [
-    "DetectedHold",
-    "InferenceError",
     "CLASS_NAMES",
+    "CropExtractorError",
     "DEFAULT_CONF_THRESHOLD",
     "DEFAULT_IOU_THRESHOLD",
+    "DetectedHold",
+    "HoldCrop",
+    "InferenceError",
+    "TARGET_SIZE",
     "detect_holds",
     "detect_holds_batch",
-    "CropExtractorError",
-    "HoldCrop",
-    "TARGET_SIZE",
     "extract_hold_crops",
 ]
