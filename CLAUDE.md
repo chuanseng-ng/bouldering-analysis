@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.01.14
-**Last Updated**: 2026-01-14
+**Version**: 2026.02.21
+**Last Updated**: 2026-02-21
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 **Purpose**: Guide AI assistants working with this computer vision-based bouldering route grading application
@@ -805,6 +805,8 @@ Use these thresholds based on current project stage:
 - [ ] Linting passes: `ruff check .`
 - [ ] Formatting passes: `ruff format --check .`
 - [ ] Pylint score ≥ 8.5 (current): `pylint src/`
+- [ ] Agent reviews complete: python-reviewer, code-reviewer, security-reviewer (run in parallel)
+- [ ] doc-updater run (CLAUDE.md, specs, docstrings)
 
 **Note**: When all features are complete, thresholds increase to 90% coverage and 9.0/10 pylint.
 
@@ -878,6 +880,28 @@ class UploadResponse(BaseModel):
 5. **Maintain coverage**: Meet current stage requirement (≥85% now, will increase to ≥90%)
 6. **Run QA suite**: Execute all quality checks before committing
 7. **Update documentation**: Keep CLAUDE.md and specs current
+
+### Agent Workflow (Mandatory)
+
+Agent names below are logical roles. They can be invoked via the Task tool
+using any compatible agent provider (e.g., the `everything-claude-code` plugin provides
+these as `everything-claude-code:<agent-name>`), or via custom agent definitions in
+`~/.claude/agents/` if available.
+
+**Per-feature mandatory sequence:**
+
+1. **planner** — before writing code (all PRs touching >1 file)
+2. **tdd-guide** — after planning, before implementation (every new function/endpoint)
+3. **database-reviewer** — when Supabase schema/SQL touched (PR-2.2, PR-9.x). If triggered, must complete before the parallel group (steps 4, 5, 6) runs.
+4. **python-reviewer** — after writing .py files (type safety, pylint, immutability)
+5. **code-reviewer** — after implementation (correctness, architecture alignment)
+6. **security-reviewer** — before every commit, parallel with python-reviewer and code-reviewer
+7. **doc-updater** — after clean code review (CLAUDE.md, specs, docstrings)
+
+**Additional triggers:**
+- At milestone completion: **e2e-runner**
+- For design decisions: **architect**
+- **Parallel rule**: Steps 4, 5, 6 (python-reviewer, code-reviewer, security-reviewer) run in parallel
 
 ### Code Review Checklist
 
