@@ -674,6 +674,37 @@ Each PR must satisfy:
 4. **Testing**: 85%+ coverage (current stage), 90% when all features complete
 5. **Quality**: pylint score 8.5/10 (current stage), 9.0/10 when all features complete
 6. **Documentation**: Google-style docstrings on all functions
+7. **Agent Reviews**: python-reviewer + security-reviewer (mandatory, parallel); database-reviewer (mandatory for any Supabase change)
+
+---
+
+## Agent Requirements Per PR
+
+> Agent names are logical roles invokable via the Task tool with any compatible provider
+> (e.g., `everything-claude-code:<agent-name>`).
+
+### Mandatory for Every PR
+
+| Agent | When | Notes |
+|-------|------|-------|
+| planner | Before writing code | All PRs touching >1 file |
+| tdd-guide | After planning | Every new function/endpoint |
+| python-reviewer | After writing .py files | Type safety, pylint, immutability |
+| code-reviewer | After implementation | Correctness, architecture alignment |
+| security-reviewer | Before every commit | Run in parallel with code-reviewer |
+| doc-updater | After clean code review | CLAUDE.md, specs, docstrings |
+
+### Mandatory When Applicable
+
+| Agent | Applicable PRs | Trigger |
+|-------|---------------|---------|
+| database-reviewer | PR-2.2, PR-9.x | Any Supabase schema or SQL change |
+| e2e-runner | End of M3, M4, M7, M10 | Milestone completion |
+| architect | PR-5.1, PR-7.1, PR-7.2 | Design decisions required |
+
+### Parallel Execution Rule
+
+python-reviewer + code-reviewer + security-reviewer launch simultaneously after implementation is complete.
 
 ---
 
