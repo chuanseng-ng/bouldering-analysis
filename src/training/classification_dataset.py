@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 
 # Expected 6-class hold taxonomy (immutable tuple)
 HOLD_CLASSES: tuple[str, ...] = ("jug", "crimp", "sloper", "pinch", "volume", "unknown")
-HOLD_CLASS_COUNT: int = 6
+HOLD_CLASS_COUNT: int = len(HOLD_CLASSES)
 
 # Supported image extensions (immutable)
 IMAGE_EXTENSIONS: frozenset[str] = frozenset({".jpg", ".jpeg", ".png"})
@@ -142,7 +142,7 @@ def count_images_per_class(split_path: Path | str) -> dict[str, int]:
     """
     split_path = Path(split_path).resolve()
 
-    if not split_path.exists():
+    if not split_path.is_dir():
         raise DatasetNotFoundError(f"Split directory not found: {split_path}")
 
     counts: dict[str, int] = {}

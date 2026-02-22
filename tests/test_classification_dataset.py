@@ -535,3 +535,13 @@ class TestLoadHoldClassificationDataset:
 
         assert result["nc"] == 6
         assert result["names"] == list(HOLD_CLASSES)
+
+    def test_non_strict_missing_class_raises_at_weights(
+        self, dataset_with_missing_class: Path
+    ) -> None:
+        """Non-strict mode with a missing class should warn from validate_classification_structure then fail at compute_class_weights."""
+        with pytest.warns(UserWarning, match="Missing class"):
+            with pytest.raises(DatasetValidationError, match="zero images"):
+                load_hold_classification_dataset(
+                    dataset_with_missing_class, strict=False
+                )
