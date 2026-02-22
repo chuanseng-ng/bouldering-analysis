@@ -5,6 +5,7 @@ for the bouldering route analysis perception models.
 
 Modules:
     classification_dataset: Dataset loading for folder-per-class format
+    classification_model: ResNet-18/MobileNetV3 model definition and hyperparameters
     datasets: Dataset loading and validation for YOLOv8 format
     detection_model: YOLOv8 model definition and hyperparameters
     exceptions: Custom exception classes for training errors
@@ -28,6 +29,16 @@ from src.training.datasets import (
     load_hold_detection_dataset,
     validate_data_yaml,
     validate_directory_structure,
+)
+from src.training.classification_model import (
+    DEFAULT_ARCHITECTURE,
+    INPUT_SIZE,
+    VALID_ARCHITECTURES,
+    ClassifierConfig,
+    ClassifierHyperparameters,
+    build_hold_classifier,
+    get_default_hyperparameters as get_default_classifier_hyperparameters,
+    load_hyperparameters_from_file as load_classifier_hyperparameters_from_file,
 )
 from src.training.detection_model import (
     DEFAULT_MODEL_SIZE,
@@ -70,7 +81,19 @@ __all__ = [
     # Detection dataset constants
     "EXPECTED_CLASSES",
     "EXPECTED_CLASS_COUNT",
-    # Model building
+    # Classification model building
+    "build_hold_classifier",
+    "get_default_classifier_hyperparameters",
+    "load_classifier_hyperparameters_from_file",
+    # Classification model configuration
+    "ClassifierConfig",
+    "ClassifierHyperparameters",
+    "DEFAULT_ARCHITECTURE",
+    "INPUT_SIZE",
+    "VALID_ARCHITECTURES",
+    # Detection model building
+    # NOTE: use get_default_classifier_hyperparameters for the classifier;
+    # get_default_hyperparameters refers to the detector (DetectionHyperparameters).
     "build_hold_detector",
     "get_default_hyperparameters",
     "load_hyperparameters_from_file",
