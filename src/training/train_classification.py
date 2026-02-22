@@ -23,6 +23,7 @@ Example:
 
 import copy
 import json
+import platform
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,7 +58,7 @@ METADATA_FILENAME: str = "metadata.json"
 VERSION_FORMAT: str = "v%Y%m%d_%H%M%S"
 IMAGENET_MEAN: tuple[float, ...] = (0.485, 0.456, 0.406)
 IMAGENET_STD: tuple[float, ...] = (0.229, 0.224, 0.225)
-DEFAULT_NUM_WORKERS: int = 4
+DEFAULT_NUM_WORKERS: int = 0 if platform.system() == "Windows" else 4
 VAL_RESIZE_RATIO: float = 256 / 224  # Standard ImageNet evaluation resize
 
 
@@ -360,7 +361,7 @@ def _build_scheduler(
 ) -> LRScheduler | None:
     """Construct the learning-rate scheduler.
 
-    Supports StepLR (halves LR every 10 epochs), CosineAnnealingLR, and
+    Supports StepLR (halves LR every ``epochs//3`` steps), CosineAnnealingLR, and
     ``'none'`` (no scheduling).
 
     Args:
@@ -735,7 +736,7 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
 
     # Training loop
     best_val_loss = float("inf")
-    best_state: dict[str, Any] = {}
+    best_state: dict[str, Any] = {k: v.clone() for k, v in model.state_dict().items()}
     last_state: dict[str, Any] = {}
     best_epoch = 0
     best_top1 = 0.0

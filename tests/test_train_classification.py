@@ -987,7 +987,7 @@ class TestTrainHoldClassifier:  # pylint: disable=too-many-public-methods
         tmp_path: Path,
         dataset: ClassificationDatasetConfig,
         hp: ClassifierHyperparameters | None = None,
-    ) -> "ClassificationTrainingResult":
+    ) -> ClassificationTrainingResult:
         """Helper: run train_hold_classifier with patched heavy dependencies."""
         device = torch.device("cpu")
 

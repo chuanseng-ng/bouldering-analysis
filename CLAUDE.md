@@ -74,7 +74,7 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Detection Model Definition | ✅ Completed | PR-3.2 | - |
 | ├─ Detection Training Loop | ✅ Completed | PR-3.3 | - |
 | └─ Detection Inference | ✅ Completed | PR-3.4 | 94% |
-| 4. Hold Classification | **Completed** | PR-4.x | - |
+| 4. Hold Classification | **In Progress** | PR-4.x | - |
 | ├─ Classification Dataset Schema | ✅ Completed | PR-4.1 | - |
 | ├─ Classification Model Definition | ✅ Completed | PR-4.2 | - |
 | ├─ Classification Training Loop | ✅ Completed | PR-4.4 | 97% |
