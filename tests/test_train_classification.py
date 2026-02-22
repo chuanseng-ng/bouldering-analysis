@@ -314,7 +314,10 @@ class TestGetGitCommitHash:
 
     def test_returns_none_on_file_not_found(self) -> None:
         """_get_git_commit_hash returns None when git binary not found."""
-        with patch("subprocess.run", side_effect=FileNotFoundError):
+        with patch(
+            "src.training.train_classification.subprocess.run",
+            side_effect=FileNotFoundError,
+        ):
             result = _get_git_commit_hash()
         assert result is None
 
@@ -323,7 +326,9 @@ class TestGetGitCommitHash:
         mock_result = MagicMock()
         mock_result.returncode = 128
         mock_result.stdout = ""
-        with patch("subprocess.run", return_value=mock_result):
+        with patch(
+            "src.training.train_classification.subprocess.run", return_value=mock_result
+        ):
             result = _get_git_commit_hash()
         assert result is None
 
@@ -332,7 +337,9 @@ class TestGetGitCommitHash:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "abc1234\n"
-        with patch("subprocess.run", return_value=mock_result):
+        with patch(
+            "src.training.train_classification.subprocess.run", return_value=mock_result
+        ):
             result = _get_git_commit_hash()
         assert result == "abc1234"
 
@@ -341,7 +348,9 @@ class TestGetGitCommitHash:
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = ""
-        with patch("subprocess.run", return_value=mock_result):
+        with patch(
+            "src.training.train_classification.subprocess.run", return_value=mock_result
+        ):
             result = _get_git_commit_hash()
         assert result is None
 

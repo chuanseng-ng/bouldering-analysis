@@ -487,7 +487,8 @@ def _run_val_epoch(  # pylint: disable=too-many-locals
             all_labels_list.append(labels.cpu())
 
     if total_samples == 0:
-        empty = torch.zeros(0, 1)
+        num_classes = criterion.weight.shape[0] if criterion.weight is not None else 1  # type: ignore[union-attr]
+        empty = torch.zeros(0, num_classes)
         return 0.0, 0.0, empty, torch.zeros(0, dtype=torch.long)
 
     all_probs = torch.cat(all_probs_list, dim=0)

@@ -326,6 +326,7 @@ CREATE TABLE feedback (
 - Automatic metadata capture (git commit, timestamp, hyperparameters)
 
 **Exported Classes and Functions**:
+
 ```python
 ClassificationMetrics       # Metrics from training run
 ClassificationTrainingResult  # Full training result with artifact paths
@@ -339,6 +340,7 @@ train_hold_classifier()     # Main training entry point
 **Test Coverage**: 97% (`tests/test_train_classification.py`)
 
 **Example Usage**:
+
 ```python
 from src.training.classification_dataset import load_hold_classification_dataset
 from src.training.train_classification import train_hold_classifier
@@ -350,11 +352,13 @@ print(f"Weights: {result.best_weights_path}")
 ```
 
 **Artifact Organization**:
+
 ```text
 models/classification/
 └── v<YYYYMMDD_HHMMSS>/
-    ├── best.pt               # Best checkpoint
-    ├── last.pt               # Final checkpoint
+    ├── weights/
+    │   ├── best.pt           # Best checkpoint
+    │   └── last.pt           # Final checkpoint
     └── metadata.json         # Training metadata & hyperparameters
 ```
 
