@@ -58,6 +58,7 @@ METADATA_FILENAME: str = "metadata.json"
 VERSION_FORMAT: str = "v%Y%m%d_%H%M%S"
 IMAGENET_MEAN: tuple[float, ...] = (0.485, 0.456, 0.406)
 IMAGENET_STD: tuple[float, ...] = (0.229, 0.224, 0.225)
+# Windows requires num_workers=0 to avoid multiprocessing spawn issues with DataLoader
 DEFAULT_NUM_WORKERS: int = 0 if platform.system() == "Windows" else 4
 VAL_RESIZE_RATIO: float = 256 / 224  # Standard ImageNet evaluation resize
 
@@ -361,7 +362,7 @@ def _build_scheduler(
 ) -> LRScheduler | None:
     """Construct the learning-rate scheduler.
 
-    Supports StepLR (halves LR every ``epochs//3`` steps), CosineAnnealingLR, and
+    Supports StepLR (halves LR every ``epochs//3`` epochs), CosineAnnealingLR, and
     ``'none'`` (no scheduling).
 
     Args:
