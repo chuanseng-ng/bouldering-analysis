@@ -6,6 +6,7 @@ folder-per-class classification datasets used for hold type classification.
 
 from pathlib import Path
 from collections.abc import Sequence
+from typing import get_type_hints
 
 import pytest
 
@@ -511,7 +512,7 @@ class TestLoadHoldClassificationDataset:
         """Result should contain all ClassificationDatasetConfig keys."""
         result = load_hold_classification_dataset(valid_classification_dataset)
 
-        expected_keys = set(ClassificationDatasetConfig.__annotations__)
+        expected_keys = set(get_type_hints(ClassificationDatasetConfig).keys())
         assert set(result.keys()) == expected_keys
 
     def test_result_paths_are_absolute(
