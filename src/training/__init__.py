@@ -26,6 +26,8 @@ from src.training.classification_model import (
     DEFAULT_ARCHITECTURE,
     INPUT_SIZE,
     VALID_ARCHITECTURES,
+    VALID_OPTIMIZERS,
+    VALID_SCHEDULERS,
     ClassifierConfig,
     ClassifierHyperparameters,
     build_hold_classifier,
@@ -91,6 +93,8 @@ __all__ = [
     "DEFAULT_ARCHITECTURE",
     "INPUT_SIZE",
     "VALID_ARCHITECTURES",
+    "VALID_OPTIMIZERS",
+    "VALID_SCHEDULERS",
     # Detection model building
     "build_hold_detector",
     "get_default_detector_hyperparameters",

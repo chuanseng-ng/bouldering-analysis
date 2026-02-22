@@ -45,11 +45,6 @@ VALID_ARCHITECTURES: tuple[str, ...] = (
 VALID_OPTIMIZERS: frozenset[str] = frozenset({"SGD", "Adam", "AdamW"})
 VALID_SCHEDULERS: frozenset[str] = frozenset({"StepLR", "CosineAnnealingLR", "none"})
 
-# Final-layer in_features per backbone (private)
-_RESNET18_FEATURES: int = 512
-_MOBILENET_V3_SMALL_FEATURES: int = 1024
-_MOBILENET_V3_LARGE_FEATURES: int = 1280
-
 
 # ---------------------------------------------------------------------------
 # Hyperparameter model
@@ -301,17 +296,17 @@ def _build_backbone(arch: str, pretrained: bool, num_classes: int) -> nn.Module:
     if arch == "resnet18":
         weights = models.ResNet18_Weights.DEFAULT if pretrained else None
         model = models.resnet18(weights=weights)
-        model.fc = nn.Linear(_RESNET18_FEATURES, num_classes)
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif arch == "mobilenet_v3_small":
         weights = models.MobileNet_V3_Small_Weights.DEFAULT if pretrained else None
         model = models.mobilenet_v3_small(weights=weights)
-        model.classifier[-1] = nn.Linear(_MOBILENET_V3_SMALL_FEATURES, num_classes)
+        model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, num_classes)
 
     elif arch == "mobilenet_v3_large":
         weights = models.MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
         model = models.mobilenet_v3_large(weights=weights)
-        model.classifier[-1] = nn.Linear(_MOBILENET_V3_LARGE_FEATURES, num_classes)
+        model.classifier[-1] = nn.Linear(model.classifier[-1].in_features, num_classes)
 
     else:
         raise ValueError(f"arch must be one of {VALID_ARCHITECTURES}, got '{arch}'")

@@ -381,7 +381,7 @@ class TestBuildHoldDetector:
 # ============================================================================
 
 
-class TestGetDefaultHyperparameters:
+class TestGetDefaultDetectorHyperparameters:
     """Tests for the get_default_detector_hyperparameters function."""
 
     def test_returns_hyperparameters_instance(self) -> None:
@@ -405,7 +405,7 @@ class TestGetDefaultHyperparameters:
 # ============================================================================
 
 
-class TestLoadHyperparametersFromFile:
+class TestLoadDetectorHyperparametersFromFile:
     """Tests for the load_detector_hyperparameters_from_file function."""
 
     def test_load_valid_hyperparameters(self, valid_hyperparams_yaml: Path) -> None:
