@@ -17,8 +17,8 @@ from src.training import (
     VALID_MODEL_SIZES,
     DetectionHyperparameters,
     build_hold_detector,
-    get_default_hyperparameters,
-    load_hyperparameters_from_file,
+    get_default_detector_hyperparameters,
+    load_detector_hyperparameters_from_file,
 )
 
 
@@ -377,21 +377,21 @@ class TestBuildHoldDetector:
 
 
 # ============================================================================
-# get_default_hyperparameters Tests
+# get_default_detector_hyperparameters Tests
 # ============================================================================
 
 
 class TestGetDefaultHyperparameters:
-    """Tests for the get_default_hyperparameters function."""
+    """Tests for the get_default_detector_hyperparameters function."""
 
     def test_returns_hyperparameters_instance(self) -> None:
         """Should return DetectionHyperparameters instance."""
-        result = get_default_hyperparameters()
+        result = get_default_detector_hyperparameters()
         assert isinstance(result, DetectionHyperparameters)
 
     def test_default_values_match(self) -> None:
         """Returned instance should have expected default values."""
-        result = get_default_hyperparameters()
+        result = get_default_detector_hyperparameters()
 
         assert result.epochs == 100
         assert result.batch_size == 16
@@ -401,16 +401,16 @@ class TestGetDefaultHyperparameters:
 
 
 # ============================================================================
-# load_hyperparameters_from_file Tests
+# load_detector_hyperparameters_from_file Tests
 # ============================================================================
 
 
 class TestLoadHyperparametersFromFile:
-    """Tests for the load_hyperparameters_from_file function."""
+    """Tests for the load_detector_hyperparameters_from_file function."""
 
     def test_load_valid_hyperparameters(self, valid_hyperparams_yaml: Path) -> None:
         """Should load hyperparameters from valid YAML file."""
-        result = load_hyperparameters_from_file(valid_hyperparams_yaml)
+        result = load_detector_hyperparameters_from_file(valid_hyperparams_yaml)
 
         assert isinstance(result, DetectionHyperparameters)
         assert result.epochs == 150
@@ -424,7 +424,7 @@ class TestLoadHyperparametersFromFile:
         nonexistent = tmp_path / "nonexistent.yaml"
 
         with pytest.raises(FileNotFoundError) as exc_info:
-            load_hyperparameters_from_file(nonexistent)
+            load_detector_hyperparameters_from_file(nonexistent)
 
         assert "Config file not found" in str(exc_info.value)
 
@@ -433,7 +433,7 @@ class TestLoadHyperparametersFromFile:
         empty_yaml = tmp_path / "empty.yaml"
         empty_yaml.write_text("", encoding="utf-8")
 
-        result = load_hyperparameters_from_file(empty_yaml)
+        result = load_detector_hyperparameters_from_file(empty_yaml)
 
         # Should have default values
         assert result.epochs == 100
@@ -446,7 +446,7 @@ class TestLoadHyperparametersFromFile:
         with open(yaml_path, "w", encoding="utf-8") as f:
             yaml.dump(config, f)
 
-        result = load_hyperparameters_from_file(yaml_path)
+        result = load_detector_hyperparameters_from_file(yaml_path)
 
         # Custom value
         assert result.epochs == 200
@@ -457,11 +457,11 @@ class TestLoadHyperparametersFromFile:
     def test_load_invalid_hyperparameters(self, invalid_hyperparams_yaml: Path) -> None:
         """Should raise ValidationError for invalid values."""
         with pytest.raises(ValidationError):
-            load_hyperparameters_from_file(invalid_hyperparams_yaml)
+            load_detector_hyperparameters_from_file(invalid_hyperparams_yaml)
 
     def test_load_accepts_string_path(self, valid_hyperparams_yaml: Path) -> None:
         """Should accept string path as well as Path object."""
-        result = load_hyperparameters_from_file(str(valid_hyperparams_yaml))
+        result = load_detector_hyperparameters_from_file(str(valid_hyperparams_yaml))
 
         assert isinstance(result, DetectionHyperparameters)
         assert result.epochs == 150
@@ -473,7 +473,7 @@ class TestLoadHyperparametersFromFile:
         malformed_yaml.write_text("key: [unclosed list", encoding="utf-8")
 
         with pytest.raises(ValueError) as exc_info:
-            load_hyperparameters_from_file(malformed_yaml)
+            load_detector_hyperparameters_from_file(malformed_yaml)
 
         assert "Failed to parse YAML config file" in str(exc_info.value)
         assert str(malformed_yaml) in str(exc_info.value)

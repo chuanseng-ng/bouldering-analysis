@@ -42,6 +42,8 @@ VALID_ARCHITECTURES: tuple[str, ...] = (
     "mobilenet_v3_small",
     "mobilenet_v3_large",
 )
+VALID_OPTIMIZERS: frozenset[str] = frozenset({"SGD", "Adam", "AdamW"})
+VALID_SCHEDULERS: frozenset[str] = frozenset({"StepLR", "CosineAnnealingLR", "none"})
 
 # Final-layer in_features per backbone (private)
 _RESNET18_FEATURES: int = 512
@@ -139,9 +141,8 @@ class ClassifierHyperparameters(BaseModel):
         Raises:
             ValueError: If the optimizer is not in the supported set.
         """
-        valid_optimizers = {"SGD", "Adam", "AdamW"}
-        if v not in valid_optimizers:
-            raise ValueError(f"optimizer must be one of {valid_optimizers}, got '{v}'")
+        if v not in VALID_OPTIMIZERS:
+            raise ValueError(f"optimizer must be one of {VALID_OPTIMIZERS}, got '{v}'")
         return v
 
     @field_validator("scheduler")
@@ -158,9 +159,8 @@ class ClassifierHyperparameters(BaseModel):
         Raises:
             ValueError: If the scheduler is not in the supported set.
         """
-        valid_schedulers = {"StepLR", "CosineAnnealingLR", "none"}
-        if v not in valid_schedulers:
-            raise ValueError(f"scheduler must be one of {valid_schedulers}, got '{v}'")
+        if v not in VALID_SCHEDULERS:
+            raise ValueError(f"scheduler must be one of {VALID_SCHEDULERS}, got '{v}'")
         return v
 
     def to_dict(self) -> dict[str, Any]:
@@ -373,5 +373,11 @@ def load_hyperparameters_from_file(
 
     if config_dict is None:
         config_dict = {}
+
+    if not isinstance(config_dict, dict):
+        raise ValueError(
+            f"Expected a YAML mapping in '{config_path}', "
+            f"got {type(config_dict).__name__}"
+        )
 
     return ClassifierHyperparameters(**config_dict)

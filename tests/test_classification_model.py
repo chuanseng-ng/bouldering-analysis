@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch.nn as nn
+from torch import nn
 import torchvision.models as tv_models
 from pydantic import ValidationError
 

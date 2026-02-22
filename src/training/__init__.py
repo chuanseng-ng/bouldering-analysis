@@ -46,8 +46,8 @@ from src.training.detection_model import (
     VALID_MODEL_SIZES,
     DetectionHyperparameters,
     build_hold_detector,
-    get_default_hyperparameters,
-    load_hyperparameters_from_file,
+    get_default_hyperparameters as get_default_detector_hyperparameters,
+    load_hyperparameters_from_file as load_detector_hyperparameters_from_file,
 )
 from src.training.exceptions import (
     ClassTaxonomyError,
@@ -92,11 +92,9 @@ __all__ = [
     "INPUT_SIZE",
     "VALID_ARCHITECTURES",
     # Detection model building
-    # NOTE: use get_default_classifier_hyperparameters for the classifier;
-    # get_default_hyperparameters refers to the detector (DetectionHyperparameters).
     "build_hold_detector",
-    "get_default_hyperparameters",
-    "load_hyperparameters_from_file",
+    "get_default_detector_hyperparameters",
+    "load_detector_hyperparameters_from_file",
     # Model configuration
     "DetectionHyperparameters",
     "DEFAULT_MODEL_SIZE",
