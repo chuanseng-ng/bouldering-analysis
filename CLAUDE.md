@@ -77,6 +77,7 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | 4. Hold Classification | **In Progress** | PR-4.x | - |
 | ├─ Classification Dataset Schema | ✅ Completed | PR-4.1 | - |
 | ├─ Classification Model Definition | ✅ Completed | PR-4.2 | - |
+| ├─ Omit Dropout from Model Builder | ✅ Completed | PR-4.3 | - |
 | ├─ Classification Training Loop | ✅ Completed | PR-4.4 | 97% |
 | └─ Classification Inference | Pending | PR-4.5 | - |
 | 5. Route Graph | Pending | PR-5.x | - |

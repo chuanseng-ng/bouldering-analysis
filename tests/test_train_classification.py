@@ -754,6 +754,19 @@ class TestRunTrainEpoch:
         _run_train_epoch(minimal_resnet, fake_loader, criterion, optimizer, device)
         assert len(step_calls) >= 1
 
+    def test_empty_loader_returns_zeros(self, minimal_resnet: nn.Module) -> None:
+        """_run_train_epoch returns (0.0, 0.0) when the loader is empty."""
+        device = torch.device("cpu")
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(minimal_resnet.parameters(), lr=1e-3)
+        empty_loader: Any = []
+
+        loss, acc = _run_train_epoch(
+            minimal_resnet, empty_loader, criterion, optimizer, device
+        )
+        assert loss == pytest.approx(0.0)
+        assert acc == pytest.approx(0.0)
+
 
 # ---------------------------------------------------------------------------
 # TestRunValEpoch
@@ -816,6 +829,22 @@ class TestRunValEpoch:
         with patch("torch.no_grad", patched_no_grad):
             _run_val_epoch(minimal_resnet, fake_loader, criterion, device)
         assert len(called_no_grad) >= 1
+
+    def test_empty_val_loader_returns_zeros(self, minimal_resnet: nn.Module) -> None:
+        """_run_val_epoch returns zeros and correct empty tensor shapes when loader is empty."""
+        device = torch.device("cpu")
+        num_classes = 6
+        weight = torch.ones(num_classes)
+        criterion = nn.CrossEntropyLoss(weight=weight)
+        empty_loader: Any = []
+
+        loss, acc, probs, labels = _run_val_epoch(
+            minimal_resnet, empty_loader, criterion, device
+        )
+        assert loss == pytest.approx(0.0)
+        assert acc == pytest.approx(0.0)
+        assert probs.shape == (0, num_classes)
+        assert labels.shape == (0,)
 
 
 # ---------------------------------------------------------------------------
