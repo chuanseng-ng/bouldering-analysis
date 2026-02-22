@@ -98,11 +98,12 @@ def compute_class_weights(class_counts: dict[str, int]) -> list[float]:
         >>> compute_class_weights(counts)
         [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     """
+    hold_classes_set = set(HOLD_CLASSES)
     missing = [cls for cls in HOLD_CLASSES if cls not in class_counts]
     if missing:
         raise DatasetValidationError(f"Missing class keys in counts: {missing}")
 
-    unexpected = [k for k in class_counts if k not in set(HOLD_CLASSES)]
+    unexpected = [k for k in class_counts if k not in hold_classes_set]
     if unexpected:
         raise DatasetValidationError(
             f"Unexpected class keys in counts (not in HOLD_CLASSES): {unexpected}"

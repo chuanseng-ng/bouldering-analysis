@@ -241,6 +241,20 @@ class TestComputeClassWeights:
         with pytest.raises(DatasetValidationError, match="non-positive"):
             compute_class_weights(counts)
 
+    def test_negative_count_raises_validation_error(self) -> None:
+        """Negative count for any class should raise DatasetValidationError."""
+        counts = {
+            "jug": 10,
+            "crimp": -1,
+            "sloper": 10,
+            "pinch": 10,
+            "volume": 10,
+            "unknown": 10,
+        }
+
+        with pytest.raises(DatasetValidationError, match="non-positive"):
+            compute_class_weights(counts)
+
     def test_missing_class_key_raises_validation_error(self) -> None:
         """Missing class key should raise DatasetValidationError."""
         counts = {
