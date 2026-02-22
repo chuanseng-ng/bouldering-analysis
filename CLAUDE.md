@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.02.21
-**Last Updated**: 2026-02-21
+**Version**: 2026.02.22
+**Last Updated**: 2026-02-22
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 **Purpose**: Guide AI assistants working with this computer vision-based bouldering route grading application
@@ -74,7 +74,11 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Detection Model Definition | ✅ Completed | PR-3.2 | - |
 | ├─ Detection Training Loop | ✅ Completed | PR-3.3 | - |
 | └─ Detection Inference | ✅ Completed | PR-3.4 | 94% |
-| 4. Hold Classification | Pending | PR-4.x | - |
+| 4. Hold Classification | **Completed** | PR-4.x | - |
+| ├─ Classification Dataset Schema | ✅ Completed | PR-4.1 | - |
+| ├─ Classification Model Definition | ✅ Completed | PR-4.2 | - |
+| ├─ Classification Training Loop | ✅ Completed | PR-4.4 | 97% |
+| └─ Classification Inference | Pending | PR-4.5 | - |
 | 5. Route Graph | Pending | PR-5.x | - |
 | 6. Feature Extraction | Pending | PR-6.x | - |
 | 7. Grade Estimation | Pending | PR-7.x | - |
@@ -304,6 +308,58 @@ CREATE TABLE feedback (
 
 ---
 
+## Model Training Implementation Status
+
+### Classification Training (✅ COMPLETED - PR-4.4)
+
+**Module**: `src/training/train_classification.py`
+
+**Features**:
+- Full PyTorch training orchestration for hold type classification
+- Supports ResNet-18 and MobileNetV3 backbones
+- Weighted cross-entropy loss for class imbalance handling
+- Optimizers: Adam, AdamW, SGD
+- Learning rate schedulers: StepLR, CosineAnnealingLR
+- Standard ImageNet augmentations (training) and center-crop evaluation (validation)
+- Metrics: Top-1 accuracy, Expected Calibration Error (ECE)
+- Versioned artifact layout: `models/classification/<version>/`
+- Automatic metadata capture (git commit, timestamp, hyperparameters)
+
+**Exported Classes and Functions**:
+```python
+ClassificationMetrics       # Metrics from training run
+ClassificationTrainingResult  # Full training result with artifact paths
+train_hold_classifier()     # Main training entry point
+```
+
+**Result Models**:
+- `ClassificationMetrics` - Top-1 accuracy, validation loss, ECE, best epoch
+- `ClassificationTrainingResult` - Version, architecture, weights paths, metadata path, metrics, dataset root, git commit, trained timestamp, hyperparameters
+
+**Test Coverage**: 97% (`tests/test_train_classification.py`)
+
+**Example Usage**:
+```python
+from src.training.classification_dataset import load_hold_classification_dataset
+from src.training.train_classification import train_hold_classifier
+
+dataset = load_hold_classification_dataset("data/hold_classification")
+result = train_hold_classifier(dataset, "data/hold_classification")
+print(f"Top-1 Accuracy: {result.metrics.top1_accuracy:.2%}")
+print(f"Weights: {result.best_weights_path}")
+```
+
+**Artifact Organization**:
+```text
+models/classification/
+└── v<YYYYMMDD_HHMMSS>/
+    ├── best.pt               # Best checkpoint
+    ├── last.pt               # Final checkpoint
+    └── metadata.json         # Training metadata & hyperparameters
+```
+
+---
+
 ## Codebase Structure
 
 ### Current Directory Layout
@@ -322,6 +378,15 @@ bouldering-analysis/
 │   ├── database/                 # Database layer (Supabase)
 │   │   ├── __init__.py           # Database exports
 │   │   └── supabase_client.py    # Supabase client & storage helpers
+│   ├── training/                 # Model training module (classification & detection)
+│   │   ├── __init__.py           # Training module exports
+│   │   ├── classification_dataset.py  # Classification dataset loading
+│   │   ├── classification_model.py    # Classification model definition
+│   │   ├── datasets.py           # Detection dataset loading
+│   │   ├── detection_model.py    # Detection model definition
+│   │   ├── exceptions.py         # Training-related exceptions
+│   │   ├── train_classification.py   # Classification training loop
+│   │   └── train_detection.py    # Detection training loop
 │   └── archive/legacy/           # Archived Flask code (reference only)
 │
 ├── tests/                        # Test suite
@@ -333,6 +398,12 @@ bouldering-analysis/
 │   ├── test_logging_config.py    # Logging tests
 │   ├── test_supabase_client.py   # Supabase client tests
 │   ├── test_upload.py            # Upload endpoint tests
+│   ├── test_classification_dataset.py  # Classification dataset tests
+│   ├── test_classification_model.py    # Classification model tests
+│   ├── test_datasets.py          # Detection dataset tests
+│   ├── test_detection_model.py   # Detection model tests
+│   ├── test_train_classification.py    # Classification training tests
+│   ├── test_train_detection.py   # Detection training tests
 │   └── archive/legacy/           # Archived tests (reference only)
 │
 ├── docs/                         # Documentation
@@ -372,9 +443,18 @@ bouldering-analysis/
 | `src/routes/health.py` | Health check endpoint | `/health`, `/api/v1/health` |
 | `src/routes/upload.py` | Image upload endpoint | `/api/v1/routes/upload` |
 | `src/database/supabase_client.py` | Supabase client | Connection pooling, storage ops |
+| `src/training/__init__.py` | Training module exports | Classification & detection exports |
+| `src/training/classification_dataset.py` | Classification dataset | Dataset loading, validation |
+| `src/training/classification_model.py` | Classification model | ResNet-18/MobileNetV3 definition |
+| `src/training/datasets.py` | Detection dataset | YOLOv8 dataset loading |
+| `src/training/detection_model.py` | Detection model | YOLOv8 model definition |
+| `src/training/exceptions.py` | Training exceptions | Custom exception classes |
+| `src/training/train_classification.py` | Classification training | Training loop & artifact management |
+| `src/training/train_detection.py` | Detection training | Training loop & artifact management |
 | `tests/conftest.py` | Pytest fixtures | Test app, client, settings |
 | `tests/test_supabase_client.py` | Database tests | Supabase client & storage tests |
 | `tests/test_upload.py` | Upload tests | Image validation & upload tests |
+| `tests/test_train_classification.py` | Classification training tests | Training loop tests |
 | `test_supabase_connection.py` | Connection test script | Verify Supabase setup |
 | `.pre-commit-config.yaml` | Pre-commit hooks config | QA automation |
 | `docs/DESIGN.md` | Architecture spec | Milestones, domain model |
