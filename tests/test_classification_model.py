@@ -38,7 +38,14 @@ from src.training.classification_model import (
 
 @pytest.fixture
 def valid_hyperparams_yaml(tmp_path: Path) -> Path:
-    """YAML file with valid non-default hyperparameters."""
+    """Create a YAML file with valid non-default hyperparameters.
+
+    Args:
+        tmp_path: Pytest fixture providing a temporary directory path.
+
+    Returns:
+        Path to the created YAML configuration file.
+    """
     yaml_content = textwrap.dedent(
         """\
         architecture: mobilenet_v3_small
@@ -55,7 +62,14 @@ def valid_hyperparams_yaml(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def invalid_hyperparams_yaml(tmp_path: Path) -> Path:
-    """YAML file with invalid hyperparameter values."""
+    """Create a YAML file with invalid hyperparameter values.
+
+    Args:
+        tmp_path: Pytest fixture providing a temporary directory path.
+
+    Returns:
+        Path to the created YAML configuration file.
+    """
     yaml_content = textwrap.dedent(
         """\
         architecture: vgg16

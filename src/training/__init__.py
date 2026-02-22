@@ -22,14 +22,6 @@ from src.training.classification_dataset import (
     load_hold_classification_dataset,
     validate_classification_structure,
 )
-from src.training.datasets import (
-    EXPECTED_CLASS_COUNT,
-    EXPECTED_CLASSES,
-    count_dataset_images,
-    load_hold_detection_dataset,
-    validate_data_yaml,
-    validate_directory_structure,
-)
 from src.training.classification_model import (
     DEFAULT_ARCHITECTURE,
     INPUT_SIZE,
@@ -39,6 +31,14 @@ from src.training.classification_model import (
     build_hold_classifier,
     get_default_hyperparameters as get_default_classifier_hyperparameters,
     load_hyperparameters_from_file as load_classifier_hyperparameters_from_file,
+)
+from src.training.datasets import (
+    EXPECTED_CLASS_COUNT,
+    EXPECTED_CLASSES,
+    count_dataset_images,
+    load_hold_detection_dataset,
+    validate_data_yaml,
+    validate_directory_structure,
 )
 from src.training.detection_model import (
     DEFAULT_MODEL_SIZE,

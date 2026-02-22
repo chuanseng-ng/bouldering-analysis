@@ -23,6 +23,7 @@ from typing import Any, TypedDict, cast
 
 from torch import nn
 from torchvision import models
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.logging_config import get_logger
@@ -358,8 +359,6 @@ def load_hyperparameters_from_file(
         >>> print(hp.architecture)
         mobilenet_v3_small
     """
-    import yaml  # type: ignore[import-untyped]
-
     path = Path(config_path).resolve()
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
