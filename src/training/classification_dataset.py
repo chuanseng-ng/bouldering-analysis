@@ -212,12 +212,13 @@ def validate_classification_structure(
             for any taxonomy mismatch (missing or extra class folders).
             If False, emit :class:`UserWarning` instead.
 
-            **Limitation**: ``strict=False`` is useful when the dataset
-            contains *extra* class folders (e.g., an unexpected ``pocket/``
-            folder from a Roboflow export) — the extra folder is simply ignored
-            and the pipeline completes normally.  However, *missing* class
-            folders still cause the load to fail downstream: the missing class
-            gets a count of 0 from ``count_images_per_class``, and
+        Note:
+            ``strict=False`` is useful when the dataset contains *extra*
+            class folders (e.g., an unexpected ``pocket/`` folder from a
+            Roboflow export) — the extra folder is simply ignored and the
+            pipeline completes normally.  However, *missing* class folders
+            still cause the load to fail downstream: the missing class gets a
+            count of 0 from ``count_images_per_class``, and
             ``compute_class_weights`` unconditionally raises
             :class:`~src.training.exceptions.DatasetValidationError` for any
             zero-count class.  This is by design — a missing training class
@@ -272,13 +273,14 @@ def load_hold_classification_dataset(
             extra class folders).  If False, emit :class:`UserWarning` and
             continue.
 
-            **Important**: ``strict=False`` tolerates *extra* class folders
-            without interrupting the pipeline.  It does **not** allow the
-            pipeline to complete when class folders are *missing* — a missing
-            folder produces a zero image count, and weight computation always
-            fails on zero-count classes.  Use ``strict=False`` only when the
-            dataset may contain unexpected extra folders (e.g., unreleased
-            hold types added to a Roboflow export).
+        Note:
+            ``strict=False`` tolerates *extra* class folders without
+            interrupting the pipeline.  It does **not** allow the pipeline to
+            complete when class folders are *missing* — a missing folder
+            produces a zero image count, and weight computation always fails
+            on zero-count classes.  Use ``strict=False`` only when the dataset
+            may contain unexpected extra folders (e.g., unreleased hold types
+            added to a Roboflow export).
 
     Returns:
         :class:`ClassificationDatasetConfig` typed dict containing:
