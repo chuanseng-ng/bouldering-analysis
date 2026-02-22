@@ -9,7 +9,8 @@ Modules:
     datasets: Dataset loading and validation for YOLOv8 format
     detection_model: YOLOv8 model definition and hyperparameters
     exceptions: Custom exception classes for training errors
-    train_detection: Training loop and artifact management
+    train_classification: Classification training loop and artifact management
+    train_detection: Detection training loop and artifact management
 """
 
 from src.training.classification_dataset import (
@@ -59,6 +60,11 @@ from src.training.exceptions import (
     TrainingError,
     TrainingRunError,
 )
+from src.training.train_classification import (
+    ClassificationMetrics,
+    ClassificationTrainingResult,
+    train_hold_classifier,
+)
 from src.training.train_detection import (
     TrainingMetrics,
     TrainingResult,
@@ -104,7 +110,11 @@ __all__ = [
     "DEFAULT_MODEL_SIZE",
     "INPUT_RESOLUTION",
     "VALID_MODEL_SIZES",
-    # Training loop
+    # Classification training loop
+    "train_hold_classifier",
+    "ClassificationTrainingResult",
+    "ClassificationMetrics",
+    # Detection training loop
     "train_hold_detector",
     "TrainingResult",
     "TrainingMetrics",
