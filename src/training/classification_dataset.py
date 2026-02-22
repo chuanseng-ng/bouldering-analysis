@@ -108,10 +108,10 @@ def compute_class_weights(class_counts: dict[str, int]) -> list[float]:
             f"Unexpected class keys in counts (not in HOLD_CLASSES): {unexpected}"
         )
 
-    zero_classes = [cls for cls in HOLD_CLASSES if class_counts[cls] == 0]
-    if zero_classes:
+    non_positive_classes = [cls for cls in HOLD_CLASSES if class_counts[cls] < 1]
+    if non_positive_classes:
         raise DatasetValidationError(
-            f"Classes with zero images cannot be weighted: {zero_classes}"
+            f"Classes with non-positive image counts cannot be weighted: {non_positive_classes}"
         )
 
     total = sum(class_counts[cls] for cls in HOLD_CLASSES)
@@ -187,13 +187,13 @@ def _validate_class_taxonomy_structure(
         msg = f"Missing class folders in {split_name}: {sorted(missing)}"
         if strict:
             raise ClassTaxonomyError(msg)
-        warnings.warn(msg, UserWarning, stacklevel=2)
+        warnings.warn(msg, UserWarning, stacklevel=3)
 
     if extra:
         msg = f"Unexpected class folders in {split_name}: {sorted(extra)}"
         if strict:
             raise ClassTaxonomyError(msg)
-        warnings.warn(msg, UserWarning, stacklevel=2)
+        warnings.warn(msg, UserWarning, stacklevel=3)
 
 
 def validate_classification_structure(

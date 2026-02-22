@@ -238,7 +238,7 @@ class TestComputeClassWeights:
             "unknown": 10,
         }
 
-        with pytest.raises(DatasetValidationError, match="zero images"):
+        with pytest.raises(DatasetValidationError, match="non-positive"):
             compute_class_weights(counts)
 
     def test_missing_class_key_raises_validation_error(self) -> None:
@@ -352,6 +352,14 @@ class TestCountImagesPerClass:
         counts = count_images_per_class(split_path)
 
         assert "pocket" not in counts
+
+    def test_file_path_raises(self, tmp_path: Path) -> None:
+        """File path (not a directory) should raise DatasetNotFoundError."""
+        file_path = tmp_path / "file.txt"
+        file_path.touch()
+
+        with pytest.raises(DatasetNotFoundError, match="Split directory not found"):
+            count_images_per_class(file_path)
 
 
 # ============================================================================
@@ -541,7 +549,7 @@ class TestLoadHoldClassificationDataset:
     ) -> None:
         """Non-strict mode with a missing class should warn from validate_classification_structure then fail at compute_class_weights."""
         with pytest.warns(UserWarning, match="Missing class"):
-            with pytest.raises(DatasetValidationError, match="zero images"):
+            with pytest.raises(DatasetValidationError, match="non-positive"):
                 load_hold_classification_dataset(
                     dataset_with_missing_class, strict=False
                 )
