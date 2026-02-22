@@ -78,7 +78,12 @@ def compute_class_weights(class_counts: dict[str, int]) -> list[float]:
     Args:
         class_counts: Mapping of class name to image count.
             Must contain exactly the keys from ``HOLD_CLASSES`` — no more,
-            no fewer.
+            no fewer.  Every count must be ≥1; zero-count classes are always
+            rejected regardless of any ``strict`` flag on the caller, because
+            ``torch.nn.CrossEntropyLoss(weight=...)`` requires a weight for
+            every class and silently assigning weight 0 would cause that class
+            to be skipped during training — a correctness hazard, not just a
+            validation warning.
 
     Returns:
         List of float weights in ``HOLD_CLASSES`` order.
@@ -203,11 +208,25 @@ def validate_classification_structure(
 
     Args:
         dataset_root: Path to the dataset root directory.
-        strict: If True, raise errors for validation failures.
-            If False, log warnings and continue where possible.
+        strict: If True, raise :class:`~src.training.exceptions.ClassTaxonomyError`
+            for any taxonomy mismatch (missing or extra class folders).
+            If False, emit :class:`UserWarning` instead.
+
+            **Limitation**: ``strict=False`` is useful when the dataset
+            contains *extra* class folders (e.g., an unexpected ``pocket/``
+            folder from a Roboflow export) — the extra folder is simply ignored
+            and the pipeline completes normally.  However, *missing* class
+            folders still cause the load to fail downstream: the missing class
+            gets a count of 0 from ``count_images_per_class``, and
+            ``compute_class_weights`` unconditionally raises
+            :class:`~src.training.exceptions.DatasetValidationError` for any
+            zero-count class.  This is by design — a missing training class
+            cannot be given a valid weight for
+            ``torch.nn.CrossEntropyLoss(weight=...)``.
 
     Raises:
-        DatasetValidationError: If required split directories are missing.
+        DatasetValidationError: If required split directories (``train/``,
+            ``val/``) are missing.  Always raised regardless of ``strict``.
         ClassTaxonomyError: If class folders are missing or unexpected
             (strict mode only).
 
@@ -249,8 +268,17 @@ def load_hold_classification_dataset(
     Args:
         dataset_root: Path to the dataset directory containing
             ``train/``, ``val/``, and optionally ``test/`` splits.
-        strict: If True, raise errors for validation failures.
-            If False, log warnings and continue where possible.
+        strict: If True, raise errors for taxonomy mismatches (missing or
+            extra class folders).  If False, emit :class:`UserWarning` and
+            continue.
+
+            **Important**: ``strict=False`` tolerates *extra* class folders
+            without interrupting the pipeline.  It does **not** allow the
+            pipeline to complete when class folders are *missing* — a missing
+            folder produces a zero image count, and weight computation always
+            fails on zero-count classes.  Use ``strict=False`` only when the
+            dataset may contain unexpected extra folders (e.g., unreleased
+            hold types added to a Roboflow export).
 
     Returns:
         :class:`ClassificationDatasetConfig` typed dict containing:
