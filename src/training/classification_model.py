@@ -21,9 +21,9 @@ Example:
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
+import yaml
 from torch import nn
 from torchvision import models
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.logging_config import get_logger
