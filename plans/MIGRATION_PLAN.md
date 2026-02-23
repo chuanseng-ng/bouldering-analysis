@@ -543,10 +543,10 @@ These endpoints must be implemented in the backend to support the frontend:
 | Endpoint | Method | Purpose | Status |
 | :------: | :----: | :-----: | :----: |
 | `POST /api/v1/routes/upload` | POST | Upload route image | ✅ Completed (PR-2.1) |
-| `POST /api/v1/routes` | POST | Create route record | Pending (PR-2.2) |
+| `POST /api/v1/routes` | POST | Create route record | ✅ Completed (PR-2.2) |
 | `GET /api/v1/routes/{id}` | GET | Get route details | Pending |
-| `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | Pending (PR-3.x, PR-4.x) |
-| `GET /api/v1/routes/{id}/holds` | GET | Get detected holds | Pending |
+| `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | ✅ Completed (PR-3.x, PR-4.x) |
+| `GET /api/v1/routes/{id}/holds` | GET | Get detected holds | ✅ Completed (PR-3.4, PR-4.5) |
 | `PUT /api/v1/routes/{id}/constraints` | PUT | Set start/finish holds | Pending (PR-5.x) |
 | `GET /api/v1/routes/{id}/prediction` | GET | Get grade prediction | Pending (PR-7.x) |
 | `POST /api/v1/routes/{id}/feedback` | POST | Submit user feedback | Pending |
