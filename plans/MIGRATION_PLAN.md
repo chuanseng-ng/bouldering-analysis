@@ -231,15 +231,20 @@ This plan outlines the migration from the current Flask-based implementation to 
 - **Dependencies**: PR-4.3
 - **Estimated Effort**: Medium
 
-#### PR-4.5: Hold Type Inference
+#### PR-4.5: Hold Type Inference (✅ COMPLETED)
 
 - **Function**: `classify_hold(crop) -> HoldTypeResult`
 - **Tasks**:
-  1. Create `src/inference/classification.py`
-  2. Load pre-trained weights
-  3. Return predicted type, probability distribution, confidence
+  1. ✅ Create `src/inference/classification.py`
+  2. ✅ Load pre-trained weights with caching (double-checked locking)
+  3. ✅ Return predicted type, probability distribution, confidence
+  4. ✅ Implement batch inference via `classify_holds()`
+  5. ✅ Cache model and input size for consistency across calls
 - **Dependencies**: PR-4.4
-- **Estimated Effort**: Small
+- **Status**: Completed with 72 comprehensive tests
+- **Test Coverage**: Full test suite in `tests/test_inference_classification.py`
+- **Key Exports**: `ClassificationInferenceError`, `HoldTypeResult`, `classify_hold`, `classify_holds`
+- **Architecture Pattern**: Model caching with double-checked locking (matches PR-3.4 detection.py)
 
 ---
 
@@ -369,7 +374,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 
 #### Schema Design
 
-**Table: routes**
+##### Table: routes
 
 ```sql
 CREATE TABLE routes (
@@ -381,7 +386,7 @@ CREATE TABLE routes (
 );
 ```
 
-**Table: holds**
+##### Table: holds
 
 ```sql
 CREATE TABLE holds (
@@ -395,7 +400,7 @@ CREATE TABLE holds (
 );
 ```
 
-**Table: features**
+##### Table: features
 
 ```sql
 CREATE TABLE features (
@@ -406,7 +411,7 @@ CREATE TABLE features (
 );
 ```
 
-**Table: predictions**
+##### Table: predictions
 
 ```sql
 CREATE TABLE predictions (
@@ -421,7 +426,7 @@ CREATE TABLE predictions (
 );
 ```
 
-**Table: feedback**
+##### Table: feedback
 
 ```sql
 CREATE TABLE feedback (
@@ -611,6 +616,7 @@ The frontend will handle:
   - Bot command documentation
 
 **Bot Features**:
+
 - Simple photo upload (no annotations initially)
 - Quick grade prediction
 - Text-based explanations
@@ -618,6 +624,7 @@ The frontend will handle:
 - Optional: Route history with thumbnails
 
 **Technology Stack**:
+
 - `python-telegram-bot` (v20+)
 - FastAPI backend integration
 - Deployment: AWS Lambda, Google Cloud Functions, or dedicated server
@@ -686,7 +693,7 @@ Each PR must satisfy:
 ### Mandatory for Every PR
 
 | Agent | When | Notes |
-|-------|------|-------|
+| ------- | ------ | ------- |
 | python-reviewer | After writing .py files | Type safety, pylint, immutability |
 | code-reviewer | After implementation | Correctness, architecture alignment |
 | security-reviewer | Before every commit | Run in parallel with python-reviewer and code-reviewer |
@@ -695,7 +702,7 @@ Each PR must satisfy:
 ### Mandatory When Applicable
 
 | Agent | Applicable PRs / Condition | Trigger |
-|-------|---------------------------|---------|
+| ------- | --------------------------- | --------- |
 | planner | PRs touching >1 file | Before writing code |
 | tdd-guide | Every new function/endpoint | After planning, before implementation |
 | database-reviewer | PR-2.2, PR-9.x | Any Supabase schema or SQL change |

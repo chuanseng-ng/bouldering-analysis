@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.02.22
-**Last Updated**: 2026-02-22
+**Version**: 2026.02.23
+**Last Updated**: 2026-02-23
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 **Purpose**: Guide AI assistants working with this computer vision-based bouldering route grading application
@@ -74,12 +74,12 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Detection Model Definition | ✅ Completed | PR-3.2 | - |
 | ├─ Detection Training Loop | ✅ Completed | PR-3.3 | - |
 | └─ Detection Inference | ✅ Completed | PR-3.4 | 94% |
-| 4. Hold Classification | **In Progress** | PR-4.x | - |
+| 4. Hold Classification | **Completed** | PR-4.x | - |
 | ├─ Classification Dataset Schema | ✅ Completed | PR-4.1 | - |
 | ├─ Classification Model Definition | ✅ Completed | PR-4.2 | - |
 | ├─ Omit Dropout from Model Builder | ✅ Completed | PR-4.3 | - |
 | ├─ Classification Training Loop | ✅ Completed | PR-4.4 | 97% |
-| └─ Classification Inference | Pending | PR-4.5 | - |
+| └─ Classification Inference | ✅ Completed | PR-4.5 | - |
 | 5. Route Graph | Pending | PR-5.x | - |
 | 6. Feature Extraction | Pending | PR-6.x | - |
 | 7. Grade Estimation | Pending | PR-7.x | - |
@@ -363,6 +363,57 @@ models/classification/
     └── metadata.json         # Training metadata & hyperparameters
 ```
 
+### Classification Inference (✅ COMPLETED - PR-4.5)
+
+**Module**: `src/inference/classification.py`
+
+**Features**:
+- Inference API for hold type classification from cropped images
+- Single-model caching with double-checked locking pattern (matching `detection.py`)
+- Automatic input size discovery from model metadata
+- Inference-time transform matches training-time validation transform
+- Batch inference support for multiple crops
+- Comprehensive error handling and validation
+
+**Exported Classes and Functions**:
+
+```python
+ClassificationInferenceError      # Exception for classification failures
+HoldTypeResult                    # Result object with type, confidence, probabilities
+classify_hold()                   # Single crop classification
+classify_holds()                  # Batch crop classification
+```
+
+**Result Models**:
+- `HoldTypeResult` - Predicted hold type, confidence score (0-1), probability distribution over classes, input size used
+- Batch operations return `list[HoldTypeResult]`
+
+**Test Coverage**: 72 tests in `tests/test_inference_classification.py`
+
+**Example Usage**:
+
+```python
+from src.inference.classification import classify_hold, classify_holds
+from PIL import Image
+
+# Single crop
+crop = Image.open("hold_crop.jpg")
+result = classify_hold(crop, "models/classification/v20260222_120000/weights/best.pt")
+print(f"Type: {result.hold_type}, Confidence: {result.confidence:.2%}")
+
+# Multiple crops
+crops = [Image.open(f"crop_{i}.jpg") for i in range(5)]
+results = classify_holds(crops, "models/classification/v20260222_120000/weights/best.pt")
+for result in results:
+    print(f"{result.hold_type}: {result.confidence:.2%}")
+```
+
+**Key Design Patterns**:
+- Model is loaded once and cached in `_MODEL_CACHE` (double-checked locking)
+- Metadata `input_size` is cached in `_INPUT_SIZE_CACHE` for transform consistency
+- `apply_classifier_dropout()` (from `src/training/classification_model.py`) reconstructs architecture for any backbone
+- Inference transform (center-crop) matches training-time validation transform
+
 ---
 
 ## Codebase Structure
@@ -392,6 +443,10 @@ bouldering-analysis/
 │   │   ├── exceptions.py         # Training-related exceptions
 │   │   ├── train_classification.py   # Classification training loop
 │   │   └── train_detection.py    # Detection training loop
+│   ├── inference/                # Model inference module (detection & classification)
+│   │   ├── __init__.py           # Inference module exports
+│   │   ├── detection.py          # Hold detection inference
+│   │   └── classification.py     # Hold classification inference
 │   └── archive/legacy/           # Archived Flask code (reference only)
 │
 ├── tests/                        # Test suite
@@ -407,6 +462,8 @@ bouldering-analysis/
 │   ├── test_classification_model.py    # Classification model tests
 │   ├── test_datasets.py          # Detection dataset tests
 │   ├── test_detection_model.py   # Detection model tests
+│   ├── test_inference_detection.py    # Detection inference tests
+│   ├── test_inference_classification.py # Classification inference tests
 │   ├── test_train_classification.py    # Classification training tests
 │   ├── test_train_detection.py   # Detection training tests
 │   └── archive/legacy/           # Archived tests (reference only)
@@ -450,16 +507,21 @@ bouldering-analysis/
 | `src/database/supabase_client.py` | Supabase client | Connection pooling, storage ops |
 | `src/training/__init__.py` | Training module exports | Classification & detection exports |
 | `src/training/classification_dataset.py` | Classification dataset | Dataset loading, validation |
-| `src/training/classification_model.py` | Classification model | ResNet-18/MobileNetV3 definition |
+| `src/training/classification_model.py` | Classification model | ResNet-18/MobileNetV3 definition, apply_classifier_dropout |
 | `src/training/datasets.py` | Detection dataset | YOLOv8 dataset loading |
 | `src/training/detection_model.py` | Detection model | YOLOv8 model definition |
 | `src/training/exceptions.py` | Training exceptions | Custom exception classes |
 | `src/training/train_classification.py` | Classification training | Training loop & artifact management |
 | `src/training/train_detection.py` | Detection training | Training loop & artifact management |
+| `src/inference/__init__.py` | Inference module exports | Classification & detection exports |
+| `src/inference/detection.py` | Detection inference | Hold detection from images |
+| `src/inference/classification.py` | Classification inference | Hold type classification from crops |
 | `tests/conftest.py` | Pytest fixtures | Test app, client, settings |
 | `tests/test_supabase_client.py` | Database tests | Supabase client & storage tests |
 | `tests/test_upload.py` | Upload tests | Image validation & upload tests |
 | `tests/test_train_classification.py` | Classification training tests | Training loop tests |
+| `tests/test_inference_detection.py` | Detection inference tests | Hold detection inference tests |
+| `tests/test_inference_classification.py` | Classification inference tests | Hold type classification tests |
 | `test_supabase_connection.py` | Connection test script | Verify Supabase setup |
 | `.pre-commit-config.yaml` | Pre-commit hooks config | QA automation |
 | `docs/DESIGN.md` | Architecture spec | Milestones, domain model |
