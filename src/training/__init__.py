@@ -31,6 +31,7 @@ from src.training.classification_model import (
     VALID_SCHEDULERS,
     ClassifierConfig,
     ClassifierHyperparameters,
+    apply_classifier_dropout,
     build_hold_classifier,
     get_default_hyperparameters as get_default_classifier_hyperparameters,
     load_hyperparameters_from_file as load_classifier_hyperparameters_from_file,
@@ -90,6 +91,7 @@ __all__ = [
     "EXPECTED_CLASSES",
     "EXPECTED_CLASS_COUNT",
     # Classification model building
+    "apply_classifier_dropout",
     "build_hold_classifier",
     "get_default_classifier_hyperparameters",
     "load_classifier_hyperparameters_from_file",

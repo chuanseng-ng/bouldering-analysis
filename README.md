@@ -75,13 +75,14 @@ See [docs/VERCEL_SETUP.md](docs/VERCEL_SETUP.md) for web frontend deployment and
 - **Supabase Client** (`src/database/supabase_client.py`) - Connection pooling and storage operations
 - **Image Upload** (`POST /api/v1/routes/upload`) - Validates and stores JPEG/PNG files
 - **Storage Management** - Upload, delete, list files in Supabase Storage buckets
-- **Configuration** - Environment-based Supabase credentials and upload limits
+- **Hold Detection** (`src/inference/detection.py`) - YOLOv8-based hold detection with caching
+- **Hold Classification** (`src/inference/classification.py`) - ResNet-18/MobileNetV3 hold type inference
 
 **❌ Pending Features:**
 
 - Database tables (`routes`, `holds`, `features`, `predictions`, `feedback`)
 - Route record creation endpoint
-- Hold detection and classification
+- Route movement graph construction
 - Grade prediction
 
 See [CLAUDE.md - Database Implementation Status](CLAUDE.md#database-implementation-status) for detailed information.
@@ -180,14 +181,16 @@ curl -X POST http://localhost:8000/api/v1/routes/upload \
 
 ## Development
 
-**Current Project Stage**: Image Upload (Milestone 2 - In Progress)
+**Current Project Stage**: Hold Classification (Milestone 4 - Completed)
 **Completed Milestones**:
 
 - ✅ Milestone 1: Backend Foundation (FastAPI + Supabase Client)
-- 🔄 Milestone 2: Image Upload (Upload endpoint complete, route records pending)
+- ✅ Milestone 2: Image Upload (Upload endpoint + route records)
+- ✅ Milestone 3: Hold Detection (YOLOv8 training + inference)
+- ✅ Milestone 4: Hold Classification (ResNet-18/MobileNetV3 training + inference)
 
 **Quality Targets**: Coverage ≥85%, Pylint ≥8.5/10 (will increase to 90%/9.0 when all features complete)
-**Current Coverage**: 98%
+**Current Coverage**: 97%
 
 ### Running Tests
 
@@ -265,13 +268,32 @@ bouldering-analysis/
 │   │   └── upload.py             # Image upload endpoint
 │   ├── database/                 # Database layer (Supabase)
 │   │   └── supabase_client.py    # Supabase client & storage
+│   ├── training/                 # Model training (detection & classification)
+│   │   ├── classification_model.py   # ResNet-18/MobileNetV3 definition
+│   │   ├── train_classification.py   # Classification training loop
+│   │   ├── detection_model.py    # YOLOv8 model definition
+│   │   └── train_detection.py    # Detection training loop
+│   ├── inference/                # Model inference
+│   │   ├── classification.py     # Hold type classification from crops
+│   │   └── detection.py          # Hold detection from images
 │   └── archive/legacy/           # Legacy code (reference)
-├── tests/                        # Test suite (98% coverage)
+├── tests/                        # Test suite (97% coverage)
 │   ├── test_app.py               # Application tests
 │   ├── test_config.py            # Configuration tests
 │   ├── test_health.py            # Health endpoint tests
+│   ├── test_routes.py            # Route module tests
 │   ├── test_supabase_client.py   # Supabase client tests
 │   ├── test_upload.py            # Upload endpoint tests
+│   ├── test_logging_config.py    # Logging config tests
+│   ├── test_classification_dataset.py    # Classification dataset tests
+│   ├── test_classification_model.py      # Classification model tests
+│   ├── test_detection_model.py           # Detection model tests
+│   ├── test_training_datasets.py         # Training dataset tests
+│   ├── test_train_classification.py      # Classification training tests
+│   ├── test_train_detection.py           # Detection training tests
+│   ├── test_inference_detection.py       # Detection inference tests
+│   ├── test_inference_classification.py  # Classification inference tests
+│   ├── test_inference_crop_extractor.py  # Crop extractor inference tests
 │   └── conftest.py               # Pytest fixtures
 ├── docs/                         # Documentation
 │   ├── DESIGN.md                 # Architecture spec

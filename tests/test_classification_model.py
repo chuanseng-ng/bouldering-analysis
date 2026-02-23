@@ -5,6 +5,7 @@ Tests cover:
   - Module-level constants (DEFAULT_ARCHITECTURE, INPUT_SIZE, VALID_ARCHITECTURES)
   - ClassifierHyperparameters Pydantic model validation
   - build_hold_classifier() constructor and architecture dispatch
+  - apply_classifier_dropout() dropout wrapping
   - get_default_hyperparameters() factory
   - load_hyperparameters_from_file() YAML loader
 """
@@ -25,6 +26,7 @@ from src.training.classification_model import (
     VALID_ARCHITECTURES,
     ClassifierConfig,
     ClassifierHyperparameters,
+    apply_classifier_dropout,
     build_hold_classifier,
     get_default_hyperparameters,
     load_hyperparameters_from_file,
@@ -596,3 +598,79 @@ class TestRealBackboneIntegration:
         last_layer = config["model"].classifier[-1]  # type: ignore[index]
         assert isinstance(last_layer, nn.Linear)
         assert last_layer.out_features == 6
+
+
+# ---------------------------------------------------------------------------
+# TestApplyClassifierDropout
+# ---------------------------------------------------------------------------
+
+
+class TestApplyClassifierDropout:
+    """Unit tests for apply_classifier_dropout."""
+
+    def test_zero_dropout_returns_same_model(self) -> None:
+        """dropout_rate=0.0 should return the original model unchanged."""
+        hp = ClassifierHyperparameters(architecture="resnet18", pretrained=False)
+        model = build_hold_classifier(hp)["model"]
+        result = apply_classifier_dropout(model, "resnet18", 0.0)
+        assert result is model
+
+    def test_negative_dropout_returns_same_model(self) -> None:
+        """dropout_rate<0 should return the original model unchanged."""
+        hp = ClassifierHyperparameters(architecture="resnet18", pretrained=False)
+        model = build_hold_classifier(hp)["model"]
+        result = apply_classifier_dropout(model, "resnet18", -0.1)
+        assert result is model
+
+    def test_resnet18_fc_becomes_sequential(self) -> None:
+        """ResNet-18 with positive dropout_rate should wrap fc in nn.Sequential."""
+        hp = ClassifierHyperparameters(architecture="resnet18", pretrained=False)
+        model = build_hold_classifier(hp)["model"]
+        result = apply_classifier_dropout(model, "resnet18", 0.5)
+        assert isinstance(result.fc, nn.Sequential)  # type: ignore[union-attr]
+
+    def test_resnet18_fc_sequential_has_dropout_and_linear(self) -> None:
+        """Wrapped ResNet-18 fc should be Sequential(Dropout, Linear)."""
+        hp = ClassifierHyperparameters(architecture="resnet18", pretrained=False)
+        model = build_hold_classifier(hp)["model"]
+        result = apply_classifier_dropout(model, "resnet18", 0.3)
+        fc = result.fc  # type: ignore[union-attr]
+        assert isinstance(fc[0], nn.Dropout)  # type: ignore[index]
+        assert isinstance(fc[1], nn.Linear)  # type: ignore[index]
+        assert fc[0].p == pytest.approx(0.3)  # type: ignore[index,union-attr]
+
+    def test_mobilenet_v3_small_classifier_last_becomes_sequential(self) -> None:
+        """MobileNetV3-Small with positive dropout_rate should wrap classifier[-1] in Sequential."""
+        hp = ClassifierHyperparameters(
+            architecture="mobilenet_v3_small", pretrained=False
+        )
+        model = build_hold_classifier(hp)["model"]
+        result = apply_classifier_dropout(model, "mobilenet_v3_small", 0.4)
+        last = result.classifier[-1]  # type: ignore[index]
+        assert isinstance(last, nn.Sequential)
+
+    def test_mobilenet_v3_large_classifier_last_becomes_sequential(self) -> None:
+        """MobileNetV3-Large with positive dropout_rate should wrap classifier[-1] in Sequential."""
+        hp = ClassifierHyperparameters(
+            architecture="mobilenet_v3_large", pretrained=False
+        )
+        model = build_hold_classifier(hp)["model"]
+        result = apply_classifier_dropout(model, "mobilenet_v3_large", 0.4)
+        last = result.classifier[-1]  # type: ignore[index]
+        assert isinstance(last, nn.Sequential)
+
+    def test_original_model_not_mutated(self) -> None:
+        """apply_classifier_dropout must not mutate the original model."""
+        hp = ClassifierHyperparameters(architecture="resnet18", pretrained=False)
+        model = build_hold_classifier(hp)["model"]
+        original_fc = model.fc  # type: ignore[union-attr]
+        apply_classifier_dropout(model, "resnet18", 0.5)
+        assert model.fc is original_fc  # type: ignore[union-attr]
+        assert isinstance(model.fc, nn.Linear)  # type: ignore[union-attr]
+
+    def test_unsupported_architecture_raises_value_error(self) -> None:
+        """Unsupported architecture should raise ValueError."""
+        hp = ClassifierHyperparameters(architecture="resnet18", pretrained=False)
+        model = build_hold_classifier(hp)["model"]
+        with pytest.raises(ValueError, match="unsupported architecture"):
+            apply_classifier_dropout(model, "unknown_arch", 0.5)

@@ -185,61 +185,66 @@ This plan outlines the migration from the current Flask-based implementation to 
 
 **Goal**: Classify detected holds into semantic types
 
-#### PR-4.1: Hold Crop Generator
+#### PR-4.1: Hold Crop Generator (✅ COMPLETED)
 
 - **Function**: `extract_hold_crops(image, boxes)`
 - **Tasks**:
-  1. Create `src/inference/crop_extractor.py`
-  2. Extract hold regions from detection boxes
-  3. Resize to 224x224
-  4. Handle edge cases (partial crops, small holds)
+  1. ✅ Create `src/inference/crop_extractor.py`
+  2. ✅ Extract hold regions from detection boxes
+  3. ✅ Resize to 224x224
+  4. ✅ Handle edge cases (partial crops, small holds)
 - **Dependencies**: PR-3.4
-- **Estimated Effort**: Small
+- **Status**: Completed
 
-#### PR-4.2: Classification Dataset Loader
+#### PR-4.2: Classification Dataset Loader (✅ COMPLETED)
 
 - **Function**: `load_hold_classification_dataset()`
 - **Tasks**:
-  1. Create `src/training/classification_dataset.py`
-  2. Support image classification format
-  3. Define taxonomy: `[jug, crimp, sloper, pinch, volume, unknown]`
-  4. Implement class balancing (weighted loss or oversampling)
+  1. ✅ Create `src/training/classification_dataset.py`
+  2. ✅ Support image classification format
+  3. ✅ Define taxonomy: `[jug, crimp, sloper, pinch, volume, unknown]`
+  4. ✅ Implement class balancing (weighted loss or oversampling)
 - **Dependencies**: None (can run parallel)
-- **Estimated Effort**: Small
+- **Status**: Completed
 
-#### PR-4.3: Hold Classifier Model
+#### PR-4.3: Hold Classifier Model (✅ COMPLETED)
 
 - **Function**: `build_hold_classifier()`
 - **Tasks**:
-  1. Create `src/training/classification_model.py`
-  2. Configure ResNet-18 or MobileNetV3
-  3. Set input size (224x224 RGB)
-  4. Add softmax output with label smoothing
+  1. ✅ Create `src/training/classification_model.py`
+  2. ✅ Configure ResNet-18 or MobileNetV3
+  3. ✅ Set input size (224x224 RGB)
+  4. ✅ Add softmax output with label smoothing
 - **Dependencies**: PR-4.2
-- **Estimated Effort**: Small
+- **Status**: Completed
 
-#### PR-4.4: Classification Training
+#### PR-4.4: Classification Training (✅ COMPLETED)
 
 - **Function**: `train_hold_classifier(dataset)`
 - **Tasks**:
-  1. Create `src/training/train_classification.py`
-  2. Implement cross-entropy loss with class weights
-  3. Configure Adam optimizer
-  4. Add augmentations (rotation, color jitter, cutout)
-  5. Track metrics (Top-1 accuracy, ECE)
-  6. Save artifacts to `models/classification/`
+  1. ✅ Create `src/training/train_classification.py`
+  2. ✅ Implement cross-entropy loss with class weights
+  3. ✅ Configure Adam optimizer
+  4. ✅ Add augmentations (rotation, color jitter, cutout)
+  5. ✅ Track metrics (Top-1 accuracy, ECE)
+  6. ✅ Save artifacts to `models/classification/`
 - **Dependencies**: PR-4.3
-- **Estimated Effort**: Medium
+- **Status**: Completed
 
-#### PR-4.5: Hold Type Inference
+#### PR-4.5: Hold Type Inference (✅ COMPLETED)
 
 - **Function**: `classify_hold(crop) -> HoldTypeResult`
 - **Tasks**:
-  1. Create `src/inference/classification.py`
-  2. Load pre-trained weights
-  3. Return predicted type, probability distribution, confidence
+  1. ✅ Create `src/inference/classification.py`
+  2. ✅ Load pre-trained weights with caching (double-checked locking)
+  3. ✅ Return predicted type, probability distribution, confidence
+  4. ✅ Implement batch inference via `classify_holds()`
+  5. ✅ Cache model and input size for consistency across calls
 - **Dependencies**: PR-4.4
-- **Estimated Effort**: Small
+- **Status**: Completed with 72 comprehensive tests
+- **Test Coverage**: Full test suite in `tests/test_inference_classification.py`
+- **Key Exports**: `ClassificationInferenceError`, `HoldTypeResult`, `classify_hold`, `classify_holds`
+- **Architecture Pattern**: Model caching with double-checked locking (matches PR-3.4 detection.py)
 
 ---
 
@@ -369,7 +374,7 @@ This plan outlines the migration from the current Flask-based implementation to 
 
 #### Schema Design
 
-**Table: routes**
+##### Table: routes
 
 ```sql
 CREATE TABLE routes (
@@ -381,7 +386,7 @@ CREATE TABLE routes (
 );
 ```
 
-**Table: holds**
+##### Table: holds
 
 ```sql
 CREATE TABLE holds (
@@ -395,7 +400,7 @@ CREATE TABLE holds (
 );
 ```
 
-**Table: features**
+##### Table: features
 
 ```sql
 CREATE TABLE features (
@@ -406,7 +411,7 @@ CREATE TABLE features (
 );
 ```
 
-**Table: predictions**
+##### Table: predictions
 
 ```sql
 CREATE TABLE predictions (
@@ -421,7 +426,7 @@ CREATE TABLE predictions (
 );
 ```
 
-**Table: feedback**
+##### Table: feedback
 
 ```sql
 CREATE TABLE feedback (
@@ -538,9 +543,9 @@ These endpoints must be implemented in the backend to support the frontend:
 | Endpoint | Method | Purpose | Status |
 | :------: | :----: | :-----: | :----: |
 | `POST /api/v1/routes/upload` | POST | Upload route image | ✅ Completed (PR-2.1) |
-| `POST /api/v1/routes` | POST | Create route record | Pending (PR-2.2) |
+| `POST /api/v1/routes` | POST | Create route record | ✅ Completed (PR-2.2) |
 | `GET /api/v1/routes/{id}` | GET | Get route details | Pending |
-| `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | Pending (PR-3.x, PR-4.x) |
+| `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | Pending |
 | `GET /api/v1/routes/{id}/holds` | GET | Get detected holds | Pending |
 | `PUT /api/v1/routes/{id}/constraints` | PUT | Set start/finish holds | Pending (PR-5.x) |
 | `GET /api/v1/routes/{id}/prediction` | GET | Get grade prediction | Pending (PR-7.x) |
@@ -611,6 +616,7 @@ The frontend will handle:
   - Bot command documentation
 
 **Bot Features**:
+
 - Simple photo upload (no annotations initially)
 - Quick grade prediction
 - Text-based explanations
@@ -618,6 +624,7 @@ The frontend will handle:
 - Optional: Route history with thumbnails
 
 **Technology Stack**:
+
 - `python-telegram-bot` (v20+)
 - FastAPI backend integration
 - Deployment: AWS Lambda, Google Cloud Functions, or dedicated server
@@ -630,22 +637,22 @@ See [docs/TELEGRAM_BOT.md](../docs/TELEGRAM_BOT.md) for detailed implementation 
 ## Implementation Order
 
 ```text
-Phase 1: Foundation (M1 + M2)
-├── PR-1.1: FastAPI Bootstrap
-├── PR-1.2: Supabase Client
-├── PR-2.1: Upload Route Image
-└── PR-2.2: Create Route Record
+Phase 1: Foundation (M1 + M2) — ✅ COMPLETED
+├── ✅ PR-1.1: FastAPI Bootstrap
+├── ✅ PR-1.2: Supabase Client
+├── ✅ PR-2.1: Upload Route Image
+└── ✅ PR-2.2: Create Route Record
 
-Phase 2: Perception Pre-training (M3 + M4) — Can run parallel with Phase 1
-├── PR-3.1: Detection Dataset Schema
-├── PR-3.2: Detection Model Definition
-├── PR-3.3: Detection Training Loop
-├── PR-3.4: Detection Inference
-├── PR-4.1: Hold Crop Generator
-├── PR-4.2: Classification Dataset Loader
-├── PR-4.3: Hold Classifier Model
-├── PR-4.4: Classification Training
-└── PR-4.5: Hold Type Inference
+Phase 2: Perception Pre-training (M3 + M4) — ✅ COMPLETED
+├── ✅ PR-3.1: Detection Dataset Schema
+├── ✅ PR-3.2: Detection Model Definition
+├── ✅ PR-3.3: Detection Training Loop
+├── ✅ PR-3.4: Detection Inference
+├── ✅ PR-4.1: Hold Crop Generator
+├── ✅ PR-4.2: Classification Dataset Loader
+├── ✅ PR-4.3: Hold Classifier Model
+├── ✅ PR-4.4: Classification Training
+└── ✅ PR-4.5: Hold Type Inference
 
 Phase 3: Intelligence (M5 + M6 + M7)
 ├── PR-5.1: Graph Builder
@@ -686,7 +693,7 @@ Each PR must satisfy:
 ### Mandatory for Every PR
 
 | Agent | When | Notes |
-|-------|------|-------|
+| ------- | ------ | ------- |
 | python-reviewer | After writing .py files | Type safety, pylint, immutability |
 | code-reviewer | After implementation | Correctness, architecture alignment |
 | security-reviewer | Before every commit | Run in parallel with python-reviewer and code-reviewer |
@@ -695,7 +702,7 @@ Each PR must satisfy:
 ### Mandatory When Applicable
 
 | Agent | Applicable PRs / Condition | Trigger |
-|-------|---------------------------|---------|
+| ------- | --------------------------- | --------- |
 | planner | PRs touching >1 file | Before writing code |
 | tdd-guide | Every new function/endpoint | After planning, before implementation |
 | database-reviewer | PR-2.2, PR-9.x | Any Supabase schema or SQL change |
@@ -730,5 +737,6 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-02-23**: Updated endpoint statuses to reflect Phase 1 (M1+M2) and Phase 2 (M3+M4) completion; marked POST /api/v1/routes/upload and POST /api/v1/routes as Completed; corrected POST /api/v1/routes/{id}/analyze and GET /api/v1/routes/{id}/holds back to Pending (HTTP handlers not yet implemented)
 - **2026-02-21**: Added "Agent Reviews" quality gate (item 7) and "Agent Requirements Per PR" section with mandatory/conditional agent tables and parallel execution rule
 - **2026-01-14**: Initial migration plan created
