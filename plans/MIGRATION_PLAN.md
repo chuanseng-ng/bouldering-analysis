@@ -737,5 +737,6 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-02-23**: Updated endpoint statuses to reflect Phase 1 (M1+M2) and Phase 2 (M3+M4) completion; marked POST /api/v1/routes, POST /api/v1/routes/{id}/analyze, and GET /api/v1/routes/{id}/holds as Completed
 - **2026-02-21**: Added "Agent Reviews" quality gate (item 7) and "Agent Requirements Per PR" section with mandatory/conditional agent tables and parallel execution rule
 - **2026-01-14**: Initial migration plan created
