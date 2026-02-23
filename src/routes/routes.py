@@ -5,8 +5,8 @@ route records that link uploaded images to route metadata.
 """
 
 import asyncio
-import re
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Path, status
@@ -108,13 +108,16 @@ class ErrorResponse(BaseModel):
 
 
 def _format_timestamp(value: str | None) -> str:
-    """Format a timestamp value for response.
+    """Format a timestamp value for response, converting to UTC.
 
     Args:
         value: Timestamp string from database. Must not be None.
+            May include a UTC offset (e.g., +00:00, -05:00) or end with 'Z'.
+            Naive timestamps are assumed to be UTC.
 
     Returns:
-        Formatted timestamp string ending with 'Z' for UTC.
+        UTC timestamp string in ISO 8601 format ending with 'Z'
+        (e.g., '2026-01-27T12:00:00Z').
 
     Raises:
         ValueError: If value is None, indicating a required timestamp field is
@@ -123,13 +126,22 @@ def _format_timestamp(value: str | None) -> str:
     if value is None:
         raise ValueError("Timestamp cannot be None: required field missing from record")
 
-    # Ensure timestamp ends with Z for UTC indication
     timestamp = str(value)
-    if not timestamp.endswith("Z"):
-        # Strip any +/- UTC offset (e.g. +00:00, -05:00) and append Z
-        timestamp = re.sub(r"[+-]\d{2}:\d{2}$", "", timestamp) + "Z"
 
-    return timestamp
+    # Already in UTC Z format — return as-is
+    if timestamp.endswith("Z"):
+        return timestamp
+
+    # Parse and convert to UTC
+    dt = datetime.fromisoformat(timestamp)
+    if dt.tzinfo is not None:
+        # Offset-aware: convert to UTC
+        dt = dt.astimezone(timezone.utc)
+    else:
+        # Naive (no offset): assume UTC
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt.isoformat().replace("+00:00", "Z")
 
 
 def _record_to_response(record: dict[str, Any]) -> RouteResponse:

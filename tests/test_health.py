@@ -1,5 +1,7 @@
 """Tests for health check endpoint and response model."""
 
+# pylint: disable=redefined-outer-name  # standard pytest fixture pattern
+
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -9,6 +11,18 @@ from pydantic import ValidationError
 
 from src.config import Settings
 from src.routes.health import DbHealthResponse, HealthResponse
+
+
+@pytest.fixture
+def mock_supabase_client() -> MagicMock:
+    """Provide a pre-configured mock Supabase client for DB health check tests.
+
+    Configures the chained table query interface to succeed by default.
+    Tests that simulate query failures can override ``execute.side_effect``.
+    """
+    mock_client = MagicMock()
+    mock_client.table.return_value.select.return_value.limit.return_value.execute.return_value = MagicMock()
+    return mock_client
 
 
 class TestHealthResponse:
@@ -159,12 +173,13 @@ class TestDbHealthEndpoint:
 
     @patch("src.routes.health.get_supabase_client")
     def test_db_health_returns_healthy_when_supabase_reachable(
-        self, mock_get_client: MagicMock, client: TestClient
+        self,
+        mock_get_client: MagicMock,
+        client: TestClient,
+        mock_supabase_client: MagicMock,
     ) -> None:
         """DB health endpoint should return 'healthy' when Supabase responds."""
-        mock_supabase = MagicMock()
-        mock_get_client.return_value = mock_supabase
-        mock_supabase.table.return_value.select.return_value.limit.return_value.execute.return_value = MagicMock()
+        mock_get_client.return_value = mock_supabase_client
 
         response = client.get("/api/v1/health/db")
 
@@ -189,29 +204,19 @@ class TestDbHealthEndpoint:
 
     @patch("src.routes.health.get_supabase_client")
     def test_db_health_returns_degraded_when_query_fails(
-        self, mock_get_client: MagicMock, client: TestClient
+        self,
+        mock_get_client: MagicMock,
+        client: TestClient,
+        mock_supabase_client: MagicMock,
     ) -> None:
         """DB health endpoint should return 'degraded' when the DB query fails."""
-        mock_supabase = MagicMock()
-        mock_get_client.return_value = mock_supabase
-        mock_supabase.table.return_value.select.return_value.limit.return_value.execute.side_effect = Exception(
+        mock_supabase_client.table.return_value.select.return_value.limit.return_value.execute.side_effect = Exception(
             "Table not found"
         )
+        mock_get_client.return_value = mock_supabase_client
 
         response = client.get("/api/v1/health/db")
 
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "degraded"
-
-    @patch("src.routes.health.get_supabase_client")
-    def test_db_health_versioned_endpoint_accessible(
-        self, mock_get_client: MagicMock, client: TestClient
-    ) -> None:
-        """DB health check should be accessible at /api/v1/health/db."""
-        mock_supabase = MagicMock()
-        mock_get_client.return_value = mock_supabase
-        mock_supabase.table.return_value.select.return_value.limit.return_value.execute.return_value = MagicMock()
-
-        response = client.get("/api/v1/health/db")
-        assert response.status_code == 200

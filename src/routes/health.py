@@ -13,6 +13,9 @@ from pydantic import BaseModel, ConfigDict
 
 from src.config import get_settings
 from src.database.supabase_client import get_supabase_client
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["Health"])
 
@@ -117,9 +120,16 @@ async def db_health_check() -> DbHealthResponse:
     try:
         client = await asyncio.to_thread(get_supabase_client)
         await asyncio.to_thread(
-            lambda: client.table("routes").select("id").limit(1).execute()
+            lambda: client.table(settings.health_check_table)
+            .select("id")
+            .limit(1)
+            .execute()
         )
-    except Exception:  # pylint: disable=broad-except
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning(
+            "Database health check failed",
+            extra={"error": str(exc), "error_type": type(exc).__name__},
+        )
         db_status = "degraded"
 
     return DbHealthResponse(

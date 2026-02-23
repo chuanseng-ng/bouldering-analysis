@@ -31,6 +31,7 @@ class Settings(BaseSettings):
         max_upload_size_mb: Maximum allowed file upload size in megabytes.
         storage_bucket: Name of the Supabase Storage bucket for route images.
         allowed_image_types: List of allowed MIME types for image uploads.
+        health_check_table: Database table queried by the DB health endpoint.
     """
 
     app_name: str = "bouldering-analysis"
@@ -47,6 +48,9 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = 10
     storage_bucket: str = "route-images"
     allowed_image_types: list[str] = ["image/jpeg", "image/png"]
+
+    # Health check configuration
+    health_check_table: str = "routes"
 
     model_config = SettingsConfigDict(
         env_prefix="BA_",

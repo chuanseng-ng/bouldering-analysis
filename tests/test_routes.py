@@ -606,9 +606,9 @@ class TestTimestampFormatting:
             _format_timestamp(None)
 
     def test_format_timestamp_with_negative_offset(self) -> None:
-        """Timestamp with negative UTC offset should be stripped and Z appended."""
+        """Timestamp with negative UTC offset should be converted to UTC and Z appended."""
         from src.routes.routes import _format_timestamp
 
         result = _format_timestamp("2026-01-27T07:00:00-05:00")
-        assert result == "2026-01-27T07:00:00Z"
+        assert result == "2026-01-27T12:00:00Z"
         assert "-05:00" not in result
