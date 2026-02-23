@@ -21,7 +21,6 @@ Example:
     0.85
 """
 
-import copy
 import json
 import platform
 import subprocess
@@ -42,6 +41,7 @@ from src.logging_config import get_logger
 from src.training.classification_dataset import ClassificationDatasetConfig
 from src.training.classification_model import (
     ClassifierHyperparameters,
+    apply_classifier_dropout,
     build_hold_classifier,
     get_default_hyperparameters,
 )
@@ -190,28 +190,7 @@ def _apply_dropout(model: nn.Module, hp: ClassifierHyperparameters) -> nn.Module
     Raises:
         TrainingRunError: If ``hp.architecture`` is not a recognised value.
     """
-    if hp.dropout_rate <= 0.0:
-        return model
-
-    new_model = copy.deepcopy(model)
-    dropout = nn.Dropout(p=hp.dropout_rate)
-
-    if hp.architecture == "resnet18":
-        original_fc: nn.Module = new_model.fc  # type: ignore[union-attr,assignment]
-        new_model.fc = nn.Sequential(dropout, original_fc)  # type: ignore[union-attr]
-    elif hp.architecture in ("mobilenet_v3_small", "mobilenet_v3_large"):
-        # Both MobileNetV3 variants share the same classifier[-1] structure
-        original_last: nn.Module = new_model.classifier[-1]  # type: ignore[index,assignment]
-        new_model.classifier[-1] = nn.Sequential(  # type: ignore[index,assignment,operator]
-            dropout, original_last
-        )
-    else:
-        raise TrainingRunError(
-            f"_apply_dropout: unsupported architecture '{hp.architecture}'. "
-            "Add explicit dropout logic for this architecture."
-        )
-
-    return new_model
+    return apply_classifier_dropout(model, hp.architecture, hp.dropout_rate)
 
 
 def _build_transforms(

@@ -18,6 +18,7 @@ Example:
     resnet18
 """
 
+import copy
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
@@ -312,6 +313,60 @@ def _build_backbone(arch: str, pretrained: bool, num_classes: int) -> nn.Module:
         raise ValueError(f"arch must be one of {VALID_ARCHITECTURES}, got '{arch}'")
 
     return cast(nn.Module, model)
+
+
+def apply_classifier_dropout(
+    model: nn.Module,
+    architecture: str,
+    dropout_rate: float,
+) -> nn.Module:
+    """Return model with Dropout inserted before the final classifier layer.
+
+    Mirrors the wrapping done during training so that inference can reconstruct
+    the identical architecture when loading a saved state_dict.  The input model
+    is never mutated — a deep copy is created.
+
+    Returns model unchanged when dropout_rate <= 0.
+
+    Args:
+        model: nn.Module from build_hold_classifier(). Not mutated.
+        architecture: One of VALID_ARCHITECTURES.
+        dropout_rate: Dropout probability in [0, 1). 0 → no dropout added.
+
+    Returns:
+        Deep copy of model with Dropout-wrapped final layer, or original if
+        dropout_rate <= 0.
+
+    Raises:
+        ValueError: If architecture is not in VALID_ARCHITECTURES.
+
+    Example:
+        >>> config = build_hold_classifier()
+        >>> model = apply_classifier_dropout(config["model"], "resnet18", 0.5)
+        >>> print(type(model.fc))
+        <class 'torch.nn.modules.container.Sequential'>
+    """
+    if dropout_rate <= 0.0:
+        return model
+
+    new_model = copy.deepcopy(model)
+    dropout = nn.Dropout(p=dropout_rate)
+
+    if architecture == "resnet18":
+        original_fc: nn.Module = new_model.fc  # type: ignore[union-attr,assignment]
+        new_model.fc = nn.Sequential(dropout, original_fc)  # type: ignore[union-attr]
+    elif architecture in ("mobilenet_v3_small", "mobilenet_v3_large"):
+        original_last: nn.Module = new_model.classifier[-1]  # type: ignore[index,assignment]
+        new_model.classifier[-1] = nn.Sequential(  # type: ignore[index,assignment,operator]
+            dropout, original_last
+        )
+    else:
+        raise ValueError(
+            f"apply_classifier_dropout: unsupported architecture '{architecture}'. "
+            f"Must be one of {VALID_ARCHITECTURES}."
+        )
+
+    return new_model
 
 
 def get_default_hyperparameters() -> ClassifierHyperparameters:
