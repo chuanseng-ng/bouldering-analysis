@@ -40,6 +40,7 @@ from torchvision.datasets import ImageFolder  # type: ignore[import-untyped]
 from src.logging_config import get_logger
 from src.training.classification_dataset import ClassificationDatasetConfig
 from src.training.classification_model import (
+    VALID_ARCHITECTURES,
     ClassifierHyperparameters,
     apply_classifier_dropout,
     build_hold_classifier,
@@ -173,7 +174,7 @@ def _apply_dropout(model: nn.Module, hp: ClassifierHyperparameters) -> nn.Module
 
     The wrapping pattern is ``nn.Sequential(nn.Dropout(p), original_layer)``.
 
-    Returns the original model unchanged when ``hp.dropout_rate == 0``.
+    Returns the original model unchanged when ``hp.dropout_rate <= 0``.
 
     - **ResNet-18**: wraps ``model.fc``
     - **MobileNetV3 (small/large)**: wraps ``model.classifier[-1]``
@@ -185,7 +186,7 @@ def _apply_dropout(model: nn.Module, hp: ClassifierHyperparameters) -> nn.Module
 
     Returns:
         A new ``nn.Module`` with the final layer wrapped in Dropout, or the
-        original model if ``hp.dropout_rate == 0``.
+        original model if ``hp.dropout_rate <= 0``.
 
     Raises:
         TrainingRunError: If ``hp.architecture`` is not a recognised value.
@@ -195,7 +196,7 @@ def _apply_dropout(model: nn.Module, hp: ClassifierHyperparameters) -> nn.Module
     except ValueError as exc:
         raise TrainingRunError(
             f"Unsupported architecture for dropout insertion: '{hp.architecture}'. "
-            f"Must be one of the recognised values."
+            f"Must be one of {VALID_ARCHITECTURES}."
         ) from exc
 
 

@@ -412,11 +412,20 @@ class TestGetInferenceTransform:
     def test_output_is_normalized(self, rgb_crop: PILImage.Image) -> None:
         """After normalization, values can be negative (unlike raw pixels)."""
         transform = _get_inference_transform()
-        tensor = transform(rgb_crop)
-        # After ImageNet normalization, values can exceed [0, 1]
-        # A constant 128/255 ≈ 0.502 image should produce values near
-        # (0.502 - mean) / std, some of which can be negative
-        assert tensor.min().item() < 1.0  # at least some non-trivial normalization
+        # After ImageNet normalization a constant 128/255 ≈ 0.502 image produces
+        # values near (0.502 - mean) / std; the blue channel mean is 0.406 so its
+        # normalized value is positive, but the red channel mean is 0.485 which
+        # is close to 0.502, however the green channel mean is 0.456 giving
+        # (0.502-0.456)/0.224 ≈ +0.2 — the key property is that *some* channel
+        # values go negative (red: (0.502-0.485)/0.229 ≈ +0.07 is positive, but
+        # a slightly different constant image would produce negatives).  A simpler
+        # and robust check: use a dark pixel (0/255 = 0.0); after normalization,
+        # (0.0 - mean) / std is negative for all ImageNet channel means.
+        dark = PILImage.new("RGB", rgb_crop.size, color=(0, 0, 0))
+        dark_tensor = transform(dark)
+        assert (
+            dark_tensor.min().item() < 0
+        )  # ImageNet-normalized zero pixel is negative
 
     def test_custom_input_size_produces_correct_tensor_shape(self) -> None:
         """Custom input_size should produce a (3, input_size, input_size) tensor."""
@@ -511,7 +520,9 @@ class TestLoadMetadata:
     """Tests for _load_metadata (reads metadata.json adjacent to weights)."""
 
     def test_happy_path_returns_dict(
-        self, fake_weights: Path, fake_metadata: dict[str, Any]
+        self,
+        fake_weights: Path,
+        fake_metadata: dict[str, Any],  # pylint: disable=unused-argument  # fixture used for side-effects (writes metadata.json)
     ) -> None:
         """_load_metadata should return the parsed dict when file exists."""
         result = _load_metadata(fake_weights)
@@ -541,7 +552,9 @@ class TestLoadMetadata:
             _load_metadata(fake_weights)
 
     def test_resolves_correct_path(
-        self, fake_weights: Path, fake_metadata: dict[str, Any]
+        self,
+        fake_weights: Path,
+        fake_metadata: dict[str, Any],  # pylint: disable=unused-argument  # fixture used for side-effects (writes metadata.json)
     ) -> None:
         """metadata.json should be resolved as weights_path.parent.parent / 'metadata.json'."""
         expected_meta_path = fake_weights.parent.parent / "metadata.json"
@@ -660,13 +673,13 @@ class TestLoadModelCached:
 
     @patch("src.inference.classification._build_model_from_metadata")
     @patch("src.inference.classification._load_metadata")
-    def test_relative_and_absolute_paths_share_cache(
+    def test_str_and_path_coercion_share_cache(
         self,
         mock_meta: MagicMock,
         mock_build: MagicMock,
         fake_weights: Path,
     ) -> None:
-        """Equivalent absolute paths should share the same cached entry."""
+        """str and Path inputs for the same weights file should share the same cached entry."""
         mock_meta.return_value = {"hyperparameters": {}}
         mock_model = MagicMock(spec=nn.Module)
         mock_build.return_value = mock_model

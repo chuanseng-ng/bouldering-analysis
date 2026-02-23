@@ -64,9 +64,9 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Detection Training Loop | ✅ | PR-3.3 | - |
 | └─ Detection Inference | ✅ | PR-3.4 | 94% |
 | 4. Hold Classification | **Completed** | PR-4.x | - |
-| ├─ Classification Dataset Schema | ✅ | PR-4.1 | - |
-| ├─ Classification Model Definition | ✅ | PR-4.2 | - |
-| ├─ Omit Dropout from Model Builder | ✅ | PR-4.3 | - |
+| ├─ Hold Crop Generator | ✅ | PR-4.1 | - |
+| ├─ Classification Dataset Loader | ✅ | PR-4.2 | - |
+| ├─ Hold Classifier Model | ✅ | PR-4.3 | - |
 | ├─ Classification Training Loop | ✅ | PR-4.4 | 97% |
 | └─ Classification Inference | ✅ | PR-4.5 | - |
 | 5. Route Graph | Pending | PR-5.x | - |
