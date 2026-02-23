@@ -299,7 +299,7 @@ Agent types invoked via Task tool (e.g., `everything-claude-code:<name>` or `~/.
 
 1. **planner** — before writing code (all PRs touching > 1 file)
 2. **tdd-guide** — after planning, before implementation
-3. **database-reviewer** — when Supabase schema/SQL touched; complete before steps 4–6
+3. **database-reviewer** — when Supabase schema/SQL is touched; complete before steps 4–6
 4. **python-reviewer** } run in parallel
 5. **code-reviewer**    }
 6. **security-reviewer** }
