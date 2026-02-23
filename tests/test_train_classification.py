@@ -443,13 +443,13 @@ class TestApplyDropout:  # pylint: disable=too-many-public-methods
         assert isinstance(last_layer, nn.Sequential)
         assert isinstance(last_layer[0], nn.Dropout)
 
-    def test_unsupported_architecture_raises_value_error(
+    def test_unsupported_architecture_raises_training_run_error(
         self, minimal_resnet: nn.Module
     ) -> None:
-        """_apply_dropout raises ValueError for unknown architecture."""
+        """_apply_dropout raises TrainingRunError for unknown architecture."""
         hp = ClassifierHyperparameters(architecture="resnet18", dropout_rate=0.2)
         object.__setattr__(hp, "architecture", "efficientnet_b0")
-        with pytest.raises(ValueError):
+        with pytest.raises(TrainingRunError):
             _apply_dropout(minimal_resnet, hp)
 
     def test_returns_nn_module(self, minimal_resnet: nn.Module) -> None:

@@ -115,7 +115,8 @@ bouldering-analysis/
 │   │   └── train_detection.py
 │   ├── inference/
 │   │   ├── detection.py          # Hold detection inference
-│   │   └── classification.py     # Hold type classification
+│   │   ├── classification.py     # Hold type classification
+│   │   └── crop_extractor.py     # HoldCrop type / crop extraction utilities
 │   └── archive/legacy/           # Reference only — do not import
 ├── tests/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings

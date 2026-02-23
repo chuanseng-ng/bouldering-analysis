@@ -190,7 +190,13 @@ def _apply_dropout(model: nn.Module, hp: ClassifierHyperparameters) -> nn.Module
     Raises:
         TrainingRunError: If ``hp.architecture`` is not a recognised value.
     """
-    return apply_classifier_dropout(model, hp.architecture, hp.dropout_rate)
+    try:
+        return apply_classifier_dropout(model, hp.architecture, hp.dropout_rate)
+    except ValueError as exc:
+        raise TrainingRunError(
+            f"Unsupported architecture for dropout insertion: '{hp.architecture}'. "
+            f"Must be one of the recognised values."
+        ) from exc
 
 
 def _build_transforms(

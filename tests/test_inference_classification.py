@@ -356,7 +356,7 @@ class TestToPilImage:
         result = _to_pil_image(rgb_crop)
         assert result.mode == "RGB"
 
-    def test_hold_crop_grayscale_converted(self, rgb_crop: PILImage.Image) -> None:
+    def test_hold_crop_grayscale_converted(self) -> None:
         """HoldCrop with a grayscale crop should produce an RGB result."""
         gray_img = PILImage.new("L", (224, 224), color=100)
         hold = DetectedHold(
@@ -727,13 +727,7 @@ class TestClearModelCache:
         _clear_model_cache()
         assert resolved not in _INPUT_SIZE_CACHE
 
-    @patch("src.inference.classification._build_model_from_metadata")
-    @patch("src.inference.classification._load_metadata")
-    def test_clear_empty_cache_is_safe(
-        self,
-        mock_meta: MagicMock,
-        mock_build: MagicMock,
-    ) -> None:
+    def test_clear_empty_cache_is_safe(self) -> None:
         """Clearing an already-empty cache should not raise."""
         _clear_model_cache()  # should not raise
         _clear_model_cache()  # second clear also safe

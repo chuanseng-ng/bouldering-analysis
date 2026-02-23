@@ -545,8 +545,8 @@ These endpoints must be implemented in the backend to support the frontend:
 | `POST /api/v1/routes/upload` | POST | Upload route image | ✅ Completed (PR-2.1) |
 | `POST /api/v1/routes` | POST | Create route record | ✅ Completed (PR-2.2) |
 | `GET /api/v1/routes/{id}` | GET | Get route details | Pending |
-| `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | ✅ Completed (PR-3.x, PR-4.x) |
-| `GET /api/v1/routes/{id}/holds` | GET | Get detected holds | ✅ Completed (PR-3.4, PR-4.5) |
+| `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | Pending |
+| `GET /api/v1/routes/{id}/holds` | GET | Get detected holds | Pending |
 | `PUT /api/v1/routes/{id}/constraints` | PUT | Set start/finish holds | Pending (PR-5.x) |
 | `GET /api/v1/routes/{id}/prediction` | GET | Get grade prediction | Pending (PR-7.x) |
 | `POST /api/v1/routes/{id}/feedback` | POST | Submit user feedback | Pending |
@@ -737,6 +737,6 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
-- **2026-02-23**: Updated endpoint statuses to reflect Phase 1 (M1+M2) and Phase 2 (M3+M4) completion; marked POST /api/v1/routes/upload, POST /api/v1/routes, POST /api/v1/routes/{id}/analyze, and GET /api/v1/routes/{id}/holds as Completed
+- **2026-02-23**: Updated endpoint statuses to reflect Phase 1 (M1+M2) and Phase 2 (M3+M4) completion; marked POST /api/v1/routes/upload and POST /api/v1/routes as Completed; corrected POST /api/v1/routes/{id}/analyze and GET /api/v1/routes/{id}/holds back to Pending (HTTP handlers not yet implemented)
 - **2026-02-21**: Added "Agent Reviews" quality gate (item 7) and "Agent Requirements Per PR" section with mandatory/conditional agent tables and parallel execution rule
 - **2026-01-14**: Initial migration plan created
