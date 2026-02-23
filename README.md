@@ -279,11 +279,21 @@ bouldering-analysis/
 │   └── archive/legacy/           # Legacy code (reference)
 ├── tests/                        # Test suite (97% coverage)
 │   ├── test_app.py               # Application tests
+│   ├── test_config.py            # Configuration tests
+│   ├── test_health.py            # Health endpoint tests
+│   ├── test_routes.py            # Route module tests
 │   ├── test_supabase_client.py   # Supabase client tests
 │   ├── test_upload.py            # Upload endpoint tests
+│   ├── test_logging_config.py    # Logging config tests
+│   ├── test_classification_dataset.py    # Classification dataset tests
+│   ├── test_classification_model.py      # Classification model tests
+│   ├── test_detection_model.py           # Detection model tests
+│   ├── test_training_datasets.py         # Training dataset tests
+│   ├── test_train_classification.py      # Classification training tests
+│   ├── test_train_detection.py           # Detection training tests
 │   ├── test_inference_detection.py       # Detection inference tests
 │   ├── test_inference_classification.py  # Classification inference tests
-│   ├── test_train_classification.py      # Classification training tests
+│   ├── test_inference_crop_extractor.py  # Crop extractor inference tests
 │   └── conftest.py               # Pytest fixtures
 ├── docs/                         # Documentation
 │   ├── DESIGN.md                 # Architecture spec
