@@ -27,6 +27,7 @@ class Settings(BaseSettings):
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
         supabase_url: Supabase project URL (required for database operations).
         supabase_key: Supabase API key (required for database operations).
+        supabase_timeout_seconds: Supabase PostgREST request timeout in seconds.
         max_upload_size_mb: Maximum allowed file upload size in megabytes.
         storage_bucket: Name of the Supabase Storage bucket for route images.
         allowed_image_types: List of allowed MIME types for image uploads.
@@ -40,6 +41,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     supabase_url: str = ""
     supabase_key: str = ""
+    supabase_timeout_seconds: int = 10
 
     # Upload configuration
     max_upload_size_mb: int = 10

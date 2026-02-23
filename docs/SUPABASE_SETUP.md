@@ -195,6 +195,35 @@ CREATE TRIGGER update_routes_updated_at
    - Navigate to "Table Editor" in the left sidebar
    - You should see the `routes` table listed
 
+1. **Verify the `updated_at` trigger exists**:
+
+   In the SQL Editor, run:
+
+   ```sql
+   SELECT tgname, tgrelid::regclass
+   FROM pg_trigger
+   WHERE tgname = 'update_routes_updated_at';
+   ```
+
+   - If this query **returns one row**, the trigger was created successfully.
+   - If it **returns no rows**, the auto-update trigger was not created. Re-run the
+     trigger creation SQL from the routes table setup section above:
+
+   ```sql
+   CREATE OR REPLACE FUNCTION update_updated_at_column()
+   RETURNS TRIGGER AS $$
+   BEGIN
+       NEW.updated_at = NOW();
+       RETURN NEW;
+   END;
+   $$ LANGUAGE plpgsql;
+
+   CREATE TRIGGER update_routes_updated_at
+       BEFORE UPDATE ON routes
+       FOR EACH ROW
+       EXECUTE FUNCTION update_updated_at_column();
+   ```
+
 ### Table Schema Reference
 
 | Column | Type | Default | Description |

@@ -72,6 +72,18 @@ def app_settings(app: FastAPI) -> Settings:
     return settings
 
 
+@pytest.fixture(autouse=True)
+def _clear_supabase_cache() -> Generator[None, None, None]:
+    """Clear the Supabase client lru_cache before and after every test.
+
+    Yields:
+        None
+    """
+    get_supabase_client.cache_clear()
+    yield
+    get_supabase_client.cache_clear()
+
+
 @pytest.fixture
 def mock_supabase_client() -> Generator[tuple[MagicMock, MagicMock], None, None]:
     """Provide mocked Supabase client with bucket for storage tests.

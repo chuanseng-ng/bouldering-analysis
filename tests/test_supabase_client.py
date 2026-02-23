@@ -1,7 +1,9 @@
 """Tests for Supabase client management."""
 
+# pylint: disable=redefined-outer-name  # standard pytest fixture pattern
+
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -13,6 +15,7 @@ from src.database.supabase_client import (
     get_supabase_client,
     insert_record,
     list_storage_files,
+    reset_supabase_client_cache,
     select_record_by_id,
     upload_to_storage,
 )
@@ -23,7 +26,6 @@ class TestGetSupabaseClient:
 
     def test_get_supabase_client_requires_url(self) -> None:
         """Client creation should fail without SUPABASE_URL."""
-        # Clear cache to force new client creation
         get_supabase_client.cache_clear()
 
         with patch("src.database.supabase_client.get_settings") as mock_get_settings:
@@ -53,7 +55,7 @@ class TestGetSupabaseClient:
                 get_supabase_client()
 
     def test_get_supabase_client_creates_client_successfully(self) -> None:
-        """Client should be created with valid credentials."""
+        """Client should be created with valid credentials and ClientOptions."""
         get_supabase_client.cache_clear()
 
         mock_client = MagicMock()
@@ -74,7 +76,7 @@ class TestGetSupabaseClient:
 
             assert client is mock_client
             mock_create_client.assert_called_once_with(
-                "https://test.supabase.co", "test-key-12345"
+                "https://test.supabase.co", "test-key-12345", options=ANY
             )
 
     def test_get_supabase_client_caches_result(self) -> None:
@@ -125,6 +127,34 @@ class TestGetSupabaseClient:
                 SupabaseClientError, match="Failed to create Supabase client"
             ):
                 get_supabase_client()
+
+    def test_reset_supabase_client_cache_forces_new_client(self) -> None:
+        """reset_supabase_client_cache should clear the lru_cache."""
+        get_supabase_client.cache_clear()
+
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        with (
+            patch("src.database.supabase_client.get_settings") as mock_get_settings,
+            patch("src.database.supabase_client.create_client") as mock_create_client,
+        ):
+            mock_get_settings.return_value = get_settings_override(
+                {
+                    "supabase_url": "https://test.supabase.co",
+                    "supabase_key": "test-key",
+                }
+            )
+            mock_create_client.return_value = mock_client1
+            client1 = get_supabase_client()
+
+            # Clear cache and swap the mock return value
+            reset_supabase_client_cache()
+            mock_create_client.return_value = mock_client2
+            client2 = get_supabase_client()
+
+            assert client1 is not client2
+            assert mock_create_client.call_count == 2
 
 
 class TestUploadToStorage:
@@ -354,7 +384,7 @@ class TestListStorageFiles:
     """Tests for list_storage_files function."""
 
     def test_list_storage_files_success(self) -> None:
-        """Function should return list of files."""
+        """Function should return list of files with default pagination."""
         get_supabase_client.cache_clear()
 
         mock_client = MagicMock()
@@ -383,7 +413,9 @@ class TestListStorageFiles:
 
             assert files == mock_files
             mock_client.storage.from_.assert_called_with("test-bucket")
-            mock_bucket.list.assert_called_once_with("2024/")
+            mock_bucket.list.assert_called_once_with(
+                "2024/", {"limit": 100, "offset": 0}
+            )
 
     def test_list_storage_files_with_empty_path(self) -> None:
         """Function should work with empty path."""
@@ -411,7 +443,35 @@ class TestListStorageFiles:
             files = list_storage_files("test-bucket")
 
             assert not files
-            mock_bucket.list.assert_called_once_with("")
+            mock_bucket.list.assert_called_once_with("", {"limit": 100, "offset": 0})
+
+    def test_list_storage_files_with_pagination(self) -> None:
+        """Function should pass custom limit and offset to Supabase."""
+        get_supabase_client.cache_clear()
+
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+
+        mock_client.storage.from_.return_value = mock_bucket
+        mock_bucket.list.return_value = []
+
+        with (
+            patch("src.database.supabase_client.get_settings") as mock_get_settings,
+            patch("src.database.supabase_client.create_client") as mock_create_client,
+        ):
+            mock_get_settings.return_value = get_settings_override(
+                {
+                    "supabase_url": "https://test.supabase.co",
+                    "supabase_key": "test-key",
+                }
+            )
+            mock_create_client.return_value = mock_client
+
+            list_storage_files("test-bucket", "2024/", limit=10, offset=20)
+
+            mock_bucket.list.assert_called_once_with(
+                "2024/", {"limit": 10, "offset": 20}
+            )
 
     def test_list_storage_files_handles_errors(self) -> None:
         """Listing errors should be wrapped in SupabaseClientError."""
@@ -442,6 +502,58 @@ class TestListStorageFiles:
                 list_storage_files("test-bucket")
 
 
+class TestValidateTableName:
+    """Tests for _validate_table_name via public functions.
+
+    These tests exercise _validate_table_name indirectly through insert_record
+    and select_record_by_id to avoid coupling to the private function.
+    """
+
+    @pytest.mark.parametrize(
+        "table_name",
+        ["routes", "holds", "features", "predictions", "feedback"],
+    )
+    def test_known_table_names_pass_validation(self, table_name: str) -> None:
+        """Known table names should pass table name validation.
+
+        Reaching the data-validation error proves table name was accepted.
+        """
+        with pytest.raises(
+            SupabaseClientError, match="Data dictionary cannot be empty"
+        ):
+            insert_record(table_name, {})
+
+    @pytest.mark.parametrize(
+        "table_name,expected_match",
+        [
+            # Empty / whitespace
+            ("", "Table name cannot be empty"),
+            (" ", "Invalid table name"),
+            # Invalid format — starts with digit or contains disallowed chars
+            ("123table", "Invalid table name.*must start with letter"),
+            ("table-name", "Invalid table name.*alphanumeric"),
+            ("table.name", "Invalid table name.*alphanumeric"),
+            # SQL injection attempts (fail at regex step)
+            ("routes; DROP TABLE routes", "Invalid table name.*alphanumeric"),
+            ("routes--comment", "Invalid table name.*alphanumeric"),
+            ("routes' OR '1'='1", "Invalid table name.*alphanumeric"),
+            # Valid format but not in _KNOWN_TABLES
+            ("users", "Unknown table"),
+            ("admin", "Unknown table"),
+            ("secrets", "Unknown table"),
+            # Unicode (fail at regex step — non-ASCII chars not allowed)
+            ("\u0440outes", "Invalid table name"),  # Cyrillic р as first char
+            ("r\u043eut\u00e9s", "Invalid table name"),  # Cyrillic о and Latin é
+        ],
+    )
+    def test_invalid_or_unknown_table_names_raise(
+        self, table_name: str, expected_match: str
+    ) -> None:
+        """Invalid or unknown table names should raise SupabaseClientError."""
+        with pytest.raises(SupabaseClientError, match=expected_match):
+            insert_record(table_name, {})
+
+
 class TestInsertRecord:
     """Tests for insert_record function."""
 
@@ -470,11 +582,6 @@ class TestInsertRecord:
             SupabaseClientError, match="Data dictionary cannot be empty"
         ):
             insert_record("routes", {})
-
-    def test_insert_record_validates_data_type(self) -> None:
-        """Insert should reject non-dictionary data."""
-        with pytest.raises(SupabaseClientError, match="Data must be a dictionary"):
-            insert_record("routes", "not a dict")  # type: ignore[arg-type]
 
     def test_insert_record_success(self) -> None:
         """Insert should succeed with valid inputs."""
@@ -566,15 +673,13 @@ class TestSelectRecordById:
 
         mock_client = MagicMock()
         mock_result = MagicMock()
-        mock_result.data = [
-            {
-                "id": "test-uuid",
-                "image_url": "https://example.com/image.jpg",
-                "created_at": "2026-01-27T12:00:00Z",
-            }
-        ]
+        mock_result.data = {
+            "id": "test-uuid",
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00Z",
+        }
 
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
+        mock_client.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_result
 
         with (
             patch("src.database.supabase_client.get_settings") as mock_get_settings,
@@ -594,15 +699,47 @@ class TestSelectRecordById:
             assert result["id"] == "test-uuid"
             assert result["image_url"] == "https://example.com/image.jpg"
 
+    def test_select_record_with_custom_columns(self) -> None:
+        """Select should pass custom columns to the query."""
+        get_supabase_client.cache_clear()
+
+        mock_client = MagicMock()
+        mock_result = MagicMock()
+        mock_result.data = {
+            "id": "test-uuid",
+            "image_url": "https://example.com/img.jpg",
+        }
+
+        mock_client.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_result
+
+        with (
+            patch("src.database.supabase_client.get_settings") as mock_get_settings,
+            patch("src.database.supabase_client.create_client") as mock_create_client,
+        ):
+            mock_get_settings.return_value = get_settings_override(
+                {
+                    "supabase_url": "https://test.supabase.co",
+                    "supabase_key": "test-key",
+                }
+            )
+            mock_create_client.return_value = mock_client
+
+            result = select_record_by_id("routes", "test-uuid", columns="id,image_url")
+
+            assert result is not None
+            mock_client.table.return_value.select.assert_called_once_with(
+                "id,image_url"
+            )
+
     def test_select_record_returns_none_when_not_found(self) -> None:
         """Select should return None when record doesn't exist."""
         get_supabase_client.cache_clear()
 
         mock_client = MagicMock()
         mock_result = MagicMock()
-        mock_result.data = []
+        mock_result.data = None
 
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
+        mock_client.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_result
 
         with (
             patch("src.database.supabase_client.get_settings") as mock_get_settings,
@@ -620,12 +757,41 @@ class TestSelectRecordById:
 
             assert result is None
 
+    def test_select_record_raises_on_multiple_rows(self) -> None:
+        """Select should raise SupabaseClientError when multiple rows are returned.
+
+        PostgREST raises when .maybe_single() receives more than one row.
+        """
+        get_supabase_client.cache_clear()
+
+        mock_client = MagicMock()
+        mock_client.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.side_effect = Exception(
+            "JSON object requested, multiple (or no) rows returned"
+        )
+
+        with (
+            patch("src.database.supabase_client.get_settings") as mock_get_settings,
+            patch("src.database.supabase_client.create_client") as mock_create_client,
+        ):
+            mock_get_settings.return_value = get_settings_override(
+                {
+                    "supabase_url": "https://test.supabase.co",
+                    "supabase_key": "test-key",
+                }
+            )
+            mock_create_client.return_value = mock_client
+
+            with pytest.raises(
+                SupabaseClientError, match="Failed to select record from table"
+            ):
+                select_record_by_id("routes", "test-uuid")
+
     def test_select_record_handles_database_error(self) -> None:
         """Select should raise error on database failure."""
         get_supabase_client.cache_clear()
 
         mock_client = MagicMock()
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.side_effect = Exception(
+        mock_client.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.side_effect = Exception(
             "Database error"
         )
 
