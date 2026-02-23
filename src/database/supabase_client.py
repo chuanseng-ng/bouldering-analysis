@@ -224,8 +224,8 @@ def list_storage_files(
     client = get_supabase_client()
 
     with _supabase_op(f"Failed to list files in bucket '{bucket}'"):
-        result: list[dict[str, Any]] = list(
-            client.storage.from_(bucket).list(path, {"limit": limit, "offset": offset})
+        result: list[dict[str, Any]] = client.storage.from_(bucket).list(
+            path, {"limit": limit, "offset": offset}
         )
         return result
 

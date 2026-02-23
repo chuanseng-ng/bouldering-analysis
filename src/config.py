@@ -55,6 +55,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @field_validator("supabase_timeout_seconds")
+    @classmethod
+    def validate_timeout(cls, v: int) -> int:
+        """Validate timeout is a positive integer."""
+        if v <= 0:
+            raise ValueError("supabase_timeout_seconds must be a positive integer")
+        return v
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:

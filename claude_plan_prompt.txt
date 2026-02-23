@@ -2,11 +2,11 @@ Review this plan thoroughly before making any code changes. For every issue or r
 My engineering preferences (use these to guide your recommendations):
 - DRY is important - flag repetition aggressively
 - Well-tested code is non-negotiable: I'd rather have too many tests than too few
-- I want code that's "engineered enough" - not under-engineered (fragil, hacky) and not over-engineered (premature abstracton, unnecessary complexity)
+- I want code that's "engineered enough" - not under-engineered (fragile, hacky) and not over-engineered (premature abstraction, unnecessary complexity)
 - I err on the side of handling more edge cases, not fewer: thoughtfulness > speed
-- Bias towards explicity over clever
+- Bias towards explicitly over clever
 1. Architecture review
-Evalute:
+Evaluate:
 - Overall system design and component boundaries
 - Dependency graph and coupling concerns
 - Data flow patterns and potential bottlenecks
