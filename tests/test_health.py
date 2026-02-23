@@ -1,13 +1,14 @@
 """Tests for health check endpoint and response model."""
 
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from src.config import Settings
-from src.routes.health import HealthResponse
+from src.routes.health import DbHealthResponse, HealthResponse
 
 
 class TestHealthResponse:
@@ -120,3 +121,97 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+
+
+class TestDbHealthResponse:
+    """Tests for DbHealthResponse model."""
+
+    def test_db_health_response_valid_healthy(self) -> None:
+        """Should accept 'healthy' status."""
+        response = DbHealthResponse(
+            status="healthy",
+            version="1.0.0",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert response.status == "healthy"
+
+    def test_db_health_response_valid_degraded(self) -> None:
+        """Should accept 'degraded' status."""
+        response = DbHealthResponse(
+            status="degraded",
+            version="1.0.0",
+            timestamp=datetime.now(timezone.utc),
+        )
+        assert response.status == "degraded"
+
+    def test_db_health_response_rejects_unhealthy(self) -> None:
+        """DbHealthResponse should not accept 'unhealthy' (only healthy/degraded)."""
+        with pytest.raises(ValidationError):
+            DbHealthResponse(
+                status="unhealthy",  # type: ignore[arg-type]
+                version="1.0.0",
+                timestamp=datetime.now(timezone.utc),
+            )
+
+
+class TestDbHealthEndpoint:
+    """Integration tests for the database health check endpoint."""
+
+    @patch("src.routes.health.get_supabase_client")
+    def test_db_health_returns_healthy_when_supabase_reachable(
+        self, mock_get_client: MagicMock, client: TestClient
+    ) -> None:
+        """DB health endpoint should return 'healthy' when Supabase responds."""
+        mock_supabase = MagicMock()
+        mock_get_client.return_value = mock_supabase
+        mock_supabase.table.return_value.select.return_value.limit.return_value.execute.return_value = MagicMock()
+
+        response = client.get("/api/v1/health/db")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert "version" in data
+        assert "timestamp" in data
+
+    @patch("src.routes.health.get_supabase_client")
+    def test_db_health_returns_degraded_when_supabase_unreachable(
+        self, mock_get_client: MagicMock, client: TestClient
+    ) -> None:
+        """DB health endpoint should return 'degraded' when Supabase fails."""
+        mock_get_client.side_effect = Exception("Connection refused")
+
+        response = client.get("/api/v1/health/db")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+
+    @patch("src.routes.health.get_supabase_client")
+    def test_db_health_returns_degraded_when_query_fails(
+        self, mock_get_client: MagicMock, client: TestClient
+    ) -> None:
+        """DB health endpoint should return 'degraded' when the DB query fails."""
+        mock_supabase = MagicMock()
+        mock_get_client.return_value = mock_supabase
+        mock_supabase.table.return_value.select.return_value.limit.return_value.execute.side_effect = Exception(
+            "Table not found"
+        )
+
+        response = client.get("/api/v1/health/db")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+
+    @patch("src.routes.health.get_supabase_client")
+    def test_db_health_versioned_endpoint_accessible(
+        self, mock_get_client: MagicMock, client: TestClient
+    ) -> None:
+        """DB health check should be accessible at /api/v1/health/db."""
+        mock_supabase = MagicMock()
+        mock_get_client.return_value = mock_supabase
+        mock_supabase.table.return_value.select.return_value.limit.return_value.execute.return_value = MagicMock()
+
+        response = client.get("/api/v1/health/db")
+        assert response.status_code == 200

@@ -10,6 +10,7 @@ import pytest
 from src.config import get_settings_override
 from src.database.supabase_client import (
     SupabaseClientError,
+    _KNOWN_BUCKETS,
     delete_from_storage,
     get_storage_url,
     get_supabase_client,
@@ -186,14 +187,14 @@ class TestUploadToStorage:
 
             file_data = b"test image data"
             url = upload_to_storage(
-                "test-bucket", "path/to/file.jpg", file_data, "image/jpeg"
+                "route-images", "path/to/file.jpg", file_data, "image/jpeg"
             )
 
             assert (
                 url
                 == "https://test.supabase.co/storage/v1/object/public/bucket/file.jpg"
             )
-            mock_client.storage.from_.assert_called_with("test-bucket")
+            mock_client.storage.from_.assert_called_with("route-images")
             mock_bucket.upload.assert_called_once_with(
                 path="path/to/file.jpg",
                 file=file_data,
@@ -224,7 +225,7 @@ class TestUploadToStorage:
             mock_create_client.return_value = mock_client
 
             file_data = b"test data"
-            url = upload_to_storage("test-bucket", "file.jpg", file_data)
+            url = upload_to_storage("route-images", "file.jpg", file_data)
 
             assert url == "https://test.url/file.jpg"
             mock_bucket.upload.assert_called_once_with(
@@ -257,9 +258,9 @@ class TestUploadToStorage:
 
             with pytest.raises(
                 SupabaseClientError,
-                match="Failed to upload file to bucket 'test-bucket'",
+                match="Failed to upload file to bucket 'route-images'",
             ):
-                upload_to_storage("test-bucket", "file.jpg", b"data")
+                upload_to_storage("route-images", "file.jpg", b"data")
 
 
 class TestDeleteFromStorage:
@@ -286,9 +287,9 @@ class TestDeleteFromStorage:
             )
             mock_create_client.return_value = mock_client
 
-            delete_from_storage("test-bucket", "path/to/file.jpg")
+            delete_from_storage("route-images", "path/to/file.jpg")
 
-            mock_client.storage.from_.assert_called_with("test-bucket")
+            mock_client.storage.from_.assert_called_with("route-images")
             mock_bucket.remove.assert_called_once_with(["path/to/file.jpg"])
 
     def test_delete_from_storage_handles_errors(self) -> None:
@@ -315,9 +316,9 @@ class TestDeleteFromStorage:
 
             with pytest.raises(
                 SupabaseClientError,
-                match="Failed to delete file from bucket 'test-bucket'",
+                match="Failed to delete file from bucket 'route-images'",
             ):
-                delete_from_storage("test-bucket", "file.jpg")
+                delete_from_storage("route-images", "file.jpg")
 
 
 class TestGetStorageUrl:
@@ -345,10 +346,10 @@ class TestGetStorageUrl:
             )
             mock_create_client.return_value = mock_client
 
-            url = get_storage_url("test-bucket", "path/to/file.jpg")
+            url = get_storage_url("route-images", "path/to/file.jpg")
 
             assert url == "https://test.url/file.jpg"
-            mock_client.storage.from_.assert_called_with("test-bucket")
+            mock_client.storage.from_.assert_called_with("route-images")
             mock_bucket.get_public_url.assert_called_once_with("path/to/file.jpg")
 
     def test_get_storage_url_handles_errors(self) -> None:
@@ -375,9 +376,9 @@ class TestGetStorageUrl:
 
             with pytest.raises(
                 SupabaseClientError,
-                match="Failed to get URL for file in bucket 'test-bucket'",
+                match="Failed to get URL for file in bucket 'route-images'",
             ):
-                get_storage_url("test-bucket", "file.jpg")
+                get_storage_url("route-images", "file.jpg")
 
 
 class TestListStorageFiles:
@@ -409,10 +410,10 @@ class TestListStorageFiles:
             )
             mock_create_client.return_value = mock_client
 
-            files = list_storage_files("test-bucket", "2024/")
+            files = list_storage_files("route-images", "2024/")
 
             assert files == mock_files
-            mock_client.storage.from_.assert_called_with("test-bucket")
+            mock_client.storage.from_.assert_called_with("route-images")
             mock_bucket.list.assert_called_once_with(
                 "2024/", {"limit": 100, "offset": 0}
             )
@@ -440,7 +441,7 @@ class TestListStorageFiles:
             )
             mock_create_client.return_value = mock_client
 
-            files = list_storage_files("test-bucket")
+            files = list_storage_files("route-images")
 
             assert not files
             mock_bucket.list.assert_called_once_with("", {"limit": 100, "offset": 0})
@@ -467,7 +468,7 @@ class TestListStorageFiles:
             )
             mock_create_client.return_value = mock_client
 
-            list_storage_files("test-bucket", "2024/", limit=10, offset=20)
+            list_storage_files("route-images", "2024/", limit=10, offset=20)
 
             mock_bucket.list.assert_called_once_with(
                 "2024/", {"limit": 10, "offset": 20}
@@ -497,9 +498,9 @@ class TestListStorageFiles:
 
             with pytest.raises(
                 SupabaseClientError,
-                match="Failed to list files in bucket 'test-bucket'",
+                match="Failed to list files in bucket 'route-images'",
             ):
-                list_storage_files("test-bucket")
+                list_storage_files("route-images")
 
 
 class TestValidateTableName:
@@ -554,6 +555,68 @@ class TestValidateTableName:
             insert_record(table_name, {})
 
 
+class TestValidateBucketName:
+    """Tests for _validate_bucket_name via public storage functions.
+
+    These tests exercise _validate_bucket_name indirectly through
+    upload_to_storage to avoid coupling to the private function.
+    """
+
+    @pytest.mark.parametrize("bucket_name", list(_KNOWN_BUCKETS))
+    def test_known_bucket_names_pass_validation(self, bucket_name: str) -> None:
+        """Known bucket names should pass validation and reach the upload step.
+
+        A SupabaseClientError from the missing Supabase client proves the bucket
+        name was accepted (validation did not raise first).
+        """
+        get_supabase_client.cache_clear()
+
+        with patch("src.database.supabase_client.get_settings") as mock_get_settings:
+            mock_get_settings.return_value = get_settings_override(
+                {"supabase_url": "", "supabase_key": ""}
+            )
+            with pytest.raises(SupabaseClientError, match="SUPABASE_URL"):
+                upload_to_storage(bucket_name, "file.jpg", b"data")
+
+    @pytest.mark.parametrize(
+        "bucket_name,expected_match",
+        [
+            # Empty
+            ("", "Bucket name cannot be empty"),
+            # Invalid format — uppercase or starts with digit
+            ("Route-Images", "Invalid bucket name"),
+            ("1bucket", "Invalid bucket name"),
+            ("bucket_name", "Invalid bucket name"),
+            ("UPPERCASE", "Invalid bucket name"),
+            # Valid format but not in _KNOWN_BUCKETS
+            ("my-bucket", "Unknown bucket"),
+            ("uploads", "Unknown bucket"),
+            ("images", "Unknown bucket"),
+        ],
+    )
+    def test_invalid_or_unknown_bucket_names_raise(
+        self, bucket_name: str, expected_match: str
+    ) -> None:
+        """Invalid or unknown bucket names should raise SupabaseClientError."""
+        with pytest.raises(SupabaseClientError, match=expected_match):
+            upload_to_storage(bucket_name, "file.jpg", b"data")
+
+    def test_bucket_validation_applies_to_delete(self) -> None:
+        """_validate_bucket_name should also guard delete_from_storage."""
+        with pytest.raises(SupabaseClientError, match="Unknown bucket"):
+            delete_from_storage("not-a-bucket", "file.jpg")
+
+    def test_bucket_validation_applies_to_get_url(self) -> None:
+        """_validate_bucket_name should also guard get_storage_url."""
+        with pytest.raises(SupabaseClientError, match="Unknown bucket"):
+            get_storage_url("not-a-bucket", "file.jpg")
+
+    def test_bucket_validation_applies_to_list(self) -> None:
+        """_validate_bucket_name should also guard list_storage_files."""
+        with pytest.raises(SupabaseClientError, match="Unknown bucket"):
+            list_storage_files("not-a-bucket")
+
+
 class TestInsertRecord:
     """Tests for insert_record function."""
 
@@ -591,7 +654,7 @@ class TestInsertRecord:
         mock_result = MagicMock()
         mock_result.data = [
             {
-                "id": "test-uuid",
+                "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
                 "image_url": "https://example.com/image.jpg",
                 "created_at": "2026-01-27T12:00:00Z",
             }
@@ -617,8 +680,35 @@ class TestInsertRecord:
                 "routes", {"image_url": "https://example.com/image.jpg"}
             )
 
-            assert result["id"] == "test-uuid"
+            assert result["id"] == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
             assert result["image_url"] == "https://example.com/image.jpg"
+
+    def test_insert_record_raises_when_no_data_returned(self) -> None:
+        """Insert should raise SupabaseClientError when result.data is empty."""
+        get_supabase_client.cache_clear()
+
+        mock_client = MagicMock()
+        mock_result = MagicMock()
+        mock_result.data = []  # empty list — Supabase returned no rows
+
+        mock_client.table.return_value.insert.return_value.execute.return_value = (
+            mock_result
+        )
+
+        with (
+            patch("src.database.supabase_client.get_settings") as mock_get_settings,
+            patch("src.database.supabase_client.create_client") as mock_create_client,
+        ):
+            mock_get_settings.return_value = get_settings_override(
+                {
+                    "supabase_url": "https://test.supabase.co",
+                    "supabase_key": "test-key",
+                }
+            )
+            mock_create_client.return_value = mock_client
+
+            with pytest.raises(SupabaseClientError, match="returned no data"):
+                insert_record("routes", {"image_url": "https://example.com/image.jpg"})
 
     def test_insert_record_handles_database_error(self) -> None:
         """Insert should raise error on database failure."""
@@ -653,19 +743,48 @@ class TestSelectRecordById:
     def test_select_record_validates_empty_table_name(self) -> None:
         """Select should reject empty table name."""
         with pytest.raises(SupabaseClientError, match="Table name cannot be empty"):
-            select_record_by_id("", "test-uuid")
+            select_record_by_id("", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
     def test_select_record_validates_invalid_table_name(self) -> None:
         """Select should reject invalid table names."""
         with pytest.raises(
             SupabaseClientError, match="Invalid table name.*must start with letter"
         ):
-            select_record_by_id("123routes", "test-uuid")
+            select_record_by_id("123routes", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
     def test_select_record_validates_empty_record_id(self) -> None:
         """Select should reject empty record ID."""
         with pytest.raises(SupabaseClientError, match="Record ID cannot be empty"):
             select_record_by_id("routes", "")
+
+    @pytest.mark.parametrize(
+        "record_id",
+        [
+            "not-a-uuid",
+            "12345678",
+            "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+            "00000000-0000-0000-0000-00000000000Z",
+            "plainstring",
+        ],
+    )
+    def test_select_record_validates_invalid_uuid(self, record_id: str) -> None:
+        """Select should reject non-UUID record IDs."""
+        with pytest.raises(SupabaseClientError, match="must be a valid UUID"):
+            select_record_by_id("routes", record_id)
+
+    def test_select_record_accepts_valid_uuid(self) -> None:
+        """Valid UUID should pass validation and proceed to client lookup.
+
+        Reaching the SUPABASE_URL error proves UUID validation did not raise.
+        """
+        get_supabase_client.cache_clear()
+
+        with patch("src.database.supabase_client.get_settings") as mock_get_settings:
+            mock_get_settings.return_value = get_settings_override(
+                {"supabase_url": "", "supabase_key": ""}
+            )
+            with pytest.raises(SupabaseClientError, match="SUPABASE_URL"):
+                select_record_by_id("routes", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
     def test_select_record_success(self) -> None:
         """Select should succeed with valid inputs."""
@@ -674,7 +793,7 @@ class TestSelectRecordById:
         mock_client = MagicMock()
         mock_result = MagicMock()
         mock_result.data = {
-            "id": "test-uuid",
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
             "image_url": "https://example.com/image.jpg",
             "created_at": "2026-01-27T12:00:00Z",
         }
@@ -693,10 +812,12 @@ class TestSelectRecordById:
             )
             mock_create_client.return_value = mock_client
 
-            result = select_record_by_id("routes", "test-uuid")
+            result = select_record_by_id(
+                "routes", "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            )
 
             assert result is not None
-            assert result["id"] == "test-uuid"
+            assert result["id"] == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
             assert result["image_url"] == "https://example.com/image.jpg"
 
     def test_select_record_with_custom_columns(self) -> None:
@@ -706,7 +827,7 @@ class TestSelectRecordById:
         mock_client = MagicMock()
         mock_result = MagicMock()
         mock_result.data = {
-            "id": "test-uuid",
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
             "image_url": "https://example.com/img.jpg",
         }
 
@@ -724,7 +845,9 @@ class TestSelectRecordById:
             )
             mock_create_client.return_value = mock_client
 
-            result = select_record_by_id("routes", "test-uuid", columns="id,image_url")
+            result = select_record_by_id(
+                "routes", "a1b2c3d4-e5f6-7890-abcd-ef1234567890", columns="id,image_url"
+            )
 
             assert result is not None
             mock_client.table.return_value.select.assert_called_once_with(
@@ -753,7 +876,9 @@ class TestSelectRecordById:
             )
             mock_create_client.return_value = mock_client
 
-            result = select_record_by_id("routes", "nonexistent-uuid")
+            result = select_record_by_id(
+                "routes", "00000000-0000-0000-0000-000000000000"
+            )
 
             assert result is None
 
@@ -784,7 +909,7 @@ class TestSelectRecordById:
             with pytest.raises(
                 SupabaseClientError, match="Failed to select record from table"
             ):
-                select_record_by_id("routes", "test-uuid")
+                select_record_by_id("routes", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
     def test_select_record_handles_database_error(self) -> None:
         """Select should raise error on database failure."""
@@ -810,4 +935,4 @@ class TestSelectRecordById:
             with pytest.raises(
                 SupabaseClientError, match="Failed to select record from table"
             ):
-                select_record_by_id("routes", "test-uuid")
+                select_record_by_id("routes", "a1b2c3d4-e5f6-7890-abcd-ef1234567890")

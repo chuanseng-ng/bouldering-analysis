@@ -6,6 +6,7 @@ route records that link uploaded images to route metadata.
 
 import asyncio
 import re
+import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Path, status
@@ -26,10 +27,6 @@ router = APIRouter(prefix="/api/v1", tags=["routes"])
 WALL_ANGLE_MIN = -90.0
 WALL_ANGLE_MAX = 90.0
 IMAGE_URL_MAX_LENGTH = 2048
-UUID_PATTERN = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-    re.IGNORECASE,
-)
 
 
 class RouteCreate(BaseModel):
@@ -114,21 +111,23 @@ def _format_timestamp(value: str | None) -> str:
     """Format a timestamp value for response.
 
     Args:
-        value: Timestamp string from database or None.
+        value: Timestamp string from database. Must not be None.
 
     Returns:
         Formatted timestamp string ending with 'Z' for UTC.
+
+    Raises:
+        ValueError: If value is None, indicating a required timestamp field is
+            missing from the database record.
     """
     if value is None:
-        return ""
+        raise ValueError("Timestamp cannot be None: required field missing from record")
 
     # Ensure timestamp ends with Z for UTC indication
     timestamp = str(value)
     if not timestamp.endswith("Z"):
-        # Remove any timezone suffix and add Z
-        if "+" in timestamp:
-            timestamp = timestamp.split("+", maxsplit=1)[0]
-        timestamp = timestamp + "Z"
+        # Strip any +/- UTC offset (e.g. +00:00, -05:00) and append Z
+        timestamp = re.sub(r"[+-]\d{2}:\d{2}$", "", timestamp) + "Z"
 
     return timestamp
 
@@ -189,7 +188,7 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
         ```
     """
     # Prepare data for insertion
-    insert_data: dict = {
+    insert_data: dict[str, Any] = {
         "image_url": route_data.image_url,
     }
 
@@ -215,7 +214,7 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
 
         return _record_to_response(record)
 
-    except SupabaseClientError as e:
+    except (SupabaseClientError, KeyError, ValueError) as e:
         logger.error(
             "Failed to create route record",
             extra={
@@ -250,7 +249,7 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
 )
 async def get_route(
     route_id: Annotated[
-        str,
+        uuid.UUID,
         Path(
             description="UUID of the route to retrieve",
             examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
@@ -260,7 +259,8 @@ async def get_route(
     """Retrieve a route by ID.
 
     Args:
-        route_id: UUID of the route to retrieve.
+        route_id: UUID of the route to retrieve. FastAPI validates the format
+            and returns 422 for malformed values before this handler is called.
 
     Returns:
         Route record with all fields.
@@ -273,19 +273,12 @@ async def get_route(
         curl "http://localhost:8000/api/v1/routes/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
         ```
     """
-    # Validate UUID format
-    if not UUID_PATTERN.match(route_id):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid route ID format. Must be a valid UUID.",
-        )
-
     try:
         # Query record (run in thread to avoid blocking event loop)
         record = await asyncio.to_thread(
             select_record_by_id,
             table="routes",
-            record_id=route_id,
+            record_id=str(route_id),
         )
 
         if record is None:
@@ -296,13 +289,15 @@ async def get_route(
 
         return _record_to_response(record)
 
-    except SupabaseClientError as e:
+    except HTTPException:
+        raise
+    except (SupabaseClientError, KeyError, ValueError) as e:
         logger.error(
             "Failed to retrieve route",
             extra={
                 "error": str(e),
                 "error_type": type(e).__name__,
-                "route_id": route_id,
+                "route_id": str(route_id),
             },
         )
         raise HTTPException(

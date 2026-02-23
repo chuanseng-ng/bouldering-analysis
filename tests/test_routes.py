@@ -284,6 +284,29 @@ class TestCreateRouteEndpoint:
         assert data["id"].count("-") == 4
 
     @patch("src.routes.routes.insert_record")
+    def test_create_route_returns_500_when_record_missing_required_field(
+        self,
+        mock_insert: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Database record missing 'id' should return 500, not leak a KeyError."""
+        mock_insert.return_value = {
+            # 'id' is intentionally absent to simulate a corrupt DB record
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00+00:00",
+            "updated_at": "2026-01-27T12:00:00+00:00",
+        }
+
+        response = client.post(
+            "/api/v1/routes",
+            json={"image_url": "https://example.com/image.jpg"},
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "Failed to create route record" in data["detail"]
+
+    @patch("src.routes.routes.insert_record")
     def test_create_route_wall_angle_precision(
         self,
         mock_insert: MagicMock,
@@ -353,8 +376,6 @@ class TestGetRouteEndpoint:
         response = client.get("/api/v1/routes/invalid-uuid")
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        data = response.json()
-        assert "Invalid route ID format" in data["detail"]
 
     def test_get_route_uuid_too_short(self, client: TestClient) -> None:
         """Getting a route with too short UUID should return 422."""
@@ -367,6 +388,27 @@ class TestGetRouteEndpoint:
         response = client.get("/api/v1/routes/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @patch("src.routes.routes.select_record_by_id")
+    def test_get_route_returns_500_when_record_missing_required_field(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Database record missing 'id' should return 500, not leak a KeyError."""
+        mock_select.return_value = {
+            # 'id' is intentionally absent to simulate a corrupt DB record
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00+00:00",
+            "updated_at": "2026-01-27T12:00:00+00:00",
+        }
+        route_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+        response = client.get(f"/api/v1/routes/{route_id}")
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "Failed to retrieve route" in data["detail"]
 
     @patch("src.routes.routes.select_record_by_id")
     def test_get_route_database_error(
@@ -556,9 +598,17 @@ class TestTimestampFormatting:
         result = _format_timestamp("2026-01-27T12:00:00Z")
         assert result == "2026-01-27T12:00:00Z"
 
-    def test_format_timestamp_none(self) -> None:
-        """None timestamp should return empty string."""
+    def test_format_timestamp_none_raises(self) -> None:
+        """None timestamp should raise ValueError — required field missing from record."""
         from src.routes.routes import _format_timestamp
 
-        result = _format_timestamp(None)
-        assert result == ""
+        with pytest.raises(ValueError, match="Timestamp cannot be None"):
+            _format_timestamp(None)
+
+    def test_format_timestamp_with_negative_offset(self) -> None:
+        """Timestamp with negative UTC offset should be stripped and Z appended."""
+        from src.routes.routes import _format_timestamp
+
+        result = _format_timestamp("2026-01-27T07:00:00-05:00")
+        assert result == "2026-01-27T07:00:00Z"
+        assert "-05:00" not in result

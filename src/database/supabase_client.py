@@ -5,6 +5,7 @@ and storage bucket access helpers.
 """
 
 import re
+import uuid as _uuid_module
 from collections.abc import Generator
 from contextlib import contextmanager
 from functools import lru_cache
@@ -26,6 +27,11 @@ _KNOWN_TABLES: tuple[str, ...] = (
     "features",
     "predictions",
     "feedback",
+)
+
+_KNOWN_BUCKETS: tuple[str, ...] = (
+    "route-images",
+    "model-outputs",
 )
 
 
@@ -133,6 +139,7 @@ def upload_to_storage(
         ...         "image/jpeg"
         ...     )
     """
+    _validate_bucket_name(bucket)
     client = get_supabase_client()
 
     with _supabase_op(f"Failed to upload file to bucket '{bucket}'"):
@@ -163,6 +170,7 @@ def delete_from_storage(bucket: str, file_path: str) -> None:
     Example:
         >>> delete_from_storage("route-images", "2024/01/route.jpg")
     """
+    _validate_bucket_name(bucket)
     client = get_supabase_client()
 
     with _supabase_op(f"Failed to delete file from bucket '{bucket}'"):
@@ -185,6 +193,7 @@ def get_storage_url(bucket: str, file_path: str) -> str:
     Example:
         >>> url = get_storage_url("route-images", "2024/01/route.jpg")
     """
+    _validate_bucket_name(bucket)
     client = get_supabase_client()
 
     with _supabase_op(f"Failed to get URL for file in bucket '{bucket}'"):
@@ -221,6 +230,7 @@ def list_storage_files(
         >>> for file in files:
         ...     print(file["name"])
     """
+    _validate_bucket_name(bucket)
     client = get_supabase_client()
 
     with _supabase_op(f"Failed to list files in bucket '{bucket}'"):
@@ -257,6 +267,31 @@ def _validate_table_name(table: str) -> None:
     if table not in _KNOWN_TABLES:
         raise SupabaseClientError(
             f"Unknown table '{table}': must be one of {_KNOWN_TABLES}"
+        )
+
+
+def _validate_bucket_name(bucket: str) -> None:
+    """Validate bucket name for storage operations.
+
+    Args:
+        bucket: Bucket name to validate.
+
+    Raises:
+        SupabaseClientError: If bucket name is invalid or not in the known buckets
+            allowlist.
+    """
+    if not bucket:
+        raise SupabaseClientError("Bucket name cannot be empty")
+
+    if not re.match(r"^[a-z][a-z0-9-]*$", bucket):
+        raise SupabaseClientError(
+            f"Invalid bucket name '{bucket}': must start with a lowercase letter "
+            "and contain only lowercase letters, digits, and hyphens"
+        )
+
+    if bucket not in _KNOWN_BUCKETS:
+        raise SupabaseClientError(
+            f"Unknown bucket '{bucket}': must be one of {_KNOWN_BUCKETS}"
         )
 
 
@@ -305,8 +340,10 @@ def select_record_by_id(
 
     Args:
         table: Name of the table.
-        record_id: UUID of the record.
+        record_id: UUID of the record (must be a valid UUID string).
         columns: Comma-separated column names to select (default ``"*"`` for all).
+            For tables with large columns (e.g. ``feature_vector JSONB``), prefer
+            specifying only the columns you need to avoid over-fetching.
 
     Returns:
         The record as a dictionary, or None if not found.
@@ -325,6 +362,13 @@ def select_record_by_id(
 
     if not record_id:
         raise SupabaseClientError("Record ID cannot be empty")
+
+    try:
+        _uuid_module.UUID(record_id)
+    except ValueError as e:
+        raise SupabaseClientError(
+            f"Invalid record ID '{record_id}': must be a valid UUID"
+        ) from e
 
     client = get_supabase_client()
 

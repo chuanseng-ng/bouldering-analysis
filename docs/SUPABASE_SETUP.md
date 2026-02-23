@@ -45,18 +45,19 @@ Once your project is ready:
 
 2. **Copy your credentials**:
    - **Project URL**: Look for "Project URL" (e.g., `https://abcdefghijklmnop.supabase.co`)
-   - **API Key**: Copy the `anon` `public` key (under "Project API keys")
+   - **API Key**: Copy the `service_role` key (under "Project API keys")
 
    ```text
    Project URL: https://xxxxxxxxxxxxx.supabase.co
-   anon public key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    ```
 
    **Important**:
-   - ✅ Use the `anon` key (JWT token starting with `eyJ...`)
-   - ❌ NOT the `publishable` key (`sb_publishable_...`)
-   - Use the `service_role` key only for server-side admin operations (keep it secret!)
-   - For this application, the `anon` key is sufficient for now
+   - ✅ Use the `service_role` key for this **server-side** FastAPI backend
+   - ✅ The `service_role` key bypasses Row Level Security — keep it server-side only
+   - ❌ NOT the `anon` / `publishable` key — the `anon` key cannot INSERT rows due to
+     the RLS policy and is intended for untrusted client-side code (browser, mobile)
+   - ❌ Never expose the `service_role` key in client code or commit it to version control
 
 ---
 
@@ -81,12 +82,15 @@ BA_CORS_ORIGINS=["http://localhost:3000"]
 
 # Supabase Configuration
 BA_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
-BA_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+BA_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...  # service_role key
 ```
 
 **Replace**:
 - `xxxxxxxxxxxxx` with your actual project URL
-- `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` with your actual `anon` public key
+- `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` with your **`service_role`** key
+
+**Note**: The backend uses the `service_role` key to bypass RLS and perform inserts.
+This key must be kept strictly server-side. Never include it in frontend code or commits.
 
 **Security Note**:
 - ✅ `.env` is in `.gitignore` - your credentials won't be committed
@@ -288,8 +292,8 @@ Testing Supabase Connection
 
 **Solution**:
 1. Verify your Supabase project URL is correct
-2. Check your API key is the `anon` public key (JWT token starting with `eyJ...`)
-3. NOT the `publishable` key (`sb_publishable_...`)
+2. Check your API key is the `service_role` key (JWT token starting with `eyJ...`)
+3. NOT the `anon` or `publishable` key — the backend requires `service_role`
 4. Ensure your Supabase project is active (not paused)
 5. Check your internet connection
 
