@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/v1", tags=["routes"])
 WALL_ANGLE_MIN = -90.0
 WALL_ANGLE_MAX = 90.0
 IMAGE_URL_MAX_LENGTH = 2048
+_ROUTES_TABLE = "routes"
 
 
 class RouteCreate(BaseModel):
@@ -152,7 +153,16 @@ def _record_to_response(record: dict[str, Any]) -> RouteResponse:
 
     Returns:
         RouteResponse model instance.
+
+    Raises:
+        KeyError: If a required string field (``id``, ``image_url``) is absent.
+        ValueError: If a required timestamp field (``created_at``, ``updated_at``)
+            is absent or None, with the field name identified in the message.
     """
+    for field in ("created_at", "updated_at"):
+        if record.get(field) is None:
+            raise ValueError(f"Record missing required timestamp field '{field}'")
+
     return RouteResponse(
         id=str(record["id"]),
         image_url=str(record["image_url"]),
@@ -212,7 +222,7 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
         # Insert record (run in thread to avoid blocking event loop)
         record = await asyncio.to_thread(
             insert_record,
-            table="routes",
+            table=_ROUTES_TABLE,
             data=insert_data,
         )
 
@@ -289,7 +299,7 @@ async def get_route(
         # Query record (run in thread to avoid blocking event loop)
         record = await asyncio.to_thread(
             select_record_by_id,
-            table="routes",
+            table=_ROUTES_TABLE,
             record_id=str(route_id),
         )
 

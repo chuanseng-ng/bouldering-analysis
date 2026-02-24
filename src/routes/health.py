@@ -12,7 +12,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
 from src.config import get_settings
-from src.database.supabase_client import get_supabase_client
+from src.database.supabase_client import get_supabase_client, validate_table_name
 from src.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -118,9 +118,10 @@ async def db_health_check() -> DbHealthResponse:
     db_status: Literal["healthy", "degraded"] = "healthy"
 
     try:
-        client = await asyncio.to_thread(get_supabase_client)
+        validate_table_name(settings.health_check_table)
         await asyncio.to_thread(
-            lambda: client.table(settings.health_check_table)
+            lambda: get_supabase_client()
+            .table(settings.health_check_table)
             .select("id")
             .limit(1)
             .execute()

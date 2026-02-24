@@ -34,6 +34,8 @@ _KNOWN_BUCKETS: tuple[str, ...] = (
     "model-outputs",
 )
 
+_MAX_STORAGE_LIST_LIMIT: int = 1000
+
 
 @contextmanager
 def _supabase_op(context: str) -> Generator[None, None, None]:
@@ -216,7 +218,9 @@ def list_storage_files(
         bucket: Name of the storage bucket.
         path: Optional path prefix to filter files (e.g., "2024/01/").
         limit: Maximum number of files to return (default 100, matching the
-            Supabase default). Reduce to page through large buckets.
+            Supabase default). Clamped to ``_MAX_STORAGE_LIST_LIMIT`` (1000)
+            to prevent unbounded memory usage. Reduce to page through large
+            buckets.
         offset: Number of files to skip before returning results (default 0).
 
     Returns:
@@ -230,6 +234,7 @@ def list_storage_files(
         >>> for file in files:
         ...     print(file["name"])
     """
+    limit = min(limit, _MAX_STORAGE_LIST_LIMIT)
     _validate_bucket_name(bucket)
     client = get_supabase_client()
 
@@ -245,6 +250,58 @@ def list_storage_files(
 # =============================================================================
 
 
+def validate_table_name(table: str) -> None:
+    """Validate a table name against the known-tables allowlist.
+
+    Public entry point for callers outside this module (e.g. health checks).
+    Delegates to :func:`_validate_table_name`.
+
+    Args:
+        table: Table name to validate.
+
+    Raises:
+        SupabaseClientError: If table name is invalid or not in the known tables
+            allowlist.
+
+    Example:
+        >>> validate_table_name("routes")  # passes silently
+        >>> validate_table_name("unknown")  # raises SupabaseClientError
+    """
+    _validate_table_name(table)
+
+
+def _validate_name(
+    name: str,
+    kind: str,
+    pattern: str,
+    allowlist: tuple[str, ...],
+    invalid_format_msg: str,
+) -> None:
+    """Shared validation helper for table and bucket names.
+
+    Args:
+        name: The name to validate.
+        kind: Human-readable kind label used in error messages (e.g. ``"table"``).
+        pattern: Regex pattern the name must fully match.
+        allowlist: Tuple of permitted names.
+        invalid_format_msg: Explanation appended to the format-mismatch error.
+
+    Raises:
+        SupabaseClientError: If the name is empty, fails the regex, or is not in
+            the allowlist.
+    """
+    if not name:
+        raise SupabaseClientError(f"{kind.capitalize()} name cannot be empty")
+
+    if not re.match(pattern, name):
+        raise SupabaseClientError(f"Invalid {kind} name '{name}': {invalid_format_msg}")
+
+    if name not in allowlist:
+        raise SupabaseClientError(
+            f"Unknown {kind} '{name}': must be one of {allowlist}"
+        )
+
+
 def _validate_table_name(table: str) -> None:
     """Validate table name for SQL safety and known-table allowlist.
 
@@ -255,19 +312,16 @@ def _validate_table_name(table: str) -> None:
         SupabaseClientError: If table name is invalid or not in the known tables
             allowlist.
     """
-    if not table:
-        raise SupabaseClientError("Table name cannot be empty")
-
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table):
-        raise SupabaseClientError(
-            f"Invalid table name '{table}': must start with letter/underscore "
+    _validate_name(
+        name=table,
+        kind="table",
+        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
+        allowlist=_KNOWN_TABLES,
+        invalid_format_msg=(
+            "must start with letter/underscore "
             "and contain only alphanumeric characters and underscores"
-        )
-
-    if table not in _KNOWN_TABLES:
-        raise SupabaseClientError(
-            f"Unknown table '{table}': must be one of {_KNOWN_TABLES}"
-        )
+        ),
+    )
 
 
 def _validate_bucket_name(bucket: str) -> None:
@@ -280,19 +334,16 @@ def _validate_bucket_name(bucket: str) -> None:
         SupabaseClientError: If bucket name is invalid or not in the known buckets
             allowlist.
     """
-    if not bucket:
-        raise SupabaseClientError("Bucket name cannot be empty")
-
-    if not re.match(r"^[a-z][a-z0-9-]*$", bucket):
-        raise SupabaseClientError(
-            f"Invalid bucket name '{bucket}': must start with a lowercase letter "
+    _validate_name(
+        name=bucket,
+        kind="bucket",
+        pattern=r"^[a-z][a-z0-9-]*$",
+        allowlist=_KNOWN_BUCKETS,
+        invalid_format_msg=(
+            "must start with a lowercase letter "
             "and contain only lowercase letters, digits, and hyphens"
-        )
-
-    if bucket not in _KNOWN_BUCKETS:
-        raise SupabaseClientError(
-            f"Unknown bucket '{bucket}': must be one of {_KNOWN_BUCKETS}"
-        )
+        ),
+    )
 
 
 def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:

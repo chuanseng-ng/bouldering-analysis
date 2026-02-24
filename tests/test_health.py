@@ -220,3 +220,40 @@ class TestDbHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "degraded"
+
+    @patch("src.routes.health.get_settings")
+    def test_db_health_returns_degraded_when_health_check_table_invalid(
+        self, mock_get_settings: MagicMock, client: TestClient
+    ) -> None:
+        """DB health endpoint should return 'degraded' when health_check_table is unknown."""
+        mock_settings = MagicMock()
+        mock_settings.health_check_table = "unknown_table"
+        mock_settings.app_version = "0.1.0"
+        mock_get_settings.return_value = mock_settings
+
+        response = client.get("/api/v1/health/db")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "degraded"
+
+    @patch("src.routes.health.get_supabase_client")
+    @patch("src.routes.health.get_settings")
+    def test_db_health_uses_configured_table_name(
+        self,
+        mock_get_settings: MagicMock,
+        mock_get_client: MagicMock,
+        client: TestClient,
+        mock_supabase_client: MagicMock,
+    ) -> None:
+        """DB health endpoint should query the table specified in health_check_table."""
+        mock_settings = MagicMock()
+        mock_settings.health_check_table = "routes"
+        mock_settings.app_version = "0.1.0"
+        mock_get_settings.return_value = mock_settings
+        mock_get_client.return_value = mock_supabase_client
+
+        response = client.get("/api/v1/health/db")
+
+        assert response.status_code == 200
+        mock_supabase_client.table.assert_called_once_with("routes")

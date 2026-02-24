@@ -5,6 +5,7 @@ loading values from environment variables with sensible defaults.
 """
 
 import json
+import logging
 from functools import lru_cache
 from typing import Any
 
@@ -62,9 +63,19 @@ class Settings(BaseSettings):
     @field_validator("supabase_timeout_seconds")
     @classmethod
     def validate_timeout(cls, v: int) -> int:
-        """Validate timeout is a positive integer."""
+        """Validate timeout is a positive integer.
+
+        Warns at startup if the value exceeds 60 seconds, as a high timeout
+        can cause long hangs when Supabase is unreachable.
+        """
         if v <= 0:
             raise ValueError("supabase_timeout_seconds must be a positive integer")
+        if v > 60:
+            logging.getLogger(__name__).warning(
+                "supabase_timeout_seconds is set to %d — this may cause long hangs "
+                "if Supabase is unreachable. Consider a lower value (10–30s).",
+                v,
+            )
         return v
 
     @field_validator("log_level")

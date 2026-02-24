@@ -12,16 +12,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from src.database.supabase_client import SupabaseClientError
-
-
-@pytest.fixture
-def mock_supabase_table() -> MagicMock:
-    """Create a mock for Supabase table operations."""
-    mock_table = MagicMock()
-    mock_table.insert.return_value = mock_table
-    mock_table.select.return_value = mock_table
-    mock_table.eq.return_value = mock_table
-    return mock_table
+from src.routes.routes import _format_timestamp
 
 
 @pytest.fixture
@@ -307,6 +298,29 @@ class TestCreateRouteEndpoint:
         assert "Failed to create route record" in data["detail"]
 
     @patch("src.routes.routes.insert_record")
+    def test_create_route_returns_500_when_created_at_missing(
+        self,
+        mock_insert: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Database record missing 'created_at' should return 500 with field identified."""
+        mock_insert.return_value = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            # 'created_at' is intentionally absent
+            "updated_at": "2026-01-27T12:00:00+00:00",
+        }
+
+        response = client.post(
+            "/api/v1/routes",
+            json={"image_url": "https://example.com/image.jpg"},
+        )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "Failed to create route record" in data["detail"]
+
+    @patch("src.routes.routes.insert_record")
     def test_create_route_wall_angle_precision(
         self,
         mock_insert: MagicMock,
@@ -401,6 +415,27 @@ class TestGetRouteEndpoint:
             "image_url": "https://example.com/image.jpg",
             "created_at": "2026-01-27T12:00:00+00:00",
             "updated_at": "2026-01-27T12:00:00+00:00",
+        }
+        route_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+        response = client.get(f"/api/v1/routes/{route_id}")
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "Failed to retrieve route" in data["detail"]
+
+    @patch("src.routes.routes.select_record_by_id")
+    def test_get_route_returns_500_when_updated_at_missing(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Database record missing 'updated_at' should return 500 with field identified."""
+        mock_select.return_value = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00+00:00",
+            # 'updated_at' is intentionally absent
         }
         route_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
@@ -550,13 +585,13 @@ class TestRouteModels:
         from src.routes.routes import RouteResponse
 
         data = RouteResponse(
-            id="test-uuid",
+            id="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
             image_url="https://example.com/image.jpg",
             wall_angle=15.0,
             created_at="2026-01-27T12:00:00Z",
             updated_at="2026-01-27T12:00:00Z",
         )
-        assert data.id == "test-uuid"
+        assert data.id == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
         assert data.wall_angle == 15.0
 
     def test_route_response_model_null_wall_angle(self) -> None:
@@ -564,7 +599,7 @@ class TestRouteModels:
         from src.routes.routes import RouteResponse
 
         data = RouteResponse(
-            id="test-uuid",
+            id="a1b2c3d4-e5f6-7890-abcd-ef1234567890",
             image_url="https://example.com/image.jpg",
             wall_angle=None,
             created_at="2026-01-27T12:00:00Z",
@@ -578,45 +613,117 @@ class TestTimestampFormatting:
 
     def test_format_timestamp_with_timezone(self) -> None:
         """Timestamp with timezone should be formatted correctly."""
-        from src.routes.routes import _format_timestamp
-
         result = _format_timestamp("2026-01-27T12:00:00+00:00")
         assert result.endswith("Z")
         assert "+" not in result
 
     def test_format_timestamp_without_timezone(self) -> None:
         """Timestamp without timezone should get Z appended."""
-        from src.routes.routes import _format_timestamp
-
         result = _format_timestamp("2026-01-27T12:00:00")
         assert result == "2026-01-27T12:00:00Z"
 
     def test_format_timestamp_already_has_z(self) -> None:
         """Timestamp already ending with Z should remain unchanged."""
-        from src.routes.routes import _format_timestamp
-
         result = _format_timestamp("2026-01-27T12:00:00Z")
         assert result == "2026-01-27T12:00:00Z"
 
     def test_format_timestamp_none_raises(self) -> None:
         """None timestamp should raise ValueError — required field missing from record."""
-        from src.routes.routes import _format_timestamp
-
         with pytest.raises(ValueError, match="Timestamp cannot be None"):
             _format_timestamp(None)
 
     def test_format_timestamp_with_negative_offset(self) -> None:
         """Timestamp with negative UTC offset should be converted to UTC and Z appended."""
-        from src.routes.routes import _format_timestamp
-
         result = _format_timestamp("2026-01-27T07:00:00-05:00")
         assert result == "2026-01-27T12:00:00Z"
         assert "-05:00" not in result
 
     def test_format_timestamp_with_positive_offset(self) -> None:
         """Timestamp with positive UTC offset should be converted to UTC and Z appended."""
-        from src.routes.routes import _format_timestamp
-
         result = _format_timestamp("2026-01-27T17:00:00+05:00")
         assert result == "2026-01-27T12:00:00Z"
         assert "+05:00" not in result
+
+    def test_format_timestamp_with_microseconds(self) -> None:
+        """Microseconds should be preserved in the converted UTC timestamp."""
+        result = _format_timestamp("2026-01-27T12:00:00.123456+00:00")
+        assert result == "2026-01-27T12:00:00.123456Z"
+
+
+class TestRecordToResponse:
+    """Unit tests for _record_to_response conversion helper."""
+
+    def test_record_to_response_valid(self) -> None:
+        """Valid record should convert to RouteResponse with Z-normalised timestamps."""
+        from src.routes.routes import _record_to_response
+
+        record = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "wall_angle": 15.0,
+            "created_at": "2026-01-27T12:00:00+00:00",
+            "updated_at": "2026-01-27T12:00:00+00:00",
+        }
+
+        result = _record_to_response(record)
+
+        assert result.id == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        assert result.image_url == "https://example.com/image.jpg"
+        assert result.wall_angle == 15.0
+        assert result.created_at == "2026-01-27T12:00:00Z"
+        assert result.updated_at == "2026-01-27T12:00:00Z"
+
+    def test_record_to_response_null_wall_angle(self) -> None:
+        """Record with null wall_angle should produce null in the response."""
+        from src.routes.routes import _record_to_response
+
+        record = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "wall_angle": None,
+            "created_at": "2026-01-27T12:00:00Z",
+            "updated_at": "2026-01-27T12:00:00Z",
+        }
+
+        result = _record_to_response(record)
+
+        assert result.wall_angle is None
+
+    def test_record_to_response_missing_id_raises_key_error(self) -> None:
+        """Missing 'id' field should raise KeyError."""
+        from src.routes.routes import _record_to_response
+
+        record = {
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00Z",
+            "updated_at": "2026-01-27T12:00:00Z",
+        }
+
+        with pytest.raises(KeyError):
+            _record_to_response(record)
+
+    def test_record_to_response_missing_created_at_raises_value_error(self) -> None:
+        """Missing 'created_at' should raise ValueError naming the field."""
+        from src.routes.routes import _record_to_response
+
+        record = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "updated_at": "2026-01-27T12:00:00Z",
+        }
+
+        with pytest.raises(ValueError, match="created_at"):
+            _record_to_response(record)
+
+    def test_record_to_response_missing_updated_at_raises_value_error(self) -> None:
+        """Missing 'updated_at' should raise ValueError naming the field."""
+        from src.routes.routes import _record_to_response
+
+        record = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00Z",
+        }
+
+        with pytest.raises(ValueError, match="updated_at"):
+            _record_to_response(record)
