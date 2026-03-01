@@ -112,6 +112,23 @@ class Settings(BaseSettings):
             raise ValueError("inference_timeout_seconds must be a positive integer")
         return v
 
+    @field_validator("api_key")
+    @classmethod
+    def strip_api_key(cls, v: str) -> str:
+        """Strip surrounding whitespace from api_key.
+
+        Environment variables read from .env files can carry trailing newlines
+        or spaces, which would cause every authentication attempt to fail.
+        An all-whitespace value is treated as disabled (empty string).
+
+        Args:
+            v: Raw api_key value from the environment.
+
+        Returns:
+            Stripped api_key; empty string means authentication is disabled.
+        """
+        return v.strip()
+
     @field_validator("rate_limit_upload")
     @classmethod
     def validate_rate_limit_upload(cls, v: int) -> int:

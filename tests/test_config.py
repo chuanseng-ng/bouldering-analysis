@@ -219,8 +219,10 @@ class TestApiKeySettings:
 
     def test_default_api_key_is_empty(self) -> None:
         """api_key should default to empty string (no auth)."""
-        settings = Settings()
-        assert settings.api_key == ""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = get_settings_override({})
+            assert settings.api_key == ""
 
     def test_api_key_from_override(self) -> None:
         """api_key should accept any non-empty string."""

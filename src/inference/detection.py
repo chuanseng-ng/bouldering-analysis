@@ -118,8 +118,8 @@ def _clear_model_cache() -> None:
 def reset_detection_model_cache() -> None:
     """Clear all cached YOLO model instances (public API for testing and hot-reload).
 
-    After calling this, the next call to detect_holds will reload the model
-    from disk. Use reset_supabase_client_cache() pattern for test isolation.
+    After calling this, the next call to :func:`detect_holds` will reload the
+    model from disk. Intended for test isolation and hot-reload scenarios.
 
     Example:
         >>> reset_detection_model_cache()

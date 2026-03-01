@@ -289,7 +289,7 @@ class TestUploadRateLimitMiddleware:
     """Tests for the per-IP upload rate limiter."""
 
     def test_requests_within_limit_are_allowed(self) -> None:
-        """Requests up to the configured limit should receive non-429 responses."""
+        """Requests up to the configured limit should receive 2xx responses."""
         from unittest.mock import patch
 
         app = create_app({"testing": True, "api_key": "", "rate_limit_upload": 5})
@@ -310,10 +310,10 @@ class TestUploadRateLimitMiddleware:
                         "/api/v1/routes/upload",
                         files={"file": ("img.png", io.BytesIO(png_bytes), "image/png")},
                     )
-                    assert response.status_code != 429
+                    assert 200 <= response.status_code < 300
 
     def test_exceeding_limit_returns_429(self) -> None:
-        """Requests beyond the configured limit should return 429."""
+        """Requests beyond the configured limit should return 429; requests within the limit should be 2xx."""
         from unittest.mock import patch
 
         app = create_app({"testing": True, "api_key": "", "rate_limit_upload": 2})
@@ -336,8 +336,11 @@ class TestUploadRateLimitMiddleware:
                     )
                     for _ in range(3)
                 ]
-                status_codes = [r.status_code for r in responses]
-                assert 429 in status_codes
+                # First two requests are within the limit
+                assert 200 <= responses[0].status_code < 300
+                assert 200 <= responses[1].status_code < 300
+                # Third request exceeds the limit
+                assert responses[2].status_code == 429
 
     def test_non_upload_endpoints_not_rate_limited(self) -> None:
         """Rate limiter must not apply to GET endpoints."""

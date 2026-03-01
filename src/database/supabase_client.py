@@ -234,7 +234,8 @@ def list_storage_files(
         >>> for file in files:
         ...     print(file["name"])
     """
-    limit = min(limit, _MAX_STORAGE_LIST_LIMIT)
+    limit = max(0, min(limit, _MAX_STORAGE_LIST_LIMIT))
+    offset = max(0, offset)
     _validate_bucket_name(bucket)
     client = get_supabase_client()
 

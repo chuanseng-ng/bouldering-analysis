@@ -4,7 +4,7 @@ My engineering preferences (use these to guide your recommendations):
 - Well-tested code is non-negotiable: I'd rather have too many tests than too few
 - I want code that's "engineered enough" - not under-engineered (fragile, hacky) and not over-engineered (premature abstraction, unnecessary complexity)
 - I err on the side of handling more edge cases, not fewer: thoughtfulness > speed
-- Bias towards explicitly over clever
+- Bias toward being explicit rather than clever
 1. Architecture review
 Evaluate:
 - Overall system design and component boundaries

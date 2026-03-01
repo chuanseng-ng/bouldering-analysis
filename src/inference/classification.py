@@ -130,8 +130,8 @@ def _clear_model_cache() -> None:
 def reset_classification_model_cache() -> None:
     """Clear all cached classifier model instances (public API for testing and hot-reload).
 
-    After calling this, the next call to classify_hold will reload the model
-    from disk. Use reset_supabase_client_cache() pattern for test isolation.
+    After calling this, the next call to :func:`classify_hold` will reload the
+    model from disk. Intended for test isolation and hot-reload scenarios.
 
     Example:
         >>> reset_classification_model_cache()

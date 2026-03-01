@@ -6,7 +6,6 @@ configured FastAPI instances with all middleware and routes.
 
 import threading
 import time
-from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
@@ -37,7 +36,7 @@ class _UploadRateLimiter:
     _WINDOW_SECONDS: int = 60
 
     def __init__(self) -> None:
-        self._timestamps: dict[str, list[float]] = defaultdict(list)
+        self._timestamps: dict[str, list[float]] = {}
         self._lock = threading.Lock()
 
     def is_allowed(self, client_ip: str, max_requests: int) -> bool:
@@ -53,9 +52,12 @@ class _UploadRateLimiter:
         now = time.monotonic()
         cutoff = now - self._WINDOW_SECONDS
         with self._lock:
-            timestamps = [t for t in self._timestamps[client_ip] if t > cutoff]
+            timestamps = [t for t in self._timestamps.get(client_ip, []) if t > cutoff]
             if len(timestamps) >= max_requests:
-                self._timestamps[client_ip] = timestamps
+                if timestamps:
+                    self._timestamps[client_ip] = timestamps
+                elif client_ip in self._timestamps:
+                    del self._timestamps[client_ip]
                 return False
             timestamps.append(now)
             self._timestamps[client_ip] = timestamps

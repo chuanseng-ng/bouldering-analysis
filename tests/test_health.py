@@ -14,7 +14,7 @@ from src.routes.health import DbHealthResponse, HealthResponse
 
 
 @pytest.fixture
-def mock_supabase_client() -> MagicMock:
+def mock_db_health_client() -> MagicMock:
     """Provide a pre-configured mock Supabase client for DB health check tests.
 
     Configures the chained table query interface to succeed by default.
@@ -176,10 +176,10 @@ class TestDbHealthEndpoint:
         self,
         mock_get_client: MagicMock,
         client: TestClient,
-        mock_supabase_client: MagicMock,
+        mock_db_health_client: MagicMock,
     ) -> None:
         """DB health endpoint should return 'healthy' when Supabase responds."""
-        mock_get_client.return_value = mock_supabase_client
+        mock_get_client.return_value = mock_db_health_client
 
         response = client.get("/api/v1/health/db")
 
@@ -207,13 +207,13 @@ class TestDbHealthEndpoint:
         self,
         mock_get_client: MagicMock,
         client: TestClient,
-        mock_supabase_client: MagicMock,
+        mock_db_health_client: MagicMock,
     ) -> None:
         """DB health endpoint should return 'degraded' when the DB query fails."""
-        mock_supabase_client.table.return_value.select.return_value.limit.return_value.execute.side_effect = Exception(
+        mock_db_health_client.table.return_value.select.return_value.limit.return_value.execute.side_effect = Exception(
             "Table not found"
         )
-        mock_get_client.return_value = mock_supabase_client
+        mock_get_client.return_value = mock_db_health_client
 
         response = client.get("/api/v1/health/db")
 
@@ -244,16 +244,16 @@ class TestDbHealthEndpoint:
         mock_get_settings: MagicMock,
         mock_get_client: MagicMock,
         client: TestClient,
-        mock_supabase_client: MagicMock,
+        mock_db_health_client: MagicMock,
     ) -> None:
         """DB health endpoint should query the table specified in health_check_table."""
         mock_settings = MagicMock()
         mock_settings.health_check_table = "routes"
         mock_settings.app_version = "0.1.0"
         mock_get_settings.return_value = mock_settings
-        mock_get_client.return_value = mock_supabase_client
+        mock_get_client.return_value = mock_db_health_client
 
         response = client.get("/api/v1/health/db")
 
         assert response.status_code == 200
-        mock_supabase_client.table.assert_called_once_with("routes")
+        mock_db_health_client.table.assert_called_once_with("routes")

@@ -299,12 +299,13 @@ Testing Supabase Connection
 
 ### Storage buckets not detected
 
-**Cause**: The `anon` key cannot list all buckets (normal security behavior).
+**Cause**: The backend is configured with the `anon` (publishable) key instead of the `service_role` key. The `anon` key cannot list all buckets.
 
 **Solution**:
-- This is normal! The `anon` key can't list all buckets but CAN access them individually
-- The test script checks buckets directly by name
-- Your buckets are accessible even if they don't show in the list
+- Ensure `BA_SUPABASE_KEY` is set to the **service_role** key (JWT starting with `eyJ...`), not the `anon` or publishable key
+- The `service_role` key lets the backend list and access all buckets without RLS restrictions
+- Note: the `anon` key is for client-side access only — it cannot list buckets, which is expected behaviour for anonymous users but incorrect for the backend
+- Verify the environment variable is set to the `service_role` key when running the test script
 
 ### Error: "Failed to upload file to bucket"
 

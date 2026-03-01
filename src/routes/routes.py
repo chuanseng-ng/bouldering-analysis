@@ -176,7 +176,7 @@ def _record_to_response(record: dict[str, Any]) -> RouteResponse:
         wall_angle=record.get("wall_angle"),
         created_at=_format_timestamp(record.get("created_at")),
         updated_at=_format_timestamp(record.get("updated_at")),
-        status=str(record.get("status", "pending")),
+        status=record.get("status") or "pending",
     )
 
 
@@ -252,15 +252,14 @@ async def create_route(
         insert_data["wall_angle"] = round(route_data.wall_angle, 1)
 
     try:
-        settings = get_settings()
-        # Insert record (run in thread to avoid blocking event loop)
-        record = await asyncio.wait_for(
-            asyncio.to_thread(
-                insert_record,
-                table=_ROUTES_TABLE,
-                data=insert_data,
-            ),
-            timeout=settings.inference_timeout_seconds,
+        # Insert record (run in thread to avoid blocking event loop).
+        # No timeout is applied: insert_record is non-idempotent and a
+        # cancelled thread could still complete the insert, causing duplicates
+        # on client retry.
+        record = await asyncio.to_thread(
+            insert_record,
+            table=_ROUTES_TABLE,
+            data=insert_data,
         )
 
         route_response = _record_to_response(record)
@@ -280,15 +279,6 @@ async def create_route(
 
         return route_response
 
-    except asyncio.TimeoutError:
-        logger.error(
-            "Database operation timed out",
-            extra={"operation": "insert_record", "table": _ROUTES_TABLE},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Request timed out. Please try again.",
-        ) from None
     except (SupabaseClientError, KeyError, ValueError) as e:
         logger.error(
             "Failed to create route record",
@@ -456,6 +446,7 @@ async def get_route_status(
                 select_record_by_id,
                 table=_ROUTES_TABLE,
                 record_id=str(route_id),
+                columns="id, status",
             ),
             timeout=settings.inference_timeout_seconds,
         )
@@ -468,7 +459,7 @@ async def get_route_status(
 
         return RouteStatusResponse(
             id=str(record["id"]),
-            status=str(record.get("status", "pending")),
+            status=record.get("status") or "pending",
         )
 
     except HTTPException:
