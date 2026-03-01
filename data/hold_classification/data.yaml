@@ -1,0 +1,13 @@
+train: train
+val: val
+test: test
+
+nc: 2
+names: ['hold', 'volume']
+
+roboflow:
+  workspace: chrisws
+  project: climbing-holds-and-volumes-kzjnw
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/chrisws/climbing-holds-and-volumes-kzjnw/dataset/1
