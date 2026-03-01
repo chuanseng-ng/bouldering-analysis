@@ -27,7 +27,7 @@ from src.inference.classification import (
     ClassificationInferenceError,
     HoldTypeResult,
     _INPUT_SIZE_CACHE,
-    _VAL_RESIZE_RATIO,
+    VAL_RESIZE_RATIO,
     _build_model_from_metadata,
     _clear_model_cache,
     _get_inference_transform,
@@ -437,7 +437,7 @@ class TestGetInferenceTransform:
 
     def test_resize_size_uses_val_resize_ratio(self) -> None:
         """Resize step should apply the standard 256/224 ratio to input_size."""
-        expected_resize = int(224 * _VAL_RESIZE_RATIO)
+        expected_resize = int(224 * VAL_RESIZE_RATIO)
         assert expected_resize == 256  # sanity-check against legacy constant
 
 
@@ -689,6 +689,33 @@ class TestLoadModelCached:
 
         assert result1 is result2
         mock_build.assert_called_once()
+
+    @patch("src.inference.classification._build_model_from_metadata")
+    @patch("src.inference.classification._load_metadata")
+    def test_concurrent_loads_call_loader_only_once(
+        self,
+        mock_load_meta: MagicMock,
+        mock_build: MagicMock,
+        fake_weights: Path,
+        fake_metadata: dict,
+    ) -> None:
+        """Concurrent calls to _load_model_cached load the model exactly once."""
+        import concurrent.futures
+
+        mock_load_meta.return_value = fake_metadata
+        mock_model = MagicMock(spec=nn.Module)
+        mock_model.eval.return_value = mock_model
+        mock_build.return_value = mock_model
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [
+                executor.submit(_load_model_cached, fake_weights) for _ in range(10)
+            ]
+            models = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        mock_build.assert_called_once()
+        first = models[0]
+        assert all(m is first for m in models)
 
 
 # ---------------------------------------------------------------------------
@@ -992,3 +1019,31 @@ class TestClassifyHolds:
             ClassificationInferenceError, match="Hold classification failed"
         ):
             classify_holds([rgb_crop], fake_weights)
+
+    @patch("src.inference.classification._load_model_cached")
+    def test_chunk_size_produces_same_results(
+        self,
+        mock_load: MagicMock,
+        mock_model: MagicMock,
+        fake_weights: Path,
+    ) -> None:
+        """classify_holds with chunk_size should return same results as without."""
+        mock_load.return_value = mock_model
+        crops: list[HoldCrop | PILImage.Image] = [
+            PILImage.new("RGB", (224, 224)) for _ in range(6)
+        ]
+
+        results_no_chunk = classify_holds(crops, fake_weights)
+        results_chunked = classify_holds(crops, fake_weights, chunk_size=2)
+
+        assert len(results_no_chunk) == len(results_chunked) == 6
+        for r1, r2 in zip(results_no_chunk, results_chunked):
+            assert r1.predicted_class == r2.predicted_class
+
+    def test_chunk_size_less_than_one_raises_value_error(
+        self, fake_weights: Path
+    ) -> None:
+        """chunk_size=0 should raise ValueError."""
+        crops: list[HoldCrop | PILImage.Image] = [PILImage.new("RGB", (224, 224))]
+        with pytest.raises(ValueError, match="chunk_size must be >= 1"):
+            classify_holds(crops, fake_weights, chunk_size=0)

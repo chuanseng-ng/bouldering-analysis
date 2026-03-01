@@ -14,7 +14,6 @@ Example:
     hold 0.87
 """
 
-import threading
 from pathlib import Path
 from typing import Any, Final, Literal, Union, cast
 
@@ -23,7 +22,9 @@ import PIL.Image as PILImage
 from pydantic import BaseModel, Field
 from ultralytics import YOLO
 
+from src.inference.cache import _InferenceModelCache
 from src.logging_config import get_logger
+from src.inference.exceptions import InferencePipelineError
 
 logger = get_logger(__name__)
 
@@ -32,7 +33,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class InferenceError(Exception):
+class InferenceError(InferencePipelineError):
     """Raised when hold detection inference fails.
 
     This is a sibling of TrainingError (not a subclass) as it represents
@@ -64,8 +65,7 @@ DEFAULT_CONF_THRESHOLD: Final[float] = 0.25
 DEFAULT_IOU_THRESHOLD: Final[float] = 0.45
 
 # Module-level model cache: resolved path string → loaded YOLO model
-_MODEL_CACHE: dict[str, YOLO] = {}
-_MODEL_CACHE_LOCK: threading.Lock = threading.Lock()
+_MODEL_CACHE: _InferenceModelCache[YOLO] = _InferenceModelCache()
 
 # Type alias for accepted image inputs
 ImageInput = Union[Path, str, np.ndarray, PILImage.Image]
@@ -112,8 +112,19 @@ def _clear_model_cache() -> None:
     Intended for testing and memory management. After calling this,
     the next call to _load_model_cached will reload from disk.
     """
-    with _MODEL_CACHE_LOCK:
-        _MODEL_CACHE.clear()
+    _MODEL_CACHE.clear()
+
+
+def reset_detection_model_cache() -> None:
+    """Clear all cached YOLO model instances (public API for testing and hot-reload).
+
+    After calling this, the next call to detect_holds will reload the model
+    from disk. Use reset_supabase_client_cache() pattern for test isolation.
+
+    Example:
+        >>> reset_detection_model_cache()
+    """
+    _clear_model_cache()
 
 
 def _validate_image_input(image: ImageInput) -> None:
@@ -154,20 +165,17 @@ def _load_model_cached(weights_path: Path | str) -> YOLO:
         InferenceError: If the weights file does not exist.
     """
     resolved = str(Path(weights_path).resolve())
-    if resolved in _MODEL_CACHE:
-        return _MODEL_CACHE[resolved]
 
-    with _MODEL_CACHE_LOCK:
-        if resolved in _MODEL_CACHE:
-            return _MODEL_CACHE[resolved]
+    # Check existence before attempting to load (not inside lock - acceptable as
+    # the file won't disappear between check and load in normal operation)
+    if not Path(resolved).exists():
+        raise InferenceError(f"Model weights not found: {weights_path}")
 
-        if not Path(resolved).exists():
-            raise InferenceError(f"Model weights not found: {weights_path}")
+    def _loader(p: Path) -> YOLO:
+        logger.info("Loading model from: %s", str(p))
+        return YOLO(str(p))
 
-        logger.info("Loading model from: %s", resolved)
-        model = YOLO(resolved)
-        _MODEL_CACHE[resolved] = model
-    return model
+    return _MODEL_CACHE.load_or_store(weights_path, _loader)
 
 
 def _parse_yolo_results(

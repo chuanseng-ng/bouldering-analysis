@@ -14,7 +14,9 @@ from src.inference.classification import (
     HoldTypeResult,
     classify_hold,
     classify_holds,
+    reset_classification_model_cache,
 )
+from src.inference.exceptions import InferencePipelineError
 from src.inference.crop_extractor import (
     TARGET_SIZE,
     CropExtractorError,
@@ -29,6 +31,7 @@ from src.inference.detection import (
     InferenceError,
     detect_holds,
     detect_holds_batch,
+    reset_detection_model_cache,
 )
 
 __all__ = [
@@ -40,6 +43,7 @@ __all__ = [
     "DetectedHold",
     "HoldCrop",
     "HoldTypeResult",
+    "InferencePipelineError",
     "InferenceError",
     "TARGET_SIZE",
     "classify_hold",
@@ -47,4 +51,6 @@ __all__ = [
     "detect_holds",
     "detect_holds_batch",
     "extract_hold_crops",
+    "reset_classification_model_cache",
+    "reset_detection_model_cache",
 ]
