@@ -4,6 +4,9 @@ This module provides the application factory pattern for creating
 configured FastAPI instances with all middleware and routes.
 """
 
+import threading
+import time
+from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
@@ -11,12 +14,52 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.config import Settings, get_settings, get_settings_override
 from src.logging_config import configure_logging, get_logger
 from src.routes import health_router, routes_router, upload_router
 
 logger = get_logger(__name__)
+
+# Health-check paths that bypass API key authentication
+_HEALTH_PATHS = {"/health", "/api/v1/health"}
+
+
+class _UploadRateLimiter:
+    """Thread-safe sliding-window rate limiter for upload requests.
+
+    Tracks request timestamps per client IP in a 60-second window.
+    A fresh instance is created for each application instance so that
+    test isolation is guaranteed when :func:`create_app` is called repeatedly.
+    """
+
+    _WINDOW_SECONDS: int = 60
+
+    def __init__(self) -> None:
+        self._timestamps: dict[str, list[float]] = defaultdict(list)
+        self._lock = threading.Lock()
+
+    def is_allowed(self, client_ip: str, max_requests: int) -> bool:
+        """Return True if the request is within the rate limit.
+
+        Args:
+            client_ip: Identifier for the client (typically remote IP).
+            max_requests: Maximum allowed requests per window.
+
+        Returns:
+            True if the request is allowed; False if the limit is exceeded.
+        """
+        now = time.monotonic()
+        cutoff = now - self._WINDOW_SECONDS
+        with self._lock:
+            timestamps = [t for t in self._timestamps[client_ip] if t > cutoff]
+            if len(timestamps) >= max_requests:
+                self._timestamps[client_ip] = timestamps
+                return False
+            timestamps.append(now)
+            self._timestamps[client_ip] = timestamps
+            return True
 
 
 @asynccontextmanager
@@ -139,6 +182,68 @@ def _configure_middleware(app: FastAPI, settings: Settings) -> None:
         response.headers["X-Request-ID"] = request_id
 
         return response
+
+    # API key authentication middleware
+    @app.middleware("http")
+    async def api_key_auth(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Enforce API key authentication on non-health endpoints.
+
+        Skips authentication when ``settings.api_key`` is empty (open mode)
+        or when the request targets a health-check path.
+
+        Args:
+            request: Incoming HTTP request.
+            call_next: Next middleware or route handler.
+
+        Returns:
+            Response from the next handler, or a 401 JSON response.
+        """
+        if settings.api_key and request.url.path not in _HEALTH_PATHS:
+            provided_key = request.headers.get("X-API-Key", "")
+            if provided_key != settings.api_key:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or missing API key"},
+                )
+        return await call_next(request)
+
+    # Upload rate-limit middleware (per-IP sliding window, 60 s)
+    _upload_rate_limiter = _UploadRateLimiter()
+    _upload_path = "/api/v1/routes/upload"
+
+    @app.middleware("http")
+    async def rate_limit_upload(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Rate-limit POST requests to the upload endpoint.
+
+        Uses a per-IP sliding window counter.  Disabled when
+        ``settings.rate_limit_upload`` is 0.
+
+        Args:
+            request: Incoming HTTP request.
+            call_next: Next middleware or route handler.
+
+        Returns:
+            Response from the next handler, or a 429 JSON response.
+        """
+        max_requests = settings.rate_limit_upload
+        if (
+            max_requests > 0
+            and request.method == "POST"
+            and request.url.path == _upload_path
+        ):
+            client_ip = request.client.host if request.client else "unknown"
+            if not _upload_rate_limiter.is_allowed(client_ip, max_requests):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded. Please try again later."},
+                )
+        return await call_next(request)
 
 
 def _register_routes(app: FastAPI) -> None:

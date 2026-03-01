@@ -33,6 +33,13 @@ class Settings(BaseSettings):
         storage_bucket: Name of the Supabase Storage bucket for route images.
         allowed_image_types: List of allowed MIME types for image uploads.
         health_check_table: Database table queried by the DB health endpoint.
+        inference_timeout_seconds: Timeout in seconds for ML inference operations
+            wrapped in asyncio.to_thread. Applies to detect_holds, classify_holds,
+            and related pipeline calls.
+        api_key: Optional API key required via the ``X-API-Key`` header on all
+            non-health endpoints. Empty string disables authentication.
+        rate_limit_upload: Maximum upload requests per IP per minute on
+            ``POST /api/v1/routes/upload``. Set to 0 to disable rate limiting.
     """
 
     app_name: str = "bouldering-analysis"
@@ -52,6 +59,15 @@ class Settings(BaseSettings):
 
     # Health check configuration
     health_check_table: str = "routes"
+
+    # Inference timeout configuration
+    inference_timeout_seconds: int = 30
+
+    # Security configuration
+    api_key: str = ""  # empty = no authentication required
+
+    # Rate limiting: max upload requests per minute per IP (0 = disabled)
+    rate_limit_upload: int = 10
 
     model_config = SettingsConfigDict(
         env_prefix="BA_",
@@ -76,6 +92,42 @@ class Settings(BaseSettings):
                 "if Supabase is unreachable. Consider a lower value (10–30s).",
                 v,
             )
+        return v
+
+    @field_validator("inference_timeout_seconds")
+    @classmethod
+    def validate_inference_timeout(cls, v: int) -> int:
+        """Validate inference timeout is a positive integer.
+
+        Args:
+            v: Timeout value in seconds.
+
+        Returns:
+            Validated timeout value.
+
+        Raises:
+            ValueError: If value is not positive.
+        """
+        if v <= 0:
+            raise ValueError("inference_timeout_seconds must be a positive integer")
+        return v
+
+    @field_validator("rate_limit_upload")
+    @classmethod
+    def validate_rate_limit_upload(cls, v: int) -> int:
+        """Validate rate limit is non-negative.
+
+        Args:
+            v: Rate limit value.
+
+        Returns:
+            Validated rate limit value.
+
+        Raises:
+            ValueError: If value is negative.
+        """
+        if v < 0:
+            raise ValueError("rate_limit_upload must be >= 0 (0 = disabled)")
         return v
 
     @field_validator("log_level")

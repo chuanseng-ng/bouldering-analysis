@@ -24,6 +24,7 @@ def sample_route_record() -> dict[str, Any]:
         "wall_angle": 15.0,
         "created_at": "2026-01-27T12:00:00+00:00",
         "updated_at": "2026-01-27T12:00:00+00:00",
+        "status": "pending",
     }
 
 
@@ -269,6 +270,7 @@ class TestCreateRouteEndpoint:
         assert "wall_angle" in data
         assert "created_at" in data
         assert "updated_at" in data
+        assert "status" in data
 
         # Verify UUID format
         assert len(data["id"]) == 36
@@ -727,3 +729,164 @@ class TestRecordToResponse:
 
         with pytest.raises(ValueError, match="updated_at"):
             _record_to_response(record)
+
+    def test_record_to_response_status_defaults_to_pending(self) -> None:
+        """Records without a status field should default to 'pending'."""
+        from src.routes.routes import _record_to_response
+
+        record = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00Z",
+            "updated_at": "2026-01-27T12:00:00Z",
+        }
+
+        result = _record_to_response(record)
+        assert result.status == "pending"
+
+    def test_record_to_response_status_from_record(self) -> None:
+        """Status should be read from the record when present."""
+        from src.routes.routes import _record_to_response
+
+        record = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00Z",
+            "updated_at": "2026-01-27T12:00:00Z",
+            "status": "done",
+        }
+
+        result = _record_to_response(record)
+        assert result.status == "done"
+
+
+class TestGetRouteStatusEndpoint:
+    """Tests for GET /api/v1/routes/{route_id}/status endpoint."""
+
+    @patch("src.routes.routes.select_record_by_id")
+    def test_get_status_returns_pending(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+        sample_route_record: dict[str, Any],
+    ) -> None:
+        """Status endpoint should return the route's current status."""
+        mock_select.return_value = sample_route_record
+        route_id = sample_route_record["id"]
+
+        response = client.get(f"/api/v1/routes/{route_id}/status")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == route_id
+        assert data["status"] == "pending"
+
+    @patch("src.routes.routes.select_record_by_id")
+    def test_get_status_returns_done(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+        sample_route_record: dict[str, Any],
+    ) -> None:
+        """Status endpoint should reflect 'done' status."""
+        record = sample_route_record.copy()
+        record["status"] = "done"
+        mock_select.return_value = record
+        route_id = record["id"]
+
+        response = client.get(f"/api/v1/routes/{route_id}/status")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["status"] == "done"
+
+    @patch("src.routes.routes.select_record_by_id")
+    def test_get_status_defaults_to_pending_when_missing(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+        sample_route_record: dict[str, Any],
+    ) -> None:
+        """Status defaults to 'pending' when the DB record has no status field."""
+        record = {k: v for k, v in sample_route_record.items() if k != "status"}
+        mock_select.return_value = record
+
+        response = client.get(f"/api/v1/routes/{sample_route_record['id']}/status")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["status"] == "pending"
+
+    @patch("src.routes.routes.select_record_by_id")
+    def test_get_status_not_found(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Status endpoint should return 404 for unknown route IDs."""
+        mock_select.return_value = None
+        route_id = "00000000-0000-0000-0000-000000000000"
+
+        response = client.get(f"/api/v1/routes/{route_id}/status")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_status_invalid_uuid(self, client: TestClient) -> None:
+        """Invalid UUID format should return 422."""
+        response = client.get("/api/v1/routes/not-a-uuid/status")
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @patch("src.routes.routes.select_record_by_id")
+    def test_get_status_database_error(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Database error should return 500."""
+        mock_select.side_effect = SupabaseClientError("DB failure")
+        route_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+        response = client.get(f"/api/v1/routes/{route_id}/status")
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        data = response.json()
+        assert "route status" in data["detail"].lower()
+
+
+class TestBackgroundTask:
+    """Tests for the background processing task."""
+
+    @patch("src.routes.routes.insert_record")
+    def test_background_task_scheduled_on_create(
+        self,
+        mock_insert: MagicMock,
+        client: TestClient,
+        sample_route_record: dict[str, Any],
+    ) -> None:
+        """Creating a route should schedule a background task (non-blocking)."""
+        mock_insert.return_value = sample_route_record
+
+        response = client.post(
+            "/api/v1/routes",
+            json={"image_url": "https://example.com/image.jpg"},
+        )
+
+        # Background task runs synchronously in TestClient; response still 201
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["status"] == "pending"
+
+    @patch("src.routes.routes.insert_record")
+    def test_create_route_inserts_status_pending(
+        self,
+        mock_insert: MagicMock,
+        client: TestClient,
+        sample_route_record: dict[str, Any],
+    ) -> None:
+        """The DB insert should include status='pending'."""
+        mock_insert.return_value = sample_route_record
+
+        client.post(
+            "/api/v1/routes",
+            json={"image_url": "https://example.com/image.jpg"},
+        )
+
+        call_kwargs = mock_insert.call_args.kwargs
+        assert call_kwargs["data"]["status"] == "pending"

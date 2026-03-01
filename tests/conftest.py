@@ -28,6 +28,7 @@ def test_settings() -> dict[str, Any]:
         "debug": True,
         "log_level": "DEBUG",
         "cors_origins": ["http://localhost:3000", "http://test"],
+        "rate_limit_upload": 1000,  # effectively disabled in tests
     }
 
 

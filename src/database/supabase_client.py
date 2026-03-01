@@ -382,6 +382,56 @@ def insert_record(table: str, data: dict[str, Any]) -> dict[str, Any]:
         return record
 
 
+def insert_records_bulk(table: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Insert multiple records into a Supabase table in a single HTTP request.
+
+    Use this instead of calling ``insert_record`` in a loop to avoid N+1
+    HTTP round trips.  The records are inserted atomically (all or nothing).
+
+    Args:
+        table: Name of the table (e.g., ``"holds"``).
+        rows: Non-empty list of row dictionaries.  Every row must have at
+            least one key; rows are not required to have identical keys.
+
+    Returns:
+        List of inserted records with server-generated fields (id,
+        created_at, etc.) in the same order as the input rows.
+
+    Raises:
+        SupabaseClientError: If ``rows`` is empty, any row is empty, the
+            table name is invalid, or the insert fails.
+
+    Example:
+        >>> records = insert_records_bulk(
+        ...     "holds",
+        ...     [{"route_id": "...", "class_name": "jug"}, ...],
+        ... )
+        >>> print(len(records))
+        3
+    """
+    _validate_table_name(table)
+
+    if not rows:
+        raise SupabaseClientError("rows list must not be empty")
+
+    for i, row in enumerate(rows):
+        if not row:
+            raise SupabaseClientError(f"Row at index {i} is empty")
+
+    client = get_supabase_client()
+
+    with _supabase_op(f"Failed to bulk-insert records into table '{table}'"):
+        result = client.table(table).insert(rows).execute()
+
+        if not result.data:
+            raise SupabaseClientError(
+                f"Bulk insert into table '{table}' returned no data"
+            )
+
+        records: list[dict[str, Any]] = list(result.data)  # type: ignore[arg-type]
+        return records
+
+
 def select_record_by_id(
     table: str,
     record_id: str,
@@ -433,4 +483,4 @@ def select_record_by_id(
         )
         # result.data is None if not found, dict if found;
         # PostgREST raises if >1 row is returned
-        return result.data  # type: ignore[no-any-return]
+        return result.data  # type: ignore[no-any-return, union-attr, return-value]

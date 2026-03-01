@@ -9,15 +9,17 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, status
 from pydantic import BaseModel, Field, field_validator
 
+from src.config import get_settings
 from src.database.supabase_client import (
     SupabaseClientError,
     insert_record,
     select_record_by_id,
 )
 from src.logging_config import get_logger
+from src.routes.shared import ErrorResponse
 
 logger = get_logger(__name__)
 
@@ -89,6 +91,8 @@ class RouteResponse(BaseModel):
         wall_angle: Wall angle in degrees, or None if unknown.
         created_at: ISO 8601 timestamp of creation.
         updated_at: ISO 8601 timestamp of last update.
+        status: Processing status of the route.  One of
+            ``"pending"``, ``"processing"``, ``"done"``, ``"failed"``.
     """
 
     id: str
@@ -96,16 +100,19 @@ class RouteResponse(BaseModel):
     wall_angle: float | None
     created_at: str
     updated_at: str
+    status: str = "pending"
 
 
-class ErrorResponse(BaseModel):
-    """Response model for route errors.
+class RouteStatusResponse(BaseModel):
+    """Lightweight response model for route status polling.
 
     Attributes:
-        detail: Human-readable error message.
+        id: Unique identifier for the route.
+        status: Processing status of the route.
     """
 
-    detail: str
+    id: str
+    status: str
 
 
 def _format_timestamp(value: str | None) -> str:
@@ -169,6 +176,23 @@ def _record_to_response(record: dict[str, Any]) -> RouteResponse:
         wall_angle=record.get("wall_angle"),
         created_at=_format_timestamp(record.get("created_at")),
         updated_at=_format_timestamp(record.get("updated_at")),
+        status=str(record.get("status", "pending")),
+    )
+
+
+def _process_route_background(route_id: str, image_url: str) -> None:
+    """Placeholder background task for ML inference pipeline (PR-5+).
+
+    Currently logs the queued job.  Future PRs will replace this stub
+    with actual hold detection, classification, and grade estimation.
+
+    Args:
+        route_id: Unique identifier of the created route record.
+        image_url: Public URL of the uploaded route image.
+    """
+    logger.info(
+        "Background processing queued",
+        extra={"route_id": route_id, "image_url": image_url},
     )
 
 
@@ -185,19 +209,27 @@ def _record_to_response(record: dict[str, Any]) -> RouteResponse:
             "model": ErrorResponse,
             "description": "Server error during route creation",
         },
+        504: {
+            "model": ErrorResponse,
+            "description": "Request timed out",
+        },
     },
 )
-async def create_route(route_data: RouteCreate) -> RouteResponse:
-    """Create a new route record.
+async def create_route(
+    route_data: RouteCreate, background_tasks: BackgroundTasks
+) -> RouteResponse:
+    """Create a new route record and queue background ML analysis.
 
-    This endpoint creates a new route record in the database, linking
-    an uploaded image to route metadata like wall angle.
+    This endpoint creates a new route record in the database with
+    ``status="pending"``, then schedules background ML inference for
+    hold detection and classification (PR-5+).
 
     Args:
         route_data: Route creation data with image_url and optional wall_angle.
+        background_tasks: FastAPI background task queue.
 
     Returns:
-        Created route record with generated ID and timestamps.
+        Created route record with generated ID and ``status="pending"``.
 
     Raises:
         HTTPException: 422 for validation errors, 500 for database errors.
@@ -212,6 +244,7 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
     # Prepare data for insertion
     insert_data: dict[str, Any] = {
         "image_url": route_data.image_url,
+        "status": "pending",
     }
 
     # Only include wall_angle if provided (let DB handle NULL)
@@ -219,23 +252,43 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
         insert_data["wall_angle"] = round(route_data.wall_angle, 1)
 
     try:
+        settings = get_settings()
         # Insert record (run in thread to avoid blocking event loop)
-        record = await asyncio.to_thread(
-            insert_record,
-            table=_ROUTES_TABLE,
-            data=insert_data,
+        record = await asyncio.wait_for(
+            asyncio.to_thread(
+                insert_record,
+                table=_ROUTES_TABLE,
+                data=insert_data,
+            ),
+            timeout=settings.inference_timeout_seconds,
+        )
+
+        route_response = _record_to_response(record)
+
+        # Schedule background ML analysis (non-blocking)
+        background_tasks.add_task(
+            _process_route_background, route_response.id, route_data.image_url
         )
 
         logger.info(
             "Route created successfully",
             extra={
-                "route_id": record["id"],
+                "route_id": route_response.id,
                 "image_url": route_data.image_url,
             },
         )
 
-        return _record_to_response(record)
+        return route_response
 
+    except asyncio.TimeoutError:
+        logger.error(
+            "Database operation timed out",
+            extra={"operation": "insert_record", "table": _ROUTES_TABLE},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Request timed out. Please try again.",
+        ) from None
     except (SupabaseClientError, KeyError, ValueError) as e:
         logger.error(
             "Failed to create route record",
@@ -267,6 +320,10 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
             "model": ErrorResponse,
             "description": "Server error during retrieval",
         },
+        504: {
+            "model": ErrorResponse,
+            "description": "Request timed out",
+        },
     },
 )
 async def get_route(
@@ -296,11 +353,15 @@ async def get_route(
         ```
     """
     try:
+        settings = get_settings()
         # Query record (run in thread to avoid blocking event loop)
-        record = await asyncio.to_thread(
-            select_record_by_id,
-            table=_ROUTES_TABLE,
-            record_id=str(route_id),
+        record = await asyncio.wait_for(
+            asyncio.to_thread(
+                select_record_by_id,
+                table=_ROUTES_TABLE,
+                record_id=str(route_id),
+            ),
+            timeout=settings.inference_timeout_seconds,
         )
 
         if record is None:
@@ -313,6 +374,15 @@ async def get_route(
 
     except HTTPException:
         raise
+    except asyncio.TimeoutError:
+        logger.error(
+            "Database operation timed out",
+            extra={"operation": "select_record_by_id", "table": _ROUTES_TABLE},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Request timed out. Please try again.",
+        ) from None
     except (SupabaseClientError, KeyError, ValueError) as e:
         logger.error(
             "Failed to retrieve route",
@@ -325,4 +395,103 @@ async def get_route(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve route",
+        ) from e
+
+
+@router.get(
+    "/routes/{route_id}/status",
+    response_model=RouteStatusResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Route not found",
+        },
+        422: {
+            "model": ErrorResponse,
+            "description": "Invalid route ID format",
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Server error during retrieval",
+        },
+        504: {
+            "model": ErrorResponse,
+            "description": "Request timed out",
+        },
+    },
+)
+async def get_route_status(
+    route_id: Annotated[
+        uuid.UUID,
+        Path(
+            description="UUID of the route to check",
+            examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
+        ),
+    ],
+) -> RouteStatusResponse:
+    """Poll the processing status of a route.
+
+    Returns the current analysis status without the full route payload.
+    Clients can poll this endpoint until ``status`` is ``"done"`` or
+    ``"failed"``.
+
+    Args:
+        route_id: UUID of the route to check.
+
+    Returns:
+        :class:`RouteStatusResponse` with ``id`` and ``status`` fields.
+
+    Raises:
+        HTTPException: 404 if not found, 422 for invalid UUID, 500 for errors.
+
+    Example:
+        ```bash
+        curl "http://localhost:8000/api/v1/routes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/status"
+        ```
+    """
+    try:
+        settings = get_settings()
+        record = await asyncio.wait_for(
+            asyncio.to_thread(
+                select_record_by_id,
+                table=_ROUTES_TABLE,
+                record_id=str(route_id),
+            ),
+            timeout=settings.inference_timeout_seconds,
+        )
+
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Route not found",
+            )
+
+        return RouteStatusResponse(
+            id=str(record["id"]),
+            status=str(record.get("status", "pending")),
+        )
+
+    except HTTPException:
+        raise
+    except asyncio.TimeoutError:
+        logger.error(
+            "Database operation timed out",
+            extra={"operation": "get_route_status", "table": _ROUTES_TABLE},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Request timed out. Please try again.",
+        ) from None
+    except (SupabaseClientError, KeyError, ValueError) as e:
+        logger.error(
+            "Failed to retrieve route status",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "route_id": str(route_id),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve route status",
         ) from e

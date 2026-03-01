@@ -13,6 +13,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 
 from src.database.supabase_client import SupabaseClientError, upload_to_storage
+from src.routes.shared import ErrorResponse
 from src.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -36,18 +37,6 @@ class UploadResponse(BaseModel):
     file_size: int
     content_type: str
     uploaded_at: str
-
-
-class ErrorResponse(BaseModel):
-    """Response model for upload errors.
-
-    Attributes:
-        detail: Human-readable error message.
-        error_code: Machine-readable error code.
-    """
-
-    detail: str
-    error_code: str
 
 
 def format_bytes(size_bytes: int) -> str:
@@ -231,6 +220,10 @@ def generate_file_path(content_type: str) -> tuple[str, str]:
             "model": ErrorResponse,
             "description": "Server error during upload",
         },
+        504: {
+            "model": ErrorResponse,
+            "description": "Upload timed out",
+        },
     },
 )
 async def upload_route_image(
@@ -286,12 +279,15 @@ async def upload_route_image(
         file_id, file_path = generate_file_path(file.content_type or "image/jpeg")
 
         # Upload to Supabase Storage (run in thread to avoid blocking event loop)
-        public_url = await asyncio.to_thread(
-            upload_to_storage,
-            bucket=settings.storage_bucket,
-            file_path=file_path,
-            file_data=file_content,
-            content_type=file.content_type,
+        public_url = await asyncio.wait_for(
+            asyncio.to_thread(
+                upload_to_storage,
+                bucket=settings.storage_bucket,
+                file_path=file_path,
+                file_data=file_content,
+                content_type=file.content_type,
+            ),
+            timeout=settings.inference_timeout_seconds,
         )
 
         # Return success response
@@ -303,6 +299,15 @@ async def upload_route_image(
             uploaded_at=datetime.now(timezone.utc).isoformat() + "Z",
         )
 
+    except asyncio.TimeoutError:
+        logger.error(
+            "Storage upload timed out",
+            extra={"timeout": settings.inference_timeout_seconds},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Upload timed out. Please try again.",
+        ) from None
     except SupabaseClientError as e:
         # Log full error for debugging
         logger.error(

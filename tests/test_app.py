@@ -230,3 +230,142 @@ class TestLogging:
             mock_configure.assert_called_once()
             args, kwargs = mock_configure.call_args
             assert args[0] == "DEBUG" or kwargs.get("log_level") == "DEBUG"
+
+
+class TestApiKeyMiddleware:
+    """Tests for API key authentication middleware."""
+
+    def test_health_endpoint_bypasses_api_key(self) -> None:
+        """Health endpoints must remain accessible without an API key."""
+        app = create_app({"testing": True, "api_key": "secret"})
+        with TestClient(app) as c:
+            assert c.get("/health").status_code == 200
+            assert c.get("/api/v1/health").status_code == 200
+
+    def test_missing_api_key_returns_401(self) -> None:
+        """Request to a protected endpoint without X-API-Key returns 401."""
+        app = create_app(
+            {"testing": True, "api_key": "secret", "rate_limit_upload": 1000}
+        )
+        with TestClient(app, raise_server_exceptions=False) as c:
+            response = c.get("/api/v1/routes/00000000-0000-0000-0000-000000000000")
+            assert response.status_code == 401
+            assert "API key" in response.json()["detail"]
+
+    def test_wrong_api_key_returns_401(self) -> None:
+        """Request with an incorrect key returns 401."""
+        app = create_app(
+            {"testing": True, "api_key": "secret", "rate_limit_upload": 1000}
+        )
+        with TestClient(app, raise_server_exceptions=False) as c:
+            response = c.get(
+                "/api/v1/routes/00000000-0000-0000-0000-000000000000",
+                headers={"X-API-Key": "wrong"},
+            )
+            assert response.status_code == 401
+
+    def test_correct_api_key_passes_through(self) -> None:
+        """Request with the correct key reaches the route handler (not 401)."""
+        app = create_app(
+            {"testing": True, "api_key": "secret", "rate_limit_upload": 1000}
+        )
+        with TestClient(app, raise_server_exceptions=False) as c:
+            response = c.get(
+                "/api/v1/routes/00000000-0000-0000-0000-000000000000",
+                headers={"X-API-Key": "secret"},
+            )
+            # 404 is fine — it means the route handler was reached, not blocked by auth
+            assert response.status_code != 401
+
+    def test_empty_api_key_disables_auth(self) -> None:
+        """When api_key is empty all endpoints are open (no 401)."""
+        app = create_app({"testing": True, "api_key": "", "rate_limit_upload": 1000})
+        with TestClient(app, raise_server_exceptions=False) as c:
+            response = c.get("/api/v1/routes/00000000-0000-0000-0000-000000000000")
+            assert response.status_code != 401
+
+
+class TestUploadRateLimitMiddleware:
+    """Tests for the per-IP upload rate limiter."""
+
+    def test_requests_within_limit_are_allowed(self) -> None:
+        """Requests up to the configured limit should receive non-429 responses."""
+        from unittest.mock import patch
+
+        app = create_app({"testing": True, "api_key": "", "rate_limit_upload": 5})
+        with TestClient(app, raise_server_exceptions=False) as c:
+            with patch("src.routes.upload.upload_to_storage") as mock_upload:
+                mock_upload.return_value = "https://example.com/img.jpg"
+                import io
+
+                for _ in range(5):
+                    png_bytes = (
+                        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+                        b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
+                        b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx"
+                        b"\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N"
+                        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+                    )
+                    response = c.post(
+                        "/api/v1/routes/upload",
+                        files={"file": ("img.png", io.BytesIO(png_bytes), "image/png")},
+                    )
+                    assert response.status_code != 429
+
+    def test_exceeding_limit_returns_429(self) -> None:
+        """Requests beyond the configured limit should return 429."""
+        from unittest.mock import patch
+
+        app = create_app({"testing": True, "api_key": "", "rate_limit_upload": 2})
+        with TestClient(app, raise_server_exceptions=False) as c:
+            with patch("src.routes.upload.upload_to_storage") as mock_upload:
+                mock_upload.return_value = "https://example.com/img.jpg"
+                import io
+
+                png_bytes = (
+                    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+                    b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
+                    b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx"
+                    b"\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N"
+                    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+                )
+                responses = [
+                    c.post(
+                        "/api/v1/routes/upload",
+                        files={"file": ("img.png", io.BytesIO(png_bytes), "image/png")},
+                    )
+                    for _ in range(3)
+                ]
+                status_codes = [r.status_code for r in responses]
+                assert 429 in status_codes
+
+    def test_non_upload_endpoints_not_rate_limited(self) -> None:
+        """Rate limiter must not apply to GET endpoints."""
+        app = create_app({"testing": True, "api_key": "", "rate_limit_upload": 1})
+        with TestClient(app, raise_server_exceptions=False) as c:
+            for _ in range(5):
+                assert c.get("/health").status_code != 429
+
+    def test_rate_limit_zero_disables_limiter(self) -> None:
+        """rate_limit_upload=0 should disable the rate limiter entirely."""
+        from unittest.mock import patch
+
+        app = create_app({"testing": True, "api_key": "", "rate_limit_upload": 0})
+        with TestClient(app, raise_server_exceptions=False) as c:
+            with patch("src.routes.upload.upload_to_storage") as mock_upload:
+                mock_upload.return_value = "https://example.com/img.jpg"
+                import io
+
+                for _ in range(20):
+                    png_bytes = (
+                        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+                        b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
+                        b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx"
+                        b"\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N"
+                        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+                    )
+                    response = c.post(
+                        "/api/v1/routes/upload",
+                        files={"file": ("img.png", io.BytesIO(png_bytes), "image/png")},
+                    )
+                    assert response.status_code != 429
