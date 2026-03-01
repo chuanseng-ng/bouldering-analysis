@@ -45,18 +45,19 @@ Once your project is ready:
 
 2. **Copy your credentials**:
    - **Project URL**: Look for "Project URL" (e.g., `https://abcdefghijklmnop.supabase.co`)
-   - **API Key**: Copy the `anon` `public` key (under "Project API keys")
+   - **API Key**: Copy the `service_role` key (under "Project API keys")
 
    ```text
    Project URL: https://xxxxxxxxxxxxx.supabase.co
-   anon public key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    ```
 
    **Important**:
-   - ✅ Use the `anon` key (JWT token starting with `eyJ...`)
-   - ❌ NOT the `publishable` key (`sb_publishable_...`)
-   - Use the `service_role` key only for server-side admin operations (keep it secret!)
-   - For this application, the `anon` key is sufficient for now
+   - ✅ Use the `service_role` key for this **server-side** FastAPI backend
+   - ✅ The `service_role` key bypasses Row Level Security — keep it server-side only
+   - ❌ NOT the `anon` / `publishable` key — the `anon` key cannot INSERT rows due to
+     the RLS policy and is intended for untrusted client-side code (browser, mobile)
+   - ❌ Never expose the `service_role` key in client code or commit it to version control
 
 ---
 
@@ -81,12 +82,15 @@ BA_CORS_ORIGINS=["http://localhost:3000"]
 
 # Supabase Configuration
 BA_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
-BA_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+BA_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...  # service_role key
 ```
 
 **Replace**:
 - `xxxxxxxxxxxxx` with your actual project URL
-- `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` with your actual `anon` public key
+- `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` with your **`service_role`** key
+
+**Note**: The backend uses the `service_role` key to bypass RLS and perform inserts.
+This key must be kept strictly server-side. Never include it in frontend code or commits.
 
 **Security Note**:
 - ✅ `.env` is in `.gitignore` - your credentials won't be committed
@@ -195,6 +199,35 @@ CREATE TRIGGER update_routes_updated_at
    - Navigate to "Table Editor" in the left sidebar
    - You should see the `routes` table listed
 
+1. **Verify the `updated_at` trigger exists**:
+
+   In the SQL Editor, run:
+
+   ```sql
+   SELECT tgname, tgrelid::regclass
+   FROM pg_trigger
+   WHERE tgname = 'update_routes_updated_at';
+   ```
+
+   - If this query **returns one row**, the trigger was created successfully.
+   - If it **returns no rows**, the auto-update trigger was not created. Re-run the
+     trigger creation SQL from the routes table setup section above:
+
+   ```sql
+   CREATE OR REPLACE FUNCTION update_updated_at_column()
+   RETURNS TRIGGER AS $$
+   BEGIN
+       NEW.updated_at = NOW();
+       RETURN NEW;
+   END;
+   $$ LANGUAGE plpgsql;
+
+   CREATE TRIGGER update_routes_updated_at
+       BEFORE UPDATE ON routes
+       FOR EACH ROW
+       EXECUTE FUNCTION update_updated_at_column();
+   ```
+
 ### Table Schema Reference
 
 | Column | Type | Default | Description |
@@ -259,19 +292,20 @@ Testing Supabase Connection
 
 **Solution**:
 1. Verify your Supabase project URL is correct
-2. Check your API key is the `anon` public key (JWT token starting with `eyJ...`)
-3. NOT the `publishable` key (`sb_publishable_...`)
+2. Check your API key is the `service_role` key (JWT token starting with `eyJ...`)
+3. NOT the `anon` or `publishable` key — the backend requires `service_role`
 4. Ensure your Supabase project is active (not paused)
 5. Check your internet connection
 
 ### Storage buckets not detected
 
-**Cause**: The `anon` key cannot list all buckets (normal security behavior).
+**Cause**: The backend is configured with the `anon` (publishable) key instead of the `service_role` key. The `anon` key cannot list all buckets.
 
 **Solution**:
-- This is normal! The `anon` key can't list all buckets but CAN access them individually
-- The test script checks buckets directly by name
-- Your buckets are accessible even if they don't show in the list
+- Ensure `BA_SUPABASE_KEY` is set to the **service_role** key (JWT starting with `eyJ...`), not the `anon` or publishable key
+- The `service_role` key lets the backend list and access all buckets without RLS restrictions
+- Note: the `anon` key is for client-side access only — it cannot list buckets, which is expected behaviour for anonymous users but incorrect for the backend
+- Verify the environment variable is set to the `service_role` key when running the test script
 
 ### Error: "Failed to upload file to bucket"
 

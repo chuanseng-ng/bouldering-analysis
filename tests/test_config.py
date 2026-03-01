@@ -212,3 +212,46 @@ class TestGetSettingsOverride:
         settings1 = get_settings_override({"debug": True})
         settings2 = get_settings_override({"debug": True})
         assert settings1 is not settings2
+
+
+class TestApiKeySettings:
+    """Tests for api_key and rate_limit_upload settings."""
+
+    def test_default_api_key_is_empty(self) -> None:
+        """api_key should default to empty string (no auth)."""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = get_settings_override({})
+            assert settings.api_key == ""
+
+    def test_api_key_from_override(self) -> None:
+        """api_key should accept any non-empty string."""
+        settings = get_settings_override({"api_key": "super-secret"})
+        assert settings.api_key == "super-secret"
+
+    def test_api_key_strips_whitespace(self) -> None:
+        """api_key should be stripped of surrounding whitespace (e.g. trailing newlines from .env)."""
+        settings = get_settings_override({"api_key": "  super-secret  "})
+        assert settings.api_key == "super-secret"
+
+    def test_api_key_whitespace_only_is_empty(self) -> None:
+        """api_key containing only whitespace should be treated as disabled (empty string)."""
+        settings = get_settings_override({"api_key": "   "})
+        assert settings.api_key == ""
+
+    def test_default_rate_limit_upload(self) -> None:
+        """rate_limit_upload should default to 10."""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}
+        with patch.dict(os.environ, env, clear=True):
+            settings = get_settings_override({})
+            assert settings.rate_limit_upload == 10
+
+    def test_rate_limit_upload_zero_disables(self) -> None:
+        """rate_limit_upload=0 should be accepted (disables rate limiting)."""
+        settings = get_settings_override({"rate_limit_upload": 0})
+        assert settings.rate_limit_upload == 0
+
+    def test_rate_limit_upload_negative_raises(self) -> None:
+        """Negative rate_limit_upload should raise ValidationError."""
+        with pytest.raises(ValidationError):
+            Settings(rate_limit_upload=-1)

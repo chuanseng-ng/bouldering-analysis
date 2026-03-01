@@ -221,6 +221,23 @@ class TestLoadModelCached:
         with pytest.raises(InferenceError):
             _load_model_cached(missing)
 
+    @patch("src.inference.detection.YOLO")
+    def test_concurrent_loads_call_yolo_only_once(
+        self, mock_yolo_cls: MagicMock, fake_weights: Path
+    ) -> None:
+        """Concurrent calls to _load_model_cached load the model exactly once."""
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [
+                executor.submit(_load_model_cached, fake_weights) for _ in range(10)
+            ]
+            models = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        mock_yolo_cls.assert_called_once()
+        first = models[0]
+        assert all(m is first for m in models)
+
 
 # ---------------------------------------------------------------------------
 # TestClearModelCache
@@ -368,6 +385,14 @@ class TestParseYoloResults:
         results.boxes = boxes
 
         holds = _parse_yolo_results([results], conf_threshold=0.25)
+        assert holds == []
+
+    def test_skips_result_with_none_boxes(self) -> None:
+        """_parse_yolo_results skips results where boxes is None."""
+        result_with_none_boxes = MagicMock()
+        result_with_none_boxes.boxes = None
+
+        holds = _parse_yolo_results([result_with_none_boxes], conf_threshold=0.25)
         assert holds == []
 
 
@@ -547,6 +572,13 @@ class TestDetectHoldsBatch:
 
         with pytest.raises(InferenceError, match="predict"):
             detect_holds_batch([fake_image_file], fake_weights)
+
+    def test_raises_type_error_for_invalid_batch_element(
+        self, fake_image_file: Path, fake_weights: Path
+    ) -> None:
+        """detect_holds_batch raises TypeError when a batch element has an unsupported type."""
+        with pytest.raises(TypeError):
+            detect_holds_batch([fake_image_file, 12345], fake_weights)  # type: ignore[list-item]
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ from src.database.supabase_client import (
     delete_from_storage,
     get_storage_url,
     get_supabase_client,
+    insert_records_bulk,
     list_storage_files,
     upload_to_storage,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "delete_from_storage",
     "get_storage_url",
     "get_supabase_client",
+    "insert_records_bulk",
     "list_storage_files",
     "upload_to_storage",
 ]

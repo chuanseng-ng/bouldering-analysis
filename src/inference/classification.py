@@ -18,8 +18,9 @@ Example::
 """
 
 import json
-import threading
+from functools import lru_cache
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any
 
 import PIL.Image as PILImage
@@ -28,10 +29,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from torch import nn
 from torchvision import transforms  # type: ignore[import-untyped]
 
+from src.inference.cache import _InferenceModelCache
 from src.inference.crop_extractor import HoldCrop
 from src.logging_config import get_logger
+from src.inference.exceptions import InferencePipelineError
 from src.training.classification_dataset import HOLD_CLASSES
 from src.training.classification_model import (
+    IMAGENET_MEAN,
+    IMAGENET_STD,
+    INPUT_SIZE,
+    VAL_RESIZE_RATIO,
     ClassifierHyperparameters,
     apply_classifier_dropout,
     build_hold_classifier,
@@ -43,18 +50,11 @@ logger = get_logger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-INPUT_SIZE: int = 224
-_VAL_RESIZE_RATIO: float = (
-    256 / 224
-)  # Standard ImageNet evaluation resize (256/224 ratio)
-IMAGENET_MEAN: tuple[float, ...] = (0.485, 0.456, 0.406)
-IMAGENET_STD: tuple[float, ...] = (0.229, 0.224, 0.225)
-
-# Module-level model cache: resolved path string → loaded nn.Module
-_MODEL_CACHE: dict[str, nn.Module] = {}
-# Input-size cache: resolved path string → input_size from training metadata
-_INPUT_SIZE_CACHE: dict[str, int] = {}
-_MODEL_CACHE_LOCK: threading.Lock = threading.Lock()
+# Module-level model cache: resolved path string → (loaded nn.Module, input_size).
+# Storing both values in a single cache entry keeps them atomically consistent:
+# a reset cannot clear one without the other, preventing the race where a thread
+# reads a cached model but then falls back to the wrong (default) input_size.
+_MODEL_CACHE: _InferenceModelCache[tuple[nn.Module, int]] = _InferenceModelCache()
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ _MODEL_CACHE_LOCK: threading.Lock = threading.Lock()
 # ---------------------------------------------------------------------------
 
 
-class ClassificationInferenceError(Exception):
+class ClassificationInferenceError(InferencePipelineError):
     """Raised when hold classification inference fails.
 
     This is a sibling of InferenceError (not a subclass) as it represents
@@ -124,9 +124,19 @@ def _clear_model_cache() -> None:
     Intended for testing and memory management.  After calling this,
     the next call to :func:`_load_model_cached` will reload from disk.
     """
-    with _MODEL_CACHE_LOCK:
-        _MODEL_CACHE.clear()
-        _INPUT_SIZE_CACHE.clear()
+    _MODEL_CACHE.clear()
+
+
+def reset_classification_model_cache() -> None:
+    """Clear all cached classifier model instances (public API for testing and hot-reload).
+
+    After calling this, the next call to :func:`classify_hold` will reload the
+    model from disk. Intended for test isolation and hot-reload scenarios.
+
+    Example:
+        >>> reset_classification_model_cache()
+    """
+    _clear_model_cache()
 
 
 def _load_metadata(weights_path: Path) -> dict[str, Any]:
@@ -230,17 +240,18 @@ def _build_model_from_metadata(
     return model
 
 
-def _load_model_cached(weights_path: Path | str) -> nn.Module:
-    """Load a classifier model from disk, returning a cached instance on repeat calls.
+def _load_model_cached(weights_path: Path | str) -> tuple[nn.Module, int]:
+    """Load a classifier model from disk, returning a cached (model, input_size) pair.
 
-    The cache key is the resolved absolute path string so that equivalent
-    relative/absolute paths share the same cached model.
+    Model and input_size are stored together as a single cache entry so that
+    a concurrent reset cannot produce a state where a thread holds a model
+    reference but reads the wrong (default) input_size.
 
     Args:
         weights_path: Path to the .pt weights file.
 
     Returns:
-        Loaded nn.Module in eval mode.
+        Tuple of (nn.Module in eval mode, input_size used for the transform).
 
     Raises:
         ClassificationInferenceError: If the weights file is missing,
@@ -249,25 +260,22 @@ def _load_model_cached(weights_path: Path | str) -> nn.Module:
     resolved_path = Path(weights_path).resolve()
     resolved = str(resolved_path)
 
-    # Fast path: safe under CPython's GIL; inner re-check inside the lock handles
-    # the race in free-threaded builds (PEP 703 / Python 3.13+ no-GIL).
-    if resolved in _MODEL_CACHE:
-        return _MODEL_CACHE[resolved]
+    # Fast path: check if already cached
+    cached = _MODEL_CACHE.get(resolved)
+    if cached is not None:
+        return cached
 
-    with _MODEL_CACHE_LOCK:
-        if resolved in _MODEL_CACHE:
-            return _MODEL_CACHE[resolved]
-
-        logger.info("Loading classification model from: %s", resolved)
-        metadata = _load_metadata(resolved_path)
-        model = _build_model_from_metadata(metadata, resolved_path)
+    # Load via cache (thread-safe double-checked locking inside load_or_store)
+    def _loader(p: Path) -> tuple[nn.Module, int]:
+        logger.info("Loading classification model from: %s", str(p))
+        metadata = _load_metadata(p)
+        model = _build_model_from_metadata(metadata, p)
         input_size = int(
             metadata.get("hyperparameters", {}).get("input_size", INPUT_SIZE)
         )
-        _MODEL_CACHE[resolved] = model
-        _INPUT_SIZE_CACHE[resolved] = input_size
+        return model, input_size
 
-    return model
+    return _MODEL_CACHE.load_or_store(weights_path, _loader)
 
 
 def _validate_crop_input(crop: Any) -> None:
@@ -308,6 +316,7 @@ def _to_pil_image(crop: HoldCrop | PILImage.Image) -> PILImage.Image:
     return pil
 
 
+@lru_cache(maxsize=8)
 def _get_inference_transform(input_size: int = INPUT_SIZE) -> transforms.Compose:
     """Build the validation-time inference transform pipeline.
 
@@ -328,7 +337,7 @@ def _get_inference_transform(input_size: int = INPUT_SIZE) -> transforms.Compose
     Returns:
         ``transforms.Compose`` pipeline ready to apply to a PIL.Image.Image.
     """
-    resize_size = int(input_size * _VAL_RESIZE_RATIO)
+    resize_size = int(input_size * VAL_RESIZE_RATIO)
     return transforms.Compose(
         [
             transforms.Resize(resize_size),
@@ -413,9 +422,7 @@ def classify_hold(
         jug 0.92
     """
     _validate_crop_input(crop)
-    resolved = str(Path(weights_path).resolve())
-    model = _load_model_cached(weights_path)
-    input_size = _INPUT_SIZE_CACHE.get(resolved, INPUT_SIZE)
+    model, input_size = _load_model_cached(weights_path)
 
     try:
         pil = _to_pil_image(crop)
@@ -435,26 +442,35 @@ def classify_hold(
 
 
 def classify_holds(
-    crops: list[HoldCrop | PILImage.Image],
+    crops: Sequence[HoldCrop | PILImage.Image],
     weights_path: Path | str,
+    chunk_size: int | None = None,
 ) -> list[HoldTypeResult]:
     """Classify a batch of hold crops in a single forward pass.
 
     Stacks all crops into a single batch tensor and runs one forward pass
     for efficiency, rather than calling :func:`classify_hold` in a loop.
 
+    When ``chunk_size`` is specified, crops are split into chunks of at most
+    ``chunk_size`` elements and each chunk is processed in a separate forward
+    pass.  This bounds the peak memory usage for large batches while
+    preserving result order.
+
     Args:
-        crops: Non-empty list of hold crops
+        crops: Non-empty sequence of hold crops
             (:class:`~src.inference.crop_extractor.HoldCrop` or
             ``PIL.Image.Image``).
         weights_path: Path to a trained classifier .pt weights file.
+        chunk_size: Maximum number of crops per forward pass.  ``None``
+            (the default) processes all crops in a single pass.  Must be
+            >= 1 when specified.
 
     Returns:
         List of :class:`HoldTypeResult` objects, one per crop, in the
         same order as the input list.
 
     Raises:
-        ValueError: If crops is an empty list.
+        ValueError: If crops is an empty list or chunk_size < 1.
         TypeError: If any crop is not a HoldCrop or PIL.Image.Image.
         ClassificationInferenceError: If the weights file is missing,
             metadata.json is absent, or inference fails.
@@ -464,28 +480,36 @@ def classify_holds(
         >>> results = classify_holds(hold_crops, "models/classification/v1/weights/best.pt")
         >>> print(len(results))
         5
+        >>> # Memory-bounded variant
+        >>> results = classify_holds(hold_crops, weights_path, chunk_size=16)
     """
     if not crops:
         raise ValueError("crops list must not be empty")
 
+    if chunk_size is not None and chunk_size < 1:
+        raise ValueError("chunk_size must be >= 1")
+
     for crop in crops:
         _validate_crop_input(crop)
 
-    resolved = str(Path(weights_path).resolve())
-    model = _load_model_cached(weights_path)
-    input_size = _INPUT_SIZE_CACHE.get(resolved, INPUT_SIZE)
+    model, input_size = _load_model_cached(weights_path)
+    effective_chunk = chunk_size if chunk_size is not None else len(crops)
+    results: list[HoldTypeResult] = []
 
     try:
         transform = _get_inference_transform(input_size)
-        tensors = [transform(_to_pil_image(crop)) for crop in crops]
-        batch = torch.stack(tensors, dim=0)  # (N, C, H, W)
+        for start in range(0, len(crops), effective_chunk):
+            chunk = crops[start : start + effective_chunk]
+            tensors = [transform(_to_pil_image(crop)) for crop in chunk]
+            batch = torch.stack(tensors, dim=0)  # (chunk, C, H, W)
 
-        with torch.no_grad():
-            logits_batch = model(batch)  # (N, num_classes)
+            with torch.no_grad():
+                logits_batch = model(batch)  # (chunk, num_classes)
 
-        return [
-            _logits_to_result(logits_batch[i], crop) for i, crop in enumerate(crops)
-        ]
+            results.extend(
+                _logits_to_result(logits_batch[i], crop) for i, crop in enumerate(chunk)
+            )
+        return results
     except (ClassificationInferenceError, TypeError, ValueError):
         raise
     except Exception as exc:  # noqa: BLE001

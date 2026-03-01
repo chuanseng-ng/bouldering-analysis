@@ -40,7 +40,10 @@ from torchvision.datasets import ImageFolder  # type: ignore[import-untyped]
 from src.logging_config import get_logger
 from src.training.classification_dataset import ClassificationDatasetConfig
 from src.training.classification_model import (
+    IMAGENET_MEAN,
+    IMAGENET_STD,
     VALID_ARCHITECTURES,
+    VAL_RESIZE_RATIO,
     ClassifierHyperparameters,
     apply_classifier_dropout,
     build_hold_classifier,
@@ -57,11 +60,8 @@ logger = get_logger(__name__)
 MODELS_BASE_DIR: Path = Path("models/classification")
 METADATA_FILENAME: str = "metadata.json"
 VERSION_FORMAT: str = "v%Y%m%d_%H%M%S"
-IMAGENET_MEAN: tuple[float, ...] = (0.485, 0.456, 0.406)
-IMAGENET_STD: tuple[float, ...] = (0.229, 0.224, 0.225)
 # Windows requires num_workers=0 to avoid multiprocessing spawn issues with DataLoader
 DEFAULT_NUM_WORKERS: int = 0 if platform.system() == "Windows" else 4
-VAL_RESIZE_RATIO: float = 256 / 224  # Standard ImageNet evaluation resize
 
 
 # ---------------------------------------------------------------------------

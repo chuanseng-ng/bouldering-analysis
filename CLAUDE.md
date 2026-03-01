@@ -256,6 +256,7 @@ def create_app(config_override: dict[str, Any] | None = None) -> FastAPI: ...
 | `BA_LOG_LEVEL` | `INFO` | Logging level |
 | `BA_SUPABASE_URL` | `""` | Supabase project URL (required) |
 | `BA_SUPABASE_KEY` | `""` | Supabase API key (required) |
+| `BA_SUPABASE_TIMEOUT_SECONDS` | `10` | Supabase PostgREST request timeout in seconds |
 | `BA_MAX_UPLOAD_SIZE_MB` | `10` | Max file upload size in MB |
 | `BA_STORAGE_BUCKET` | `route-images` | Supabase storage bucket |
 | `BA_ALLOWED_IMAGE_TYPES` | `["image/jpeg", "image/png"]` | Allowed MIME types |

@@ -28,6 +28,7 @@ def test_settings() -> dict[str, Any]:
         "debug": True,
         "log_level": "DEBUG",
         "cors_origins": ["http://localhost:3000", "http://test"],
+        "rate_limit_upload": 1000,  # effectively disabled in tests
     }
 
 
@@ -70,6 +71,18 @@ def app_settings(app: FastAPI) -> Settings:
     """
     settings: Settings = app.state.settings
     return settings
+
+
+@pytest.fixture(autouse=True)
+def _clear_supabase_cache() -> Generator[None, None, None]:
+    """Clear the Supabase client lru_cache before and after every test.
+
+    Yields:
+        None
+    """
+    get_supabase_client.cache_clear()
+    yield
+    get_supabase_client.cache_clear()
 
 
 @pytest.fixture

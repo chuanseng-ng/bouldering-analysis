@@ -5,18 +5,21 @@ route records that link uploaded images to route metadata.
 """
 
 import asyncio
-import re
+import uuid
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, status
 from pydantic import BaseModel, Field, field_validator
 
+from src.config import get_settings
 from src.database.supabase_client import (
     SupabaseClientError,
     insert_record,
     select_record_by_id,
 )
 from src.logging_config import get_logger
+from src.routes.shared import ErrorResponse
 
 logger = get_logger(__name__)
 
@@ -26,10 +29,7 @@ router = APIRouter(prefix="/api/v1", tags=["routes"])
 WALL_ANGLE_MIN = -90.0
 WALL_ANGLE_MAX = 90.0
 IMAGE_URL_MAX_LENGTH = 2048
-UUID_PATTERN = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-    re.IGNORECASE,
-)
+_ROUTES_TABLE = "routes"
 
 
 class RouteCreate(BaseModel):
@@ -91,6 +91,8 @@ class RouteResponse(BaseModel):
         wall_angle: Wall angle in degrees, or None if unknown.
         created_at: ISO 8601 timestamp of creation.
         updated_at: ISO 8601 timestamp of last update.
+        status: Processing status of the route.  One of
+            ``"pending"``, ``"processing"``, ``"done"``, ``"failed"``.
     """
 
     id: str
@@ -98,39 +100,56 @@ class RouteResponse(BaseModel):
     wall_angle: float | None
     created_at: str
     updated_at: str
+    status: str = "pending"
 
 
-class ErrorResponse(BaseModel):
-    """Response model for route errors.
+class RouteStatusResponse(BaseModel):
+    """Lightweight response model for route status polling.
 
     Attributes:
-        detail: Human-readable error message.
+        id: Unique identifier for the route.
+        status: Processing status of the route.
     """
 
-    detail: str
+    id: str
+    status: str
 
 
 def _format_timestamp(value: str | None) -> str:
-    """Format a timestamp value for response.
+    """Format a timestamp value for response, converting to UTC.
 
     Args:
-        value: Timestamp string from database or None.
+        value: Timestamp string from database. Must not be None.
+            May include a UTC offset (e.g., +00:00, -05:00) or end with 'Z'.
+            Naive timestamps are assumed to be UTC.
 
     Returns:
-        Formatted timestamp string ending with 'Z' for UTC.
+        UTC timestamp string in ISO 8601 format ending with 'Z'
+        (e.g., '2026-01-27T12:00:00Z').
+
+    Raises:
+        ValueError: If value is None, indicating a required timestamp field is
+            missing from the database record.
     """
     if value is None:
-        return ""
+        raise ValueError("Timestamp cannot be None: required field missing from record")
 
-    # Ensure timestamp ends with Z for UTC indication
     timestamp = str(value)
-    if not timestamp.endswith("Z"):
-        # Remove any timezone suffix and add Z
-        if "+" in timestamp:
-            timestamp = timestamp.split("+", maxsplit=1)[0]
-        timestamp = timestamp + "Z"
 
-    return timestamp
+    # Already in UTC Z format — return as-is
+    if timestamp.endswith("Z"):
+        return timestamp
+
+    # Parse and convert to UTC
+    dt = datetime.fromisoformat(timestamp)
+    if dt.tzinfo is not None:
+        # Offset-aware: convert to UTC
+        dt = dt.astimezone(timezone.utc)
+    else:
+        # Naive (no offset): assume UTC
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt.isoformat().replace("+00:00", "Z")
 
 
 def _record_to_response(record: dict[str, Any]) -> RouteResponse:
@@ -141,13 +160,39 @@ def _record_to_response(record: dict[str, Any]) -> RouteResponse:
 
     Returns:
         RouteResponse model instance.
+
+    Raises:
+        KeyError: If a required string field (``id``, ``image_url``) is absent.
+        ValueError: If a required timestamp field (``created_at``, ``updated_at``)
+            is absent or None, with the field name identified in the message.
     """
+    for field in ("created_at", "updated_at"):
+        if record.get(field) is None:
+            raise ValueError(f"Record missing required timestamp field '{field}'")
+
     return RouteResponse(
         id=str(record["id"]),
         image_url=str(record["image_url"]),
         wall_angle=record.get("wall_angle"),
         created_at=_format_timestamp(record.get("created_at")),
         updated_at=_format_timestamp(record.get("updated_at")),
+        status=record.get("status") or "pending",
+    )
+
+
+def _process_route_background(route_id: str, image_url: str) -> None:
+    """Placeholder background task for ML inference pipeline (PR-5+).
+
+    Currently logs the queued job.  Future PRs will replace this stub
+    with actual hold detection, classification, and grade estimation.
+
+    Args:
+        route_id: Unique identifier of the created route record.
+        image_url: Public URL of the uploaded route image.
+    """
+    logger.info(
+        "Background processing queued",
+        extra={"route_id": route_id, "image_url": image_url},
     )
 
 
@@ -166,17 +211,21 @@ def _record_to_response(record: dict[str, Any]) -> RouteResponse:
         },
     },
 )
-async def create_route(route_data: RouteCreate) -> RouteResponse:
-    """Create a new route record.
+async def create_route(
+    route_data: RouteCreate, background_tasks: BackgroundTasks
+) -> RouteResponse:
+    """Create a new route record and queue background ML analysis.
 
-    This endpoint creates a new route record in the database, linking
-    an uploaded image to route metadata like wall angle.
+    This endpoint creates a new route record in the database with
+    ``status="pending"``, then schedules background ML inference for
+    hold detection and classification (PR-5+).
 
     Args:
         route_data: Route creation data with image_url and optional wall_angle.
+        background_tasks: FastAPI background task queue.
 
     Returns:
-        Created route record with generated ID and timestamps.
+        Created route record with generated ID and ``status="pending"``.
 
     Raises:
         HTTPException: 422 for validation errors, 500 for database errors.
@@ -189,8 +238,9 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
         ```
     """
     # Prepare data for insertion
-    insert_data: dict = {
+    insert_data: dict[str, Any] = {
         "image_url": route_data.image_url,
+        "status": "pending",
     }
 
     # Only include wall_angle if provided (let DB handle NULL)
@@ -198,24 +248,34 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
         insert_data["wall_angle"] = round(route_data.wall_angle, 1)
 
     try:
-        # Insert record (run in thread to avoid blocking event loop)
+        # Insert record (run in thread to avoid blocking event loop).
+        # No timeout is applied: insert_record is non-idempotent and a
+        # cancelled thread could still complete the insert, causing duplicates
+        # on client retry.
         record = await asyncio.to_thread(
             insert_record,
-            table="routes",
+            table=_ROUTES_TABLE,
             data=insert_data,
+        )
+
+        route_response = _record_to_response(record)
+
+        # Schedule background ML analysis (non-blocking)
+        background_tasks.add_task(
+            _process_route_background, route_response.id, route_data.image_url
         )
 
         logger.info(
             "Route created successfully",
             extra={
-                "route_id": record["id"],
+                "route_id": route_response.id,
                 "image_url": route_data.image_url,
             },
         )
 
-        return _record_to_response(record)
+        return route_response
 
-    except SupabaseClientError as e:
+    except (SupabaseClientError, KeyError, ValueError) as e:
         logger.error(
             "Failed to create route record",
             extra={
@@ -246,11 +306,15 @@ async def create_route(route_data: RouteCreate) -> RouteResponse:
             "model": ErrorResponse,
             "description": "Server error during retrieval",
         },
+        504: {
+            "model": ErrorResponse,
+            "description": "Request timed out",
+        },
     },
 )
 async def get_route(
     route_id: Annotated[
-        str,
+        uuid.UUID,
         Path(
             description="UUID of the route to retrieve",
             examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
@@ -260,7 +324,8 @@ async def get_route(
     """Retrieve a route by ID.
 
     Args:
-        route_id: UUID of the route to retrieve.
+        route_id: UUID of the route to retrieve. FastAPI validates the format
+            and returns 422 for malformed values before this handler is called.
 
     Returns:
         Route record with all fields.
@@ -273,19 +338,16 @@ async def get_route(
         curl "http://localhost:8000/api/v1/routes/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
         ```
     """
-    # Validate UUID format
-    if not UUID_PATTERN.match(route_id):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid route ID format. Must be a valid UUID.",
-        )
-
     try:
+        settings = get_settings()
         # Query record (run in thread to avoid blocking event loop)
-        record = await asyncio.to_thread(
-            select_record_by_id,
-            table="routes",
-            record_id=route_id,
+        record = await asyncio.wait_for(
+            asyncio.to_thread(
+                select_record_by_id,
+                table=_ROUTES_TABLE,
+                record_id=str(route_id),
+            ),
+            timeout=settings.supabase_timeout_seconds,
         )
 
         if record is None:
@@ -296,16 +358,127 @@ async def get_route(
 
         return _record_to_response(record)
 
-    except SupabaseClientError as e:
+    except HTTPException:
+        raise
+    except asyncio.TimeoutError:
+        logger.error(
+            "Database operation timed out",
+            extra={"operation": "select_record_by_id", "table": _ROUTES_TABLE},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Request timed out. Please try again.",
+        ) from None
+    except (SupabaseClientError, KeyError, ValueError) as e:
         logger.error(
             "Failed to retrieve route",
             extra={
                 "error": str(e),
                 "error_type": type(e).__name__,
-                "route_id": route_id,
+                "route_id": str(route_id),
             },
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve route",
+        ) from e
+
+
+@router.get(
+    "/routes/{route_id}/status",
+    response_model=RouteStatusResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Route not found",
+        },
+        422: {
+            "model": ErrorResponse,
+            "description": "Invalid route ID format",
+        },
+        500: {
+            "model": ErrorResponse,
+            "description": "Server error during retrieval",
+        },
+        504: {
+            "model": ErrorResponse,
+            "description": "Request timed out",
+        },
+    },
+)
+async def get_route_status(
+    route_id: Annotated[
+        uuid.UUID,
+        Path(
+            description="UUID of the route to check",
+            examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
+        ),
+    ],
+) -> RouteStatusResponse:
+    """Poll the processing status of a route.
+
+    Returns the current analysis status without the full route payload.
+    Clients can poll this endpoint until ``status`` is ``"done"`` or
+    ``"failed"``.
+
+    Args:
+        route_id: UUID of the route to check.
+
+    Returns:
+        :class:`RouteStatusResponse` with ``id`` and ``status`` fields.
+
+    Raises:
+        HTTPException: 404 if not found, 422 for invalid UUID, 500 for errors.
+
+    Example:
+        ```bash
+        curl "http://localhost:8000/api/v1/routes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/status"
+        ```
+    """
+    try:
+        settings = get_settings()
+        record = await asyncio.wait_for(
+            asyncio.to_thread(
+                select_record_by_id,
+                table=_ROUTES_TABLE,
+                record_id=str(route_id),
+                columns="id, status",
+            ),
+            timeout=settings.supabase_timeout_seconds,
+        )
+
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Route not found",
+            )
+
+        return RouteStatusResponse(
+            id=str(record["id"]),
+            status=record.get("status") or "pending",
+        )
+
+    except HTTPException:
+        raise
+    except asyncio.TimeoutError:
+        logger.error(
+            "Database operation timed out",
+            extra={"operation": "get_route_status", "table": _ROUTES_TABLE},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Request timed out. Please try again.",
+        ) from None
+    except (SupabaseClientError, KeyError, ValueError) as e:
+        logger.error(
+            "Failed to retrieve route status",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "route_id": str(route_id),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve route status",
         ) from e

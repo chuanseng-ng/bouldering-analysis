@@ -46,6 +46,11 @@ VALID_ARCHITECTURES: tuple[str, ...] = (
 VALID_OPTIMIZERS: frozenset[str] = frozenset({"SGD", "Adam", "AdamW"})
 VALID_SCHEDULERS: frozenset[str] = frozenset({"StepLR", "CosineAnnealingLR", "none"})
 
+# ImageNet normalization constants (used by both training and inference transforms)
+IMAGENET_MEAN: tuple[float, ...] = (0.485, 0.456, 0.406)
+IMAGENET_STD: tuple[float, ...] = (0.229, 0.224, 0.225)
+VAL_RESIZE_RATIO: float = 256 / 224  # Standard ImageNet evaluation resize ratio
+
 
 # ---------------------------------------------------------------------------
 # Hyperparameter model
