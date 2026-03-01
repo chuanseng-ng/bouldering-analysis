@@ -203,7 +203,9 @@ def _configure_middleware(app: FastAPI, settings: Settings) -> None:
         Returns:
             Response from the next handler, or a 401 JSON response.
         """
-        if settings.api_key and request.url.path not in _HEALTH_PATHS:
+        path = request.url.path
+        is_health = any(path == p or path.startswith(p + "/") for p in _HEALTH_PATHS)
+        if settings.api_key and not is_health:
             provided_key = request.headers.get("X-API-Key", "")
             if provided_key != settings.api_key:
                 return JSONResponse(

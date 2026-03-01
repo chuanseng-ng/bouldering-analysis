@@ -26,7 +26,6 @@ from src.inference.classification import (
     INPUT_SIZE,
     ClassificationInferenceError,
     HoldTypeResult,
-    _INPUT_SIZE_CACHE,
     VAL_RESIZE_RATIO,
     _build_model_from_metadata,
     _clear_model_cache,
@@ -640,9 +639,9 @@ class TestLoadModelCached:
         mock_model = MagicMock(spec=nn.Module)
         mock_build.return_value = mock_model
 
-        result = _load_model_cached(fake_weights)
+        model, _input_size = _load_model_cached(fake_weights)
 
-        assert result is mock_model
+        assert model is mock_model
         mock_build.assert_called_once()
 
     @patch("src.inference.classification._build_model_from_metadata")
@@ -740,32 +739,36 @@ class TestClearModelCache:
         mock_model2 = MagicMock(spec=nn.Module)
         mock_build.side_effect = [mock_model1, mock_model2]
 
-        result1 = _load_model_cached(fake_weights)
+        model1, _ = _load_model_cached(fake_weights)
         _clear_model_cache()
-        result2 = _load_model_cached(fake_weights)
+        model2, _ = _load_model_cached(fake_weights)
 
-        assert result1 is mock_model1
-        assert result2 is mock_model2
+        assert model1 is mock_model1
+        assert model2 is mock_model2
         assert mock_build.call_count == 2
 
     @patch("src.inference.classification._build_model_from_metadata")
     @patch("src.inference.classification._load_metadata")
-    def test_clear_also_removes_input_size_cache(
+    def test_clear_also_resets_input_size(
         self,
         mock_meta: MagicMock,
         mock_build: MagicMock,
         fake_weights: Path,
     ) -> None:
-        """Clearing the model cache should also clear _INPUT_SIZE_CACHE."""
+        """Clearing the cache resets both the model and its associated input_size atomically."""
         mock_meta.return_value = {"hyperparameters": {"input_size": 224}}
         mock_build.return_value = MagicMock(spec=nn.Module)
 
-        _load_model_cached(fake_weights)
-        resolved = str(fake_weights.resolve())
-        assert resolved in _INPUT_SIZE_CACHE
+        _, input_size_before = _load_model_cached(fake_weights)
+        assert input_size_before == 224
 
         _clear_model_cache()
-        assert resolved not in _INPUT_SIZE_CACHE
+
+        # After clearing, a fresh load with a different metadata reflects the new input_size
+        mock_meta.return_value = {"hyperparameters": {"input_size": 336}}
+        mock_build.return_value = MagicMock(spec=nn.Module)
+        _, input_size_after = _load_model_cached(fake_weights)
+        assert input_size_after == 336
 
     def test_clear_empty_cache_is_safe(self) -> None:
         """Clearing an already-empty cache should not raise."""
@@ -790,7 +793,7 @@ class TestClassifyHold:
         fake_weights: Path,
     ) -> None:
         """classify_hold with a HoldCrop should return correct prediction."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
 
         result = classify_hold(hold_crop, fake_weights)
 
@@ -807,7 +810,7 @@ class TestClassifyHold:
         fake_weights: Path,
     ) -> None:
         """classify_hold with a PIL image should return None source_crop."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
 
         result = classify_hold(rgb_crop, fake_weights)
 
@@ -838,7 +841,7 @@ class TestClassifyHold:
         """probabilities should contain all 6 hold class keys."""
         from src.training.classification_dataset import HOLD_CLASSES  # pylint: disable=import-outside-toplevel
 
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
         result = classify_hold(hold_crop, fake_weights)
 
         assert set(result.probabilities.keys()) == set(HOLD_CLASSES)
@@ -852,7 +855,7 @@ class TestClassifyHold:
         fake_weights: Path,
     ) -> None:
         """Probabilities should sum to approximately 1.0."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
         result = classify_hold(rgb_crop, fake_weights)
 
         total = sum(result.probabilities.values())
@@ -868,7 +871,7 @@ class TestClassifyHold:
         """Exceptions from the model forward pass should become ClassificationInferenceError."""
         model = MagicMock(spec=nn.Module)
         model.side_effect = RuntimeError("CUDA out of memory")
-        mock_load.return_value = model
+        mock_load.return_value = (model, INPUT_SIZE)
 
         with pytest.raises(
             ClassificationInferenceError, match="Hold classification failed"
@@ -886,7 +889,7 @@ class TestClassifyHold:
         hold_crop: HoldCrop,
     ) -> None:
         """TypeError raised inside the try block should propagate as TypeError (not wrapped)."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
         mock_pil.side_effect = TypeError("unexpected type")
 
         with pytest.raises(TypeError, match="unexpected type"):
@@ -911,7 +914,7 @@ class TestClassifyHolds:
         fake_weights: Path,
     ) -> None:
         """classify_holds with 2 crops should return 2 results in order."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
         crops: list[HoldCrop | PILImage.Image] = [hold_crop, rgb_crop]
 
         results = classify_holds(crops, fake_weights)
@@ -949,7 +952,7 @@ class TestClassifyHolds:
             return out
 
         model.side_effect = _order_sensitive
-        mock_load.return_value = model
+        mock_load.return_value = (model, INPUT_SIZE)
 
         from src.training.classification_dataset import HOLD_CLASSES  # pylint: disable=import-outside-toplevel
 
@@ -972,7 +975,7 @@ class TestClassifyHolds:
         fake_weights: Path,
     ) -> None:
         """HoldCrop inputs should have source_crop set; PIL inputs should have None."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
         results = classify_holds([hold_crop, rgb_crop], fake_weights)
 
         assert results[0].source_crop is hold_crop
@@ -997,7 +1000,7 @@ class TestClassifyHolds:
         fake_weights: Path,
     ) -> None:
         """TypeError raised inside the try block should propagate as TypeError (not wrapped)."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
         mock_pil.side_effect = TypeError("unexpected type in batch")
 
         with pytest.raises(TypeError, match="unexpected type in batch"):
@@ -1013,7 +1016,7 @@ class TestClassifyHolds:
         """General exceptions from batch forward pass become ClassificationInferenceError."""
         model = MagicMock(spec=nn.Module)
         model.side_effect = RuntimeError("batch inference failed")
-        mock_load.return_value = model
+        mock_load.return_value = (model, INPUT_SIZE)
 
         with pytest.raises(
             ClassificationInferenceError, match="Hold classification failed"
@@ -1028,7 +1031,7 @@ class TestClassifyHolds:
         fake_weights: Path,
     ) -> None:
         """classify_holds with chunk_size should return same results as without."""
-        mock_load.return_value = mock_model
+        mock_load.return_value = (mock_model, INPUT_SIZE)
         crops: list[HoldCrop | PILImage.Image] = [
             PILImage.new("RGB", (224, 224)) for _ in range(6)
         ]

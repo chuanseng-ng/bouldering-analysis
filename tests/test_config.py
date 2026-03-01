@@ -229,6 +229,16 @@ class TestApiKeySettings:
         settings = get_settings_override({"api_key": "super-secret"})
         assert settings.api_key == "super-secret"
 
+    def test_api_key_strips_whitespace(self) -> None:
+        """api_key should be stripped of surrounding whitespace (e.g. trailing newlines from .env)."""
+        settings = get_settings_override({"api_key": "  super-secret  "})
+        assert settings.api_key == "super-secret"
+
+    def test_api_key_whitespace_only_is_empty(self) -> None:
+        """api_key containing only whitespace should be treated as disabled (empty string)."""
+        settings = get_settings_override({"api_key": "   "})
+        assert settings.api_key == ""
+
     def test_default_rate_limit_upload(self) -> None:
         """rate_limit_upload should default to 10."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("BA_")}

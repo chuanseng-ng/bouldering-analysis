@@ -209,10 +209,6 @@ def _process_route_background(route_id: str, image_url: str) -> None:
             "model": ErrorResponse,
             "description": "Server error during route creation",
         },
-        504: {
-            "model": ErrorResponse,
-            "description": "Request timed out",
-        },
     },
 )
 async def create_route(
@@ -351,7 +347,7 @@ async def get_route(
                 table=_ROUTES_TABLE,
                 record_id=str(route_id),
             ),
-            timeout=settings.inference_timeout_seconds,
+            timeout=settings.supabase_timeout_seconds,
         )
 
         if record is None:
@@ -448,7 +444,7 @@ async def get_route_status(
                 record_id=str(route_id),
                 columns="id, status",
             ),
-            timeout=settings.inference_timeout_seconds,
+            timeout=settings.supabase_timeout_seconds,
         )
 
         if record is None:

@@ -164,14 +164,10 @@ def _load_model_cached(weights_path: Path | str) -> YOLO:
     Raises:
         InferenceError: If the weights file does not exist.
     """
-    resolved = str(Path(weights_path).resolve())
-
-    # Check existence before attempting to load (not inside lock - acceptable as
-    # the file won't disappear between check and load in normal operation)
-    if not Path(resolved).exists():
-        raise InferenceError(f"Model weights not found: {weights_path}")
 
     def _loader(p: Path) -> YOLO:
+        if not p.exists():
+            raise InferenceError(f"Model weights not found: {weights_path}")
         logger.info("Loading model from: %s", str(p))
         return YOLO(str(p))
 

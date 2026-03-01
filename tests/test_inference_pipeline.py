@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from src.inference.classification import (
+    INPUT_SIZE,
     classify_holds,
     reset_classification_model_cache,
 )
@@ -200,7 +201,7 @@ class TestCropToClassify:
     ) -> None:
         """End-to-end pipeline returns exactly one HoldTypeResult per detected hold."""
         mock_det_load.return_value = mock_yolo_model
-        mock_cls_load.return_value = mock_classifier_model
+        mock_cls_load.return_value = (mock_classifier_model, INPUT_SIZE)
 
         holds = detect_holds(rgb_image, detection_weights)
         crops = extract_hold_crops(rgb_image, holds)
@@ -222,7 +223,7 @@ class TestCropToClassify:
     ) -> None:
         """HoldTypeResult.source_crop.hold should link back to the original DetectedHold."""
         mock_det_load.return_value = mock_yolo_model
-        mock_cls_load.return_value = mock_classifier_model
+        mock_cls_load.return_value = (mock_classifier_model, INPUT_SIZE)
 
         holds = detect_holds(rgb_image, detection_weights)
         crops = extract_hold_crops(rgb_image, holds)
@@ -246,7 +247,7 @@ class TestCropToClassify:
     ) -> None:
         """Each result should have probabilities summing to ~1.0 over 6 classes."""
         mock_det_load.return_value = mock_yolo_model
-        mock_cls_load.return_value = mock_classifier_model
+        mock_cls_load.return_value = (mock_classifier_model, INPUT_SIZE)
 
         holds = detect_holds(rgb_image, detection_weights)
         crops = extract_hold_crops(rgb_image, holds)

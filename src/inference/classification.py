@@ -50,10 +50,11 @@ logger = get_logger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# Module-level model cache: resolved path string → loaded nn.Module
-_MODEL_CACHE: _InferenceModelCache[nn.Module] = _InferenceModelCache()
-# Input-size cache: resolved path string → input_size from training metadata
-_INPUT_SIZE_CACHE: dict[str, int] = {}
+# Module-level model cache: resolved path string → (loaded nn.Module, input_size).
+# Storing both values in a single cache entry keeps them atomically consistent:
+# a reset cannot clear one without the other, preventing the race where a thread
+# reads a cached model but then falls back to the wrong (default) input_size.
+_MODEL_CACHE: _InferenceModelCache[tuple[nn.Module, int]] = _InferenceModelCache()
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +125,6 @@ def _clear_model_cache() -> None:
     the next call to :func:`_load_model_cached` will reload from disk.
     """
     _MODEL_CACHE.clear()
-    _INPUT_SIZE_CACHE.clear()
 
 
 def reset_classification_model_cache() -> None:
@@ -240,17 +240,18 @@ def _build_model_from_metadata(
     return model
 
 
-def _load_model_cached(weights_path: Path | str) -> nn.Module:
-    """Load a classifier model from disk, returning a cached instance on repeat calls.
+def _load_model_cached(weights_path: Path | str) -> tuple[nn.Module, int]:
+    """Load a classifier model from disk, returning a cached (model, input_size) pair.
 
-    The cache key is the resolved absolute path string so that equivalent
-    relative/absolute paths share the same cached model.
+    Model and input_size are stored together as a single cache entry so that
+    a concurrent reset cannot produce a state where a thread holds a model
+    reference but reads the wrong (default) input_size.
 
     Args:
         weights_path: Path to the .pt weights file.
 
     Returns:
-        Loaded nn.Module in eval mode.
+        Tuple of (nn.Module in eval mode, input_size used for the transform).
 
     Raises:
         ClassificationInferenceError: If the weights file is missing,
@@ -264,16 +265,15 @@ def _load_model_cached(weights_path: Path | str) -> nn.Module:
     if cached is not None:
         return cached
 
-    # Load via cache (thread-safe double-checked locking)
-    def _loader(p: Path) -> nn.Module:
+    # Load via cache (thread-safe double-checked locking inside load_or_store)
+    def _loader(p: Path) -> tuple[nn.Module, int]:
         logger.info("Loading classification model from: %s", str(p))
         metadata = _load_metadata(p)
         model = _build_model_from_metadata(metadata, p)
         input_size = int(
             metadata.get("hyperparameters", {}).get("input_size", INPUT_SIZE)
         )
-        _INPUT_SIZE_CACHE[str(p)] = input_size
-        return model
+        return model, input_size
 
     return _MODEL_CACHE.load_or_store(weights_path, _loader)
 
@@ -422,9 +422,7 @@ def classify_hold(
         jug 0.92
     """
     _validate_crop_input(crop)
-    resolved = str(Path(weights_path).resolve())
-    model = _load_model_cached(weights_path)
-    input_size = _INPUT_SIZE_CACHE.get(resolved, INPUT_SIZE)
+    model, input_size = _load_model_cached(weights_path)
 
     try:
         pil = _to_pil_image(crop)
@@ -494,10 +492,7 @@ def classify_holds(
     for crop in crops:
         _validate_crop_input(crop)
 
-    resolved = str(Path(weights_path).resolve())
-    model = _load_model_cached(weights_path)
-    input_size = _INPUT_SIZE_CACHE.get(resolved, INPUT_SIZE)
-
+    model, input_size = _load_model_cached(weights_path)
     effective_chunk = chunk_size if chunk_size is not None else len(crops)
     results: list[HoldTypeResult] = []
 
