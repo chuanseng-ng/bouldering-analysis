@@ -98,26 +98,31 @@ class RouteGraph(BaseModel):
 
     @model_validator(mode="after")
     def validate_graph_holds_consistency(self) -> "RouteGraph":
-        """Enforce that graph.nodes matches the holds list at construction time.
+        """Enforce that graph nodes and holds are consistent at construction time.
 
         Verifies:
         1. ``graph`` is an ``nx.Graph`` instance (guards against direct
            construction bypassing :func:`build_route_graph`).
-        2. ``graph.number_of_nodes() == len(holds)`` — the invariant
-           documented in the class docstring and required by PR-5.2.
+        2. The set of node IDs in ``graph`` exactly equals
+           ``{h.hold_id for h in holds}`` — stronger than a count check,
+           this catches the case where counts match but IDs differ
+           (e.g. graph nodes {0, 2} vs hold_ids {0, 1}).
 
         Returns:
             The validated ``RouteGraph`` instance.
 
         Raises:
-            ValueError: If the graph type is wrong or node/holds counts differ.
+            ValueError: If the graph type is wrong or node IDs do not match
+                hold_id values.
         """
         if not isinstance(self.graph, nx.Graph):
             raise ValueError("graph must be an nx.Graph instance")
-        if self.graph.number_of_nodes() != len(self.holds):
+        graph_node_ids = set(self.graph.nodes())
+        hold_ids = {h.hold_id for h in self.holds}
+        if graph_node_ids != hold_ids:
             raise ValueError(
-                f"graph has {self.graph.number_of_nodes()} nodes but holds "
-                f"list has {len(self.holds)} entries; they must match"
+                f"graph node IDs {sorted(graph_node_ids)} must match "
+                f"hold_id values {sorted(hold_ids)}"
             )
         return self
 

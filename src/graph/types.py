@@ -99,7 +99,7 @@ class ClassifiedHold(BaseModel):
                 f"got {set(v.keys())}"
             )
         for key, prob in v.items():
-            if not (0.0 <= prob <= 1.0):
+            if prob < 0.0 or prob > 1.0:
                 raise ValueError(
                     f"probability for {key!r} must be in [0.0, 1.0], got {prob}"
                 )
