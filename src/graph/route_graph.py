@@ -25,7 +25,7 @@ import math
 from typing import Final
 
 import networkx as nx
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from src.graph.exceptions import RouteGraphError
 from src.graph.types import ClassifiedHold
@@ -54,6 +54,11 @@ WALL_ANGLE_MIN: Final[float] = -15.0  # steep overhang
 WALL_ANGLE_MAX: Final[float] = 90.0  # full slab
 
 _LARGE_HOLD_COUNT_THRESHOLD: Final[int] = 100
+
+# Hard upper limit on hold count for DoS prevention.  O(n²) edge construction
+# at n=500 performs ~125,000 comparisons — still fast.  Above this bound the
+# computation time becomes unreasonable for a single API request.
+_MAX_HOLD_COUNT: Final[int] = 500
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +95,31 @@ class RouteGraph(BaseModel):
     graph: nx.Graph
     holds: list[ClassifiedHold]
     wall_angle: float
+
+    @model_validator(mode="after")
+    def validate_graph_holds_consistency(self) -> "RouteGraph":
+        """Enforce that graph.nodes matches the holds list at construction time.
+
+        Verifies:
+        1. ``graph`` is an ``nx.Graph`` instance (guards against direct
+           construction bypassing :func:`build_route_graph`).
+        2. ``graph.number_of_nodes() == len(holds)`` — the invariant
+           documented in the class docstring and required by PR-5.2.
+
+        Returns:
+            The validated ``RouteGraph`` instance.
+
+        Raises:
+            ValueError: If the graph type is wrong or node/holds counts differ.
+        """
+        if not isinstance(self.graph, nx.Graph):
+            raise ValueError("graph must be an nx.Graph instance")
+        if self.graph.number_of_nodes() != len(self.holds):
+            raise ValueError(
+                f"graph has {self.graph.number_of_nodes()} nodes but holds "
+                f"list has {len(self.holds)} entries; they must match"
+            )
+        return self
 
     @property
     def node_count(self) -> int:
@@ -194,9 +224,15 @@ def _add_graph_edges(
             dx = holds[i].x_center - holds[j].x_center
             dy = holds[i].y_center - holds[j].y_center
             dist_sq = dx * dx + dy * dy
-            if dist_sq <= reach_sq:
-                weight = math.sqrt(dist_sq)
-                graph.add_edge(holds[i].hold_id, holds[j].hold_id, weight=weight)
+            # Exclude coincident holds (dist_sq == 0): a zero-weight edge has
+            # no physical meaning and can cause division-by-zero in downstream
+            # path algorithms (PR-6.x).
+            if 0.0 < dist_sq <= reach_sq:
+                graph.add_edge(
+                    holds[i].hold_id,
+                    holds[j].hold_id,
+                    weight=_euclidean_distance(holds[i], holds[j]),
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -250,11 +286,21 @@ def build_route_graph(
     if not holds:
         raise RouteGraphError("holds must not be empty")
 
+    if len(holds) > _MAX_HOLD_COUNT:
+        raise RouteGraphError(
+            f"hold count {len(holds)} exceeds the maximum {_MAX_HOLD_COUNT}; "
+            "pass a smaller hold list or increase _MAX_HOLD_COUNT"
+        )
+
     if not (WALL_ANGLE_MIN <= wall_angle <= WALL_ANGLE_MAX):
         raise RouteGraphError(
             f"wall_angle must be in [{WALL_ANGLE_MIN}, {WALL_ANGLE_MAX}], "
             f"got {wall_angle}"
         )
+
+    hold_ids = [h.hold_id for h in holds]
+    if len(set(hold_ids)) != len(hold_ids):
+        raise RouteGraphError("hold_id values must be unique across all holds")
 
     if len(holds) > _LARGE_HOLD_COUNT_THRESHOLD:
         logger.warning(

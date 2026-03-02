@@ -73,6 +73,44 @@ class ClassifiedHold(BaseModel):
     type_confidence: float = Field(ge=0.0, le=1.0)
     type_probabilities: dict[str, float]
 
+    @field_validator("type_probabilities")
+    @classmethod
+    def validate_type_probabilities(cls, v: dict[str, float]) -> dict[str, float]:
+        """Validate that type_probabilities is a well-formed distribution.
+
+        Checks that keys match ``HOLD_CLASSES`` exactly, all values lie in
+        [0, 1], and the distribution sums to approximately 1.0 (tolerance 0.01
+        to absorb floating-point rounding from softmax computations).
+
+        Args:
+            v: The probability distribution dict to validate.
+
+        Returns:
+            The validated distribution dict, unchanged.
+
+        Raises:
+            ValueError: If keys do not match HOLD_CLASSES, any value is outside
+                [0, 1], or the sum deviates from 1.0 by more than 0.01.
+        """
+        expected = set(HOLD_CLASSES)
+        if set(v.keys()) != expected:
+            raise ValueError(
+                f"type_probabilities keys must be exactly {expected}, "
+                f"got {set(v.keys())}"
+            )
+        for key, prob in v.items():
+            if not (0.0 <= prob <= 1.0):
+                raise ValueError(
+                    f"probability for {key!r} must be in [0.0, 1.0], got {prob}"
+                )
+        total = sum(v.values())
+        if abs(total - 1.0) > 0.01:
+            raise ValueError(
+                f"type_probabilities must sum to approximately 1.0 "
+                f"(tolerance 0.01), got {total:.6f}"
+            )
+        return v
+
     @field_validator("hold_type")
     @classmethod
     def validate_hold_type(cls, v: str) -> str:
