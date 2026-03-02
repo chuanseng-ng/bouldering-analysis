@@ -278,8 +278,8 @@ class TestClassifiedHold:
             )
 
     def test_type_probabilities_not_normalized_raises_validation_error(self) -> None:
-        """type_probabilities that sum to 0.5 (not ~1.0) raises ValidationError."""
-        bad_probs = {c: 0.1 for c in HOLD_CLASSES}  # sum = 0.6
+        """type_probabilities that do not sum to ~1.0 raises ValidationError."""
+        bad_probs = {c: 0.1 for c in HOLD_CLASSES}  # sum = len(HOLD_CLASSES) * 0.1
         with pytest.raises(ValidationError, match="approximately 1.0"):
             ClassifiedHold(
                 hold_id=0,
@@ -405,9 +405,11 @@ class TestMakeClassifiedHoldFromPipelineOutput:
             class_name="hold",
             confidence=0.91,
         )
-        probs = {c: (0.88 if c == "jug" else 0.024) for c in HOLD_CLASSES}
+        confidence = 0.88
+        remainder = (1.0 - confidence) / max(len(HOLD_CLASSES) - 1, 1)
+        probs = {c: (confidence if c == "jug" else remainder) for c in HOLD_CLASSES}
         clf = HoldTypeResult(
-            predicted_class="jug", confidence=0.88, probabilities=probs
+            predicted_class="jug", confidence=confidence, probabilities=probs
         )
         hold = make_classified_hold(0, det, clf)
         assert hold.x_center == pytest.approx(0.4)
@@ -432,7 +434,12 @@ class TestMakeClassifiedHoldFromPipelineOutput:
                     predicted_class="crimp",
                     confidence=0.7,
                     probabilities={
-                        c: (0.7 if c == "crimp" else 0.06) for c in HOLD_CLASSES
+                        c: (
+                            0.7
+                            if c == "crimp"
+                            else (1.0 - 0.7) / max(len(HOLD_CLASSES) - 1, 1)
+                        )
+                        for c in HOLD_CLASSES
                     },
                 ),
             )
@@ -453,7 +460,10 @@ class TestMakeClassifiedHoldFromPipelineOutput:
             class_name="volume",
             confidence=0.95,
         )
-        probs = {c: (0.8 if c == "volume" else 0.04) for c in HOLD_CLASSES}
+        probs = {
+            c: (0.8 if c == "volume" else (1.0 - 0.8) / max(len(HOLD_CLASSES) - 1, 1))
+            for c in HOLD_CLASSES
+        }
         clf = HoldTypeResult(
             predicted_class="volume", confidence=0.8, probabilities=probs
         )
@@ -895,11 +905,11 @@ class TestRouteGraphModelValidator:
         rg = RouteGraph(graph=graph, holds=[hold], wall_angle=0.0)
         assert rg.node_count == 1
 
-    def test_empty_graph_and_empty_holds_raises_validation_error(self) -> None:
-        """RouteGraph with both graph and holds empty is technically consistent (0==0).
+    def test_empty_graph_and_empty_holds_is_accepted(self) -> None:
+        """RouteGraph with both graph and holds empty is accepted (0==0 is consistent).
 
-        This edge case is accepted by the model_validator; the RouteGraphError
-        for empty holds is enforced by build_route_graph, not by RouteGraph itself.
+        The RouteGraphError for empty holds is enforced by build_route_graph,
+        not by RouteGraph itself.
         """
         graph = nx.Graph()
         rg = RouteGraph(graph=graph, holds=[], wall_angle=0.0)

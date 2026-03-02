@@ -231,7 +231,7 @@ def _add_graph_edges(
                 graph.add_edge(
                     holds[i].hold_id,
                     holds[j].hold_id,
-                    weight=_euclidean_distance(holds[i], holds[j]),
+                    weight=math.sqrt(dist_sq),
                 )
 
 

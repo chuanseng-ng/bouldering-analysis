@@ -116,6 +116,15 @@ class ClassifiedHold(BaseModel):
     def validate_hold_type(cls, v: str) -> str:
         """Validate that hold_type is one of the 6 canonical hold classes.
 
+        Note:
+            No cross-field check is performed to assert that ``hold_type``
+            equals ``argmax(type_probabilities)``.  This is intentional:
+            probability distributions may be recalibrated after inference,
+            and ``hold_type`` may be overridden during reclassification
+            without updating the stored distribution.  Argmax consistency
+            is the responsibility of the upstream
+            :class:`~src.inference.classification.HoldTypeResult`.
+
         Args:
             v: The hold_type string to validate.
 
