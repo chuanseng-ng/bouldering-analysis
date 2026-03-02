@@ -40,6 +40,7 @@ dependencies = [
     "PyYAML==6.0.2",
     # Database (Supabase)
     "supabase==2.27.2",
+    "networkx>=3.4.2",
 ]
 
 [project.optional-dependencies]
