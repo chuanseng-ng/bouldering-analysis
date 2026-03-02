@@ -69,7 +69,8 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Hold Classifier Model | ✅ | PR-4.3 | - |
 | ├─ Classification Training Loop | ✅ | PR-4.4 | 97% |
 | └─ Classification Inference | ✅ | PR-4.5 | - |
-| 5. Route Graph | Pending | PR-5.x | - |
+| 5. Route Graph | **In Progress** | PR-5.x | - |
+| ├─ Route Graph Builder | ✅ | PR-5.1 | 96% |
 | 6. Feature Extraction | Pending | PR-6.x | - |
 | 7. Grade Estimation | Pending | PR-7.x | - |
 | 8. Explainability | Pending | PR-8.x | - |
@@ -89,6 +90,8 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 **Classification Training** (`src/training/train_classification.py`): Exports `ClassificationMetrics`, `ClassificationTrainingResult`, `train_hold_classifier()`. ResNet-18/MobileNetV3 backbones, weighted cross-entropy, Adam/AdamW/SGD, StepLR/CosineAnnealingLR. Artifacts: `models/classification/v<YYYYMMDD_HHMMSS>/weights/{best,last}.pt` + `metadata.json`.
 
 **Classification Inference** (`src/inference/classification.py`): Exports `ClassificationInferenceError`, `HoldTypeResult`, `classify_hold()`, `classify_holds()`. Single-model cache with double-checked locking, input size from metadata, center-crop transform matches training validation transform.
+
+**Route Graph Builder** (`src/graph/`): Exports `RouteGraphError`, `ClassifiedHold`, `make_classified_hold()`, `RouteGraph`, `build_route_graph()`. `ClassifiedHold` is a Pydantic model representing a detected hold with classification result. `make_classified_hold()` is a factory for constructing `ClassifiedHold` instances. `RouteGraph` is a Pydantic model wrapping `networkx.Graph` that represents spatial relationships between holds. `build_route_graph()` constructs the graph from a list of classified holds. Dependency: networkx 3.4.2.
 
 ---
 
@@ -117,6 +120,11 @@ bouldering-analysis/
 │   │   ├── detection.py          # Hold detection inference
 │   │   ├── classification.py     # Hold type classification
 │   │   └── crop_extractor.py     # HoldCrop type / crop extraction utilities
+│   ├── graph/
+│   │   ├── __init__.py           # Re-exports public API
+│   │   ├── exceptions.py         # RouteGraphError(ValueError)
+│   │   ├── types.py              # ClassifiedHold model, make_classified_hold()
+│   │   └── route_graph.py        # RouteGraph model, build_route_graph()
 │   └── archive/legacy/           # Reference only — do not import
 ├── tests/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings
