@@ -20,6 +20,7 @@ from src.graph.route_graph import (
     WALL_ANGLE_MIN,
     WALL_ANGLE_REACH_SCALE,
     RouteGraph,
+    _MAX_HOLD_COUNT,
     _compute_effective_reach,
     _euclidean_distance,
     build_route_graph,
@@ -239,6 +240,59 @@ class TestClassifiedHold:
             type_probabilities=probs,
         )
         assert hold.type_probabilities == probs
+
+    def test_type_probabilities_wrong_keys_raises_validation_error(self) -> None:
+        """type_probabilities with wrong key set raises ValidationError."""
+        bad_probs = {"jug": 1.0, "INJECTED": 0.0}  # wrong keys
+        with pytest.raises(ValidationError, match="type_probabilities keys must be"):
+            ClassifiedHold(
+                hold_id=0,
+                x_center=0.5,
+                y_center=0.5,
+                width=0.1,
+                height=0.1,
+                detection_class="hold",
+                detection_confidence=0.9,
+                hold_type="jug",
+                type_confidence=0.8,
+                type_probabilities=bad_probs,
+            )
+
+    def test_type_probabilities_value_out_of_range_raises_validation_error(
+        self,
+    ) -> None:
+        """type_probabilities with a probability > 1.0 raises ValidationError."""
+        bad_probs = {c: (999.0 if c == "jug" else 0.0) for c in HOLD_CLASSES}
+        with pytest.raises(ValidationError, match="must be in"):
+            ClassifiedHold(
+                hold_id=0,
+                x_center=0.5,
+                y_center=0.5,
+                width=0.1,
+                height=0.1,
+                detection_class="hold",
+                detection_confidence=0.9,
+                hold_type="jug",
+                type_confidence=0.8,
+                type_probabilities=bad_probs,
+            )
+
+    def test_type_probabilities_not_normalized_raises_validation_error(self) -> None:
+        """type_probabilities that sum to 0.5 (not ~1.0) raises ValidationError."""
+        bad_probs = {c: 0.1 for c in HOLD_CLASSES}  # sum = 0.6
+        with pytest.raises(ValidationError, match="approximately 1.0"):
+            ClassifiedHold(
+                hold_id=0,
+                x_center=0.5,
+                y_center=0.5,
+                width=0.1,
+                height=0.1,
+                detection_class="hold",
+                detection_confidence=0.9,
+                hold_type="jug",
+                type_confidence=0.8,
+                type_probabilities=bad_probs,
+            )
 
     def test_detection_class_volume_accepted(self) -> None:
         """detection_class='volume' is a valid value."""
@@ -523,6 +577,28 @@ class TestBuildRouteGraphValidation:
         rg = build_route_graph([_make_classified_hold()])
         assert rg.wall_angle == pytest.approx(0.0)
 
+    def test_exceeds_max_hold_count_raises_route_graph_error(self) -> None:
+        """hold count > _MAX_HOLD_COUNT raises RouteGraphError."""
+        holds = [_make_classified_hold(hold_id=i) for i in range(_MAX_HOLD_COUNT + 1)]
+        with pytest.raises(RouteGraphError, match="exceeds the maximum"):
+            build_route_graph(holds)
+
+    def test_at_max_hold_count_boundary_is_accepted(self) -> None:
+        """_MAX_HOLD_COUNT holds (boundary) is accepted without error."""
+        holds = [
+            _make_classified_hold(hold_id=i, x_center=0.5, y_center=0.5)
+            for i in range(_MAX_HOLD_COUNT)
+        ]
+        rg = build_route_graph(holds)
+        assert rg.node_count == _MAX_HOLD_COUNT
+
+    def test_duplicate_hold_ids_raises_route_graph_error(self) -> None:
+        """Two holds sharing the same hold_id raise RouteGraphError."""
+        h1 = _make_classified_hold(hold_id=0, x_center=0.1)
+        h2 = _make_classified_hold(hold_id=0, x_center=0.5)  # duplicate hold_id
+        with pytest.raises(RouteGraphError, match="unique"):
+            build_route_graph([h1, h2])
+
 
 # ---------------------------------------------------------------------------
 # TestBuildRouteGraphSingleHold
@@ -594,6 +670,17 @@ class TestBuildRouteGraphTwoHolds:
         h2 = _make_classified_hold(hold_id=1, x_center=0.34, y_center=0.0)
         assert build_route_graph([h1, h2], wall_angle=0.0).edge_count == 1
         assert build_route_graph([h1, h2], wall_angle=-15.0).edge_count == 0
+
+    def test_coincident_holds_produce_no_edge(self) -> None:
+        """Two holds at identical coordinates produce no edge (zero-distance excluded).
+
+        Zero-weight edges are excluded to prevent division-by-zero in downstream
+        shortest-path algorithms (PR-6.x).
+        """
+        h1 = _make_classified_hold(hold_id=0, x_center=0.5, y_center=0.5)
+        h2 = _make_classified_hold(hold_id=1, x_center=0.5, y_center=0.5)
+        rg = build_route_graph([h1, h2])
+        assert rg.edge_count == 0
 
 
 # ---------------------------------------------------------------------------
@@ -779,3 +866,41 @@ class TestRouteGraphProperties:
         """edge_count returns an int."""
         rg = build_route_graph([_make_classified_hold()])
         assert isinstance(rg.edge_count, int)
+
+
+# ---------------------------------------------------------------------------
+# TestRouteGraphModelValidator
+# ---------------------------------------------------------------------------
+
+
+class TestRouteGraphModelValidator:
+    """Tests for the RouteGraph model_validator that enforces construction invariants."""
+
+    def test_mismatched_node_count_raises_validation_error(self) -> None:
+        """RouteGraph with graph.number_of_nodes() != len(holds) raises ValidationError."""
+        graph = nx.Graph()
+        graph.add_node(0)  # 1 node
+        holds = [
+            _make_classified_hold(hold_id=0),
+            _make_classified_hold(hold_id=1, x_center=0.3),
+        ]  # 2 holds
+        with pytest.raises(ValidationError, match="must match"):
+            RouteGraph(graph=graph, holds=holds, wall_angle=0.0)
+
+    def test_consistent_graph_and_holds_is_accepted(self) -> None:
+        """RouteGraph with matching graph.nodes count and holds list is accepted."""
+        hold = _make_classified_hold(hold_id=0)
+        graph = nx.Graph()
+        graph.add_node(0, **hold.model_dump(exclude={"hold_id"}))
+        rg = RouteGraph(graph=graph, holds=[hold], wall_angle=0.0)
+        assert rg.node_count == 1
+
+    def test_empty_graph_and_empty_holds_raises_validation_error(self) -> None:
+        """RouteGraph with both graph and holds empty is technically consistent (0==0).
+
+        This edge case is accepted by the model_validator; the RouteGraphError
+        for empty holds is enforced by build_route_graph, not by RouteGraph itself.
+        """
+        graph = nx.Graph()
+        rg = RouteGraph(graph=graph, holds=[], wall_angle=0.0)
+        assert rg.node_count == 0
