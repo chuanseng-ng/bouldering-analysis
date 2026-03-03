@@ -400,11 +400,22 @@ class TestApplyRouteConstraintsEdgeCases:
         assert result.graph.nodes[0][NODE_ATTR_IS_FINISH] is True
 
     def test_order_of_surviving_holds_matches_original_index_order(self) -> None:
-        """After pruning, surviving holds are in the same index order as input."""
-        rg = _make_line_graph(5)  # nodes: 0,1,2,3,4
-        result = apply_route_constraints(rg, start_ids=[0], finish_id=4)
-        ids = [h.hold_id for h in result.holds]
-        assert ids == sorted(ids)  # original order is already ascending
+        """After pruning, surviving holds preserve their input order, not sorted order.
+
+        Uses hold_ids in a non-ascending order [2, 0, 4, 1, 3] so that
+        ``ids == sorted(ids)`` would fail if the implementation accidentally
+        sorted the holds list rather than preserving input order.
+        """
+        # Build 5 holds at x=0.1..0.5 with hold_ids in non-ascending order.
+        # All adjacent pairs are within reach (spacing 0.1 < BASE_REACH_RADIUS=0.35).
+        id_order = [2, 0, 4, 1, 3]
+        holds = [
+            _make_classified_hold(hold_id=hid, x_center=0.1 * (i + 1), y_center=0.5)
+            for i, hid in enumerate(id_order)
+        ]
+        rg = build_route_graph(holds, wall_angle=0.0)
+        result = apply_route_constraints(rg, start_ids=[2], finish_id=3)
+        assert [h.hold_id for h in result.holds] == id_order
 
     def test_edge_count_after_pruning_is_correct(self) -> None:
         """After pruning one component, only intra-component edges survive."""
@@ -470,6 +481,7 @@ class TestApplyRouteConstraintsIntegration:
         rg = _make_disconnected_graph()  # 4 holds; pruning to {0,1} keeps 2
         with caplog.at_level(logging.INFO, logger="src.graph.constraints"):
             apply_route_constraints(rg, start_ids=[0], finish_id=1)
-        assert any("2" in msg and "4" in msg for msg in caplog.messages), (
-            f"Expected INFO log mentioning 2 kept from 4. Messages: {caplog.messages}"
+        # Match the exact format: "kept %d/%d holds" from constraints.py logger.info
+        assert any("kept 2/4" in msg for msg in caplog.messages), (
+            f"Expected INFO log containing 'kept 2/4'. Messages: {caplog.messages}"
         )
