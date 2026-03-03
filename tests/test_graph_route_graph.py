@@ -509,6 +509,22 @@ class TestRouteGraphProperties:
 class TestRouteGraphModelValidator:
     """Tests for the RouteGraph model_validator that enforces construction invariants."""
 
+    def test_duplicate_hold_ids_in_holds_raises_validation_error(self) -> None:
+        """RouteGraph with duplicate hold_id values raises ValidationError.
+
+        This tests the model_validator directly: graph has 1 node (id=0) and
+        holds has 2 entries both with hold_id=0.  The set equality check alone
+        would pass ({0}=={0}), so the explicit len vs set-size check is needed.
+        """
+        graph = nx.Graph()
+        graph.add_node(0)
+        holds = [
+            _make_classified_hold(hold_id=0),
+            _make_classified_hold(hold_id=0, x_center=0.3),  # duplicate hold_id
+        ]
+        with pytest.raises(ValidationError, match="duplicate hold_id"):
+            RouteGraph(graph=graph, holds=holds, wall_angle=0.0)
+
     def test_mismatched_node_count_raises_validation_error(self) -> None:
         """RouteGraph with graph.number_of_nodes() != len(holds) raises ValidationError."""
         graph = nx.Graph()

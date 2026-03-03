@@ -112,13 +112,18 @@ class RouteGraph(BaseModel):
             The validated ``RouteGraph`` instance.
 
         Raises:
-            ValueError: If the graph type is wrong or node IDs do not match
-                hold_id values.
+            ValueError: If the graph type is wrong, holds contains duplicate
+                hold_id values, or graph node IDs do not match hold_id values.
         """
         if not isinstance(self.graph, nx.Graph):
             raise ValueError("graph must be an nx.Graph instance")
-        graph_node_ids = set(self.graph.nodes())
         hold_ids = {h.hold_id for h in self.holds}
+        if len(hold_ids) != len(self.holds):
+            raise ValueError(
+                f"holds contains duplicate hold_id values; all {len(self.holds)} "
+                f"entries in RouteGraph.holds must have a unique h.hold_id"
+            )
+        graph_node_ids = set(self.graph.nodes())
         if graph_node_ids != hold_ids:
             raise ValueError(
                 f"graph node IDs {sorted(graph_node_ids)} must match "
