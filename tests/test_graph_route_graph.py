@@ -22,47 +22,7 @@ from src.graph.route_graph import (
     _euclidean_distance,
     build_route_graph,
 )
-from src.graph.types import ClassifiedHold
-from src.training.classification_dataset import HOLD_CLASSES
-
-
-# ---------------------------------------------------------------------------
-# Module-level helpers (not fixtures — keep tests self-contained)
-# ---------------------------------------------------------------------------
-
-
-def _make_classified_hold(
-    hold_id: int = 0,
-    x_center: float = 0.5,
-    y_center: float = 0.5,
-    width: float = 0.1,
-    height: float = 0.1,
-    hold_type: str = "jug",
-    detection_class: str = "hold",
-    detection_confidence: float = 0.9,
-    type_confidence: float = 0.8,
-) -> ClassifiedHold:
-    """Create a ClassifiedHold directly, bypassing the factory."""
-    probs = {
-        c: (
-            type_confidence
-            if c == hold_type
-            else (1.0 - type_confidence) / max(len(HOLD_CLASSES) - 1, 1)
-        )
-        for c in HOLD_CLASSES
-    }
-    return ClassifiedHold(
-        hold_id=hold_id,
-        x_center=x_center,
-        y_center=y_center,
-        width=width,
-        height=height,
-        detection_class=detection_class,  # type: ignore[arg-type]
-        detection_confidence=detection_confidence,
-        hold_type=hold_type,
-        type_confidence=type_confidence,
-        type_probabilities=probs,
-    )
+from tests.conftest import make_classified_hold_for_tests as _make_classified_hold
 
 
 # ---------------------------------------------------------------------------
