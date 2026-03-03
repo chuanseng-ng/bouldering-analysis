@@ -88,6 +88,20 @@ class RouteGraph(BaseModel):
             Always consistent with ``graph.nodes`` at construction time.
         wall_angle: Wall inclination in degrees used to build this graph.
             -15 = steep overhang, 0 = vertical, 90 = full slab.
+
+    Example:
+        >>> from src.graph.types import make_classified_hold
+        >>> from src.graph.route_graph import build_route_graph
+        >>> from src.inference.detection import DetectedHold
+        >>> from src.inference.classification import HoldTypeResult
+        >>> hold = make_classified_hold(0, detection, classification)  # ClassifiedHold
+        >>> route = build_route_graph([hold], wall_angle=0.0)
+        >>> route.wall_angle
+        0.0
+        >>> route.holds[0].hold_type
+        'jug'
+        >>> route.graph.number_of_nodes()
+        1
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -302,7 +316,7 @@ def build_route_graph(
             "pass a smaller hold list or increase _MAX_HOLD_COUNT"
         )
 
-    if not (WALL_ANGLE_MIN <= wall_angle <= WALL_ANGLE_MAX):
+    if wall_angle < WALL_ANGLE_MIN or wall_angle > WALL_ANGLE_MAX:
         raise RouteGraphError(
             f"wall_angle must be in [{WALL_ANGLE_MIN}, {WALL_ANGLE_MAX}], "
             f"got {wall_angle}"
