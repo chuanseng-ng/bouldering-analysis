@@ -1,10 +1,11 @@
 """Pytest configuration and fixtures.
 
-This module provides shared fixtures for testing the FastAPI application.
+This module provides shared fixtures and helper utilities for testing the
+FastAPI application and graph modules.
 """
 
 from collections.abc import Generator
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +15,66 @@ from fastapi.testclient import TestClient
 from src.app import create_app
 from src.config import Settings, get_settings_override
 from src.database.supabase_client import get_supabase_client
+from src.graph.types import ClassifiedHold
+from src.training.classification_dataset import HOLD_CLASSES
+
+
+# ---------------------------------------------------------------------------
+# Shared graph test helpers (module-level, not fixtures)
+# ---------------------------------------------------------------------------
+
+
+def make_classified_hold_for_tests(
+    hold_id: int = 0,
+    x_center: float = 0.5,
+    y_center: float = 0.5,
+    width: float = 0.1,
+    height: float = 0.1,
+    hold_type: str = "jug",
+    detection_class: Literal["hold", "volume"] = "hold",
+    detection_confidence: float = 0.9,
+    type_confidence: float = 0.8,
+) -> ClassifiedHold:
+    """Create a ClassifiedHold directly for use in graph-module tests.
+
+    Constructs a valid :class:`~src.graph.types.ClassifiedHold` without
+    going through :func:`~src.graph.types.make_classified_hold`, so tests
+    can control every field independently.
+
+    Args:
+        hold_id: Non-negative integer identifying the hold.
+        x_center: Horizontal centre, normalised [0, 1].
+        y_center: Vertical centre, normalised [0, 1].
+        width: Bounding box width, normalised [0, 1].
+        height: Bounding box height, normalised [0, 1].
+        hold_type: One of the 6 canonical hold classes.
+        detection_class: YOLO class — ``"hold"`` or ``"volume"``.
+        detection_confidence: YOLO detection confidence [0, 1].
+        type_confidence: Classifier confidence for ``hold_type`` [0, 1].
+
+    Returns:
+        A validated :class:`ClassifiedHold` instance.
+    """
+    probs = {
+        c: (
+            type_confidence
+            if c == hold_type
+            else (1.0 - type_confidence) / max(len(HOLD_CLASSES) - 1, 1)
+        )
+        for c in HOLD_CLASSES
+    }
+    return ClassifiedHold(
+        hold_id=hold_id,
+        x_center=x_center,
+        y_center=y_center,
+        width=width,
+        height=height,
+        detection_class=detection_class,
+        detection_confidence=detection_confidence,
+        hold_type=hold_type,
+        type_confidence=type_confidence,
+        type_probabilities=probs,
+    )
 
 
 @pytest.fixture
