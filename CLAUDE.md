@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.02.23
-**Last Updated**: 2026-02-23
+**Version**: 2026.03.04
+**Last Updated**: 2026-03-04
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 
@@ -69,9 +69,11 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Hold Classifier Model | ✅ | PR-4.3 | - |
 | ├─ Classification Training Loop | ✅ | PR-4.4 | 97% |
 | └─ Classification Inference | ✅ | PR-4.5 | - |
-| 5. Route Graph | **In Progress** | PR-5.x | - |
+| 5. Route Graph | **Completed** | PR-5.x | 97% |
 | ├─ Route Graph Builder | ✅ | PR-5.1 | 96% |
-| 6. Feature Extraction | Pending | PR-6.x | - |
+| └─ Route Constraints | ✅ | PR-5.2 | 97% |
+| 6. Feature Extraction | **In Progress** | PR-6.x | - |
+| ├─ Geometry Features | ✅ | PR-6.1 | 97% |
 | 7. Grade Estimation | Pending | PR-7.x | - |
 | 8. Explainability | Pending | PR-8.x | - |
 | 9. Database Schema | Pending | PR-9.x | - |
@@ -91,7 +93,9 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 
 **Classification Inference** (`src/inference/classification.py`): Exports `ClassificationInferenceError`, `HoldTypeResult`, `classify_hold()`, `classify_holds()`. Single-model cache with double-checked locking, input size from metadata, center-crop transform matches training validation transform.
 
-**Route Graph Builder** (`src/graph/`): Exports `RouteGraphError`, `ClassifiedHold`, `make_classified_hold()`, `RouteGraph`, `build_route_graph()`. `ClassifiedHold` is a Pydantic model representing a detected hold with classification result. `make_classified_hold()` is a factory for constructing `ClassifiedHold` instances. `RouteGraph` is a Pydantic model wrapping `networkx.Graph` that represents spatial relationships between holds. `build_route_graph()` constructs the graph from a list of classified holds. Dependency: networkx 3.4.2.
+**Route Graph Builder** (`src/graph/`): Exports `RouteGraphError`, `ClassifiedHold`, `make_classified_hold()`, `RouteGraph`, `build_route_graph()`, `apply_route_constraints()`, `NODE_ATTR_IS_START`, `NODE_ATTR_IS_FINISH`. `ClassifiedHold` is a Pydantic model representing a detected hold with classification result. `make_classified_hold()` is a factory for constructing `ClassifiedHold` instances. `RouteGraph` is a Pydantic model wrapping `networkx.Graph` that represents spatial relationships between holds. `build_route_graph()` constructs the graph from a list of classified holds. `apply_route_constraints()` marks start/finish holds and prunes disconnected components. Dependency: networkx 3.4.2.
+
+**Geometry Features** (`src/features/`): Exports `FeatureExtractionError`, `GeometryFeatures`, `extract_geometry_features()`. `FeatureExtractionError(ValueError)` is the base exception for all feature extraction failures. `GeometryFeatures` is a Pydantic model with 11 non-negative fields: edge statistics (`avg/max/min/std_move_distance`), path statistics (`path_length_min/max_distance`, `path_length_min/max_hops`), spatial metrics (`hold_density`), and graph topology (`node_count`, `edge_count`). `extract_geometry_features()` accepts a constrained `RouteGraph` (must have start/finish attributes from `apply_route_constraints`) and returns a `GeometryFeatures` instance. Uses `math.fsum` for compensated summation, `nx.single_source_dijkstra` for shortest paths, and bounding-box area for density. No NumPy dependency.
 
 ---
 
@@ -124,7 +128,12 @@ bouldering-analysis/
 │   │   ├── __init__.py           # Re-exports public API
 │   │   ├── exceptions.py         # RouteGraphError(ValueError)
 │   │   ├── types.py              # ClassifiedHold model, make_classified_hold()
+│   │   ├── constraints.py        # apply_route_constraints(), NODE_ATTR_IS_*
 │   │   └── route_graph.py        # RouteGraph model, build_route_graph()
+│   ├── features/
+│   │   ├── __init__.py           # Re-exports public API
+│   │   ├── exceptions.py         # FeatureExtractionError(ValueError)
+│   │   └── geometry.py           # GeometryFeatures model, extract_geometry_features()
 │   └── archive/legacy/           # Reference only — do not import
 ├── tests/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings
