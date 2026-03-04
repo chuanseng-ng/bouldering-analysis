@@ -45,16 +45,15 @@ jobs:
         uv run pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
 
     - name: Pytest coverage comment
-      if: ${{ github.ref == 'refs/heads/python/pre_release' }}
+      if: ${{ github.ref != 'refs/heads/python/main' }}
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@v1.2.0
       with:
-        default-branch: python/pre_release
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml
 
     - name: Update README with Coverage HTML
-      if: ${{ github.ref == 'refs/heads/python/pre_release' }}
+      if: ${{ github.ref != 'refs/heads/python/main' }}
       env:
         COVERAGE_HTML: ${{ steps.coverageComment.outputs.coverageHtml }}
       run: |
@@ -70,9 +69,8 @@ jobs:
         ' README.md > /tmp/README_updated.md && mv /tmp/README_updated.md README.md
 
     - name: Commit & Push changes to README
-      if: ${{ github.ref == 'refs/heads/python/pre_release' }}
+      if: ${{ github.ref != 'refs/heads/python/main' }}
       uses: actions-js/push@v1.5
       with:
-        branch: python/pre_release
         message: Update coverage in README [skip ci]
         github_token: ${{ secrets.GITHUB_TOKEN }}
