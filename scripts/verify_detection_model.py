@@ -110,7 +110,7 @@ def _find_legacy_weights() -> Path | None:
     return pts[0] if pts else None
 
 
-def _read_trained_metadata(weights_path: Path) -> dict | None:
+def _read_trained_metadata(weights_path: Path) -> dict[str, Any] | None:
     """Try to read metadata.json adjacent to a versioned best.pt.
 
     Args:
@@ -129,7 +129,7 @@ def _read_trained_metadata(weights_path: Path) -> dict | None:
         return None
 
 
-def _read_legacy_metadata(weights_path: Path) -> dict | None:
+def _read_legacy_metadata(weights_path: Path) -> dict[str, Any] | None:
     """Try to read a .yaml metadata file next to a legacy .pt file.
 
     Args:
@@ -140,11 +140,7 @@ def _read_legacy_metadata(weights_path: Path) -> dict | None:
     """
     import yaml  # type: ignore[import-untyped]  # pylint: disable=import-outside-toplevel
 
-    yaml_path = weights_path.with_suffix(".yaml").parent / (
-        weights_path.stem + "_metadata.yaml"
-    )
-    if not yaml_path.exists():
-        yaml_path = weights_path.with_name(weights_path.stem + "_metadata.yaml")
+    yaml_path = weights_path.with_name(weights_path.stem + "_metadata.yaml")
     if not yaml_path.exists():
         return None
     try:
@@ -291,8 +287,8 @@ def main() -> int:
         if metadata:
             # Extract recall from stored metadata for the verdict.
             metrics = metadata.get("metrics", metadata)
-            recall = float(metrics.get("recall", metrics.get("final_mAP50-95", 0.0)))
-            map50 = float(metrics.get("map50", metrics.get("final_mAP50-95", 0.0)))
+            recall = float(metrics.get("recall", 0.0))
+            map50 = float(metrics.get("map50", metrics.get("final_mAP50", 0.0)))
             passed = _print_verdict(recall, map50)
             return 0 if passed else 1
         print(

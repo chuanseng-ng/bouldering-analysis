@@ -42,10 +42,10 @@ jobs:
 
     - name: Test with pytest
       run: |
-        uv run pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
+        uv run pytest tests -v --cov --cov-fail-under=85 --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
 
     - name: Pytest coverage comment
-      if: ${{ github.ref != 'refs/heads/python/main' }}
+      if: ${{ github.event_name == 'push' }}
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@v1.2.0
       with:
@@ -53,7 +53,7 @@ jobs:
         junitxml-path: ./pytest.xml
 
     - name: Update README with Coverage HTML
-      if: ${{ github.ref != 'refs/heads/python/main' }}
+      if: ${{ github.event_name == 'push' }}
       env:
         COVERAGE_HTML: ${{ steps.coverageComment.outputs.coverageHtml }}
       run: |
@@ -69,7 +69,7 @@ jobs:
         ' README.md > /tmp/README_updated.md && mv /tmp/README_updated.md README.md
 
     - name: Commit & Push changes to README
-      if: ${{ github.ref != 'refs/heads/python/main' }}
+      if: ${{ github.event_name == 'push' }}
       uses: actions-js/push@v1.5
       with:
         message: Update coverage in README [skip ci]

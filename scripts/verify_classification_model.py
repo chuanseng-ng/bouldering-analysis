@@ -91,7 +91,7 @@ def _find_latest_trained_weights() -> Path | None:
     return None
 
 
-def _read_metadata(weights_path: Path) -> dict | None:
+def _read_metadata(weights_path: Path) -> dict[str, Any] | None:
     """Read metadata.json for a versioned classification model.
 
     Args:
@@ -133,7 +133,10 @@ def _compute_ece(
     for b in range(n_bins):
         lo = b * bin_size
         hi = lo + bin_size
-        indices = [i for i, c in enumerate(confidences) if lo < c <= hi]
+        if b == 0:
+            indices = [i for i, c in enumerate(confidences) if lo <= c <= hi]
+        else:
+            indices = [i for i, c in enumerate(confidences) if lo < c <= hi]
         if not indices:
             continue
         bin_acc = sum(1 for i in indices if correctness[i]) / len(indices)
@@ -341,8 +344,8 @@ def main() -> int:  # pylint: disable=too-many-return-statements
         print("\n--metadata-only: skipping live inference.")
         if metadata:
             m = metadata.get("metrics", {})
-            accuracy = float(m.get("top1_accuracy", 0.0))
-            ece = float(m.get("ece", 1.0))
+            accuracy = float(m.get("top1_accuracy") or 0.0)
+            ece = float(m.get("ece") or 1.0)
             passed = _print_verdict(accuracy, ece)
             return 0 if passed else 1
         print(

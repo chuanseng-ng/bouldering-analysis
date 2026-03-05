@@ -38,13 +38,13 @@ import sys
 import warnings
 from pathlib import Path
 
+from PIL import Image  # type: ignore[import-untyped]
 import torch
 
 # Allow running from repo root without installing the package.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position,duplicate-code
-from PIL import Image  # type: ignore[import-untyped]
 
 from src.training.classification_dataset import (
     HOLD_CLASSES,
@@ -168,6 +168,7 @@ def _extract_crops_for_split(  # pylint: disable=too-many-locals
         try:
             image = Image.open(img_path).convert("RGB")
         except OSError:
+            warnings.warn(f"Could not open image: {img_path}", stacklevel=2)
             continue
 
         img_w, img_h = image.size
@@ -237,6 +238,11 @@ def _add_placeholder_images(split_dir: Path, source_class: str) -> list[str]:
 
     for cls in HOLD_CLASSES:
         cls_dir = split_dir / cls
+        if not cls_dir.is_dir():
+            cls_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(donor, cls_dir / f"_placeholder_{cls}.jpg")
+            patched.append(cls)
+            continue
         has_images = any(
             p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
             for p in cls_dir.iterdir()
@@ -278,6 +284,12 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
 
         # Ensure every class has ≥1 image so compute_class_weights() succeeds.
         source_cls = "unknown" if counts.get("unknown", 0) > 0 else "volume"
+        if counts.get(source_cls, 0) == 0:
+            warnings.warn(
+                f"Split '{split}' has no crops in either 'unknown' or 'volume'. "
+                "Cannot create placeholders for empty classes.",
+                stacklevel=2,
+            )
         patched = _add_placeholder_images(output_split_dir, source_cls)
 
         total = sum(counts.values())
@@ -330,8 +342,14 @@ def _print_result(result: ClassificationTrainingResult) -> None:
             "\n   This is expected when using a 2-class crop dataset — supply a proper"
             "\n   6-class Roboflow hold-type dataset for production accuracy targets."
         )
+    elif not ece_ok:
+        print(
+            f"\n[!]  ECE {m.ece:.4f} exceeds the target {ECE_THRESHOLD}."
+            "\n   Consider calibration techniques or additional training data."
+        )
     else:
         print("\n[OK]  Accuracy target met.")
+        print("[OK]  ECE target met.")
 
 
 def main() -> int:
@@ -364,8 +382,8 @@ def main() -> int:
 
     # ── Phase 2: load dataset + train ─────────────────────────────────────
     print(f"\nPhase 2 — Loading crops dataset from: {args.crops_dataset}")
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning)
         dataset = load_hold_classification_dataset(args.crops_dataset, strict=False)
 
     print(
@@ -406,7 +424,11 @@ def main() -> int:
     )
 
     _print_result(result)
-    return 0 if result.metrics.top1_accuracy >= ACCURACY_THRESHOLD else 1
+    success = (
+        result.metrics.top1_accuracy >= ACCURACY_THRESHOLD
+        and result.metrics.ece < ECE_THRESHOLD
+    )
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
