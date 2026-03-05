@@ -21,6 +21,7 @@ HOW TO ROLLBACK:
 
 from __future__ import annotations
 
+# pylint: disable=import-error,duplicate-code
 import os
 import sys
 import logging
