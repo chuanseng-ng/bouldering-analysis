@@ -91,6 +91,10 @@ exclude_also = [
     'if api_key:',
 ]
 
+[tool.uv]
+extra-index-url = ["https://download.pytorch.org/whl/cu128"]
+index-strategy = "unsafe-best-match"
+
 [tool.coverage.run]
 omit = [
     "tests/*",
