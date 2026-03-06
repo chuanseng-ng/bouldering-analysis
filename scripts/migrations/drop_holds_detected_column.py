@@ -33,6 +33,7 @@ from sqlalchemy import (
     inspect,
     text,
 )
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
@@ -40,6 +41,7 @@ from migration_utils import (
     setup_migration_logging,
     get_database_url,
     get_database_type,
+    mask_db_url,
     column_exists,
 )
 
@@ -48,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 # pylint: disable=too-many-locals,too-many-statements
-def drop_holds_detected_column(engine, db_type: str) -> bool:
+def drop_holds_detected_column(engine: Engine, db_type: str) -> bool:
     """
     Drop the holds_detected column from the analyses table.
 
@@ -188,7 +190,7 @@ def drop_holds_detected_column(engine, db_type: str) -> bool:
         return False
 
 
-def rollback_add_holds_detected_column(engine, db_type: str) -> bool:
+def rollback_add_holds_detected_column(engine: Engine, db_type: str) -> bool:
     """
     Rollback: Add the holds_detected column back to the analyses table.
 
@@ -248,7 +250,7 @@ def rollback_add_holds_detected_column(engine, db_type: str) -> bool:
         return False
 
 
-def verify_migration(engine) -> bool:
+def verify_migration(engine: Engine) -> bool:
     """
     Verify that the migration was successful.
 
@@ -295,7 +297,7 @@ def verify_migration(engine) -> bool:
         return False
 
 
-def main():  # pylint: disable=too-many-branches,too-many-statements
+def main() -> None:  # pylint: disable=too-many-branches,too-many-statements
     """Main migration execution function."""
     parser = argparse.ArgumentParser(
         description="Drop the deprecated holds_detected column from analyses table"
@@ -332,14 +334,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
     db_type = get_database_type(db_url)
 
     # Mask password in log output
-    safe_db_url = db_url
-    if "@" in db_url:
-        # Mask password for PostgreSQL URLs
-        parts = db_url.split("@")
-        if ":" in parts[0]:
-            user_pass = parts[0].split("://")[1]
-            if ":" in user_pass:
-                safe_db_url = db_url.replace(user_pass.split(":")[1], "****")
+    safe_db_url = mask_db_url(db_url)
 
     logger.info("Database URL: %s", safe_db_url)
     logger.info("Database Type: %s", db_type)

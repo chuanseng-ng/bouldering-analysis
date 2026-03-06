@@ -165,6 +165,7 @@ def _run_inference(  # pylint: disable=too-many-locals,too-many-statements
     from PIL import Image  # type: ignore[import-untyped]  # pylint: disable=import-outside-toplevel
     from torchvision import transforms  # type: ignore[import-untyped]  # pylint: disable=import-outside-toplevel
 
+    from src.training.classification_dataset import HOLD_CLASSES  # pylint: disable=import-outside-toplevel
     from src.training.classification_model import (  # pylint: disable=import-outside-toplevel
         IMAGENET_MEAN,
         IMAGENET_STD,
@@ -217,10 +218,18 @@ def _run_inference(  # pylint: disable=too-many-locals,too-many-statements
     if not class_dirs:
         raise RuntimeError(f"No class subdirectories found in val dir: {val_dir}")
 
-    class_names = sorted(d.name for d in class_dirs)
-    class_to_idx: dict[str, int] = {name: i for i, name in enumerate(class_names)}
+    found_classes = {d.name for d in class_dirs}
+    expected_classes = set(HOLD_CLASSES)
+    missing = expected_classes - found_classes
+    extra = found_classes - expected_classes
+    if missing or extra:
+        raise RuntimeError(
+            f"val dir class mismatch — missing: {sorted(missing)}, extra: {sorted(extra)}"
+        )
 
-    print(f"  Classes found in val: {class_names}")
+    class_to_idx: dict[str, int] = {name: i for i, name in enumerate(HOLD_CLASSES)}
+
+    print(f"  Classes found in val: {list(HOLD_CLASSES)}")
 
     correct = 0
     total = 0
@@ -378,7 +387,7 @@ def main() -> int:  # pylint: disable=too-many-return-statements
 
     try:
         accuracy, ece, total = _run_inference(weights_path, val_dir)
-    except RuntimeError as exc:
+    except Exception as exc:
         print(f"ERROR during inference: {exc}", file=sys.stderr)
         return 1
 

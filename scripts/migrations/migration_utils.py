@@ -11,9 +11,13 @@ import os
 import sys
 from pathlib import Path
 
+from sqlalchemy.engine import Inspector
+
 # ── project root (scripts/migrations/ → 3 levels up) ────────────────────────
 project_root: Path = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+_logger = logging.getLogger(__name__)
 
 
 def setup_migration_logging(log_filename: str) -> None:
@@ -75,7 +79,29 @@ def get_database_type(db_url: str) -> str:
     return db_url.split(":")[0]
 
 
-def column_exists(inspector, table_name: str, column_name: str) -> bool:
+def mask_db_url(db_url: str) -> str:
+    """Mask the password in a database URL for safe logging.
+
+    Args:
+        db_url: Database connection URL.
+
+    Returns:
+        URL with password replaced by ``"****"``, or a fallback string if
+        parsing fails.
+    """
+    try:
+        if "@" in db_url:
+            parts = db_url.split("@")
+            if ":" in parts[0]:
+                user_pass = parts[0].split("://")[1]
+                if ":" in user_pass:
+                    return db_url.replace(user_pass.split(":")[1], "****")
+    except (IndexError, ValueError):
+        return "[database URL - masked for security]"
+    return db_url
+
+
+def column_exists(inspector: Inspector, table_name: str, column_name: str) -> bool:
     """Check if a column exists in a table.
 
     Args:
@@ -86,7 +112,6 @@ def column_exists(inspector, table_name: str, column_name: str) -> bool:
     Returns:
         True if column exists, False otherwise.
     """
-    _logger = logging.getLogger(__name__)
     try:
         columns = [col["name"] for col in inspector.get_columns(table_name)]
         return column_name in columns

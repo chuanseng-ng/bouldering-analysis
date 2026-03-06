@@ -95,7 +95,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--architecture",
-        choices=["resnet18", "mobilenetv3_small", "mobilenetv3_large"],
+        choices=["resnet18", "mobilenet_v3_small", "mobilenet_v3_large"],
         default="resnet18",
         help="CNN backbone for the classifier.",
     )
@@ -281,7 +281,8 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
 
         output_split_dir = crops_dataset / split
         if output_split_dir.exists() and output_split_dir.is_dir():
-            shutil.rmtree(output_split_dir)
+            if output_split_dir.resolve() != (source_dataset / split).resolve():
+                shutil.rmtree(output_split_dir)
         output_split_dir.mkdir(parents=True, exist_ok=True)
         counts = _extract_crops_for_split(images_dir, labels_dir, output_split_dir)
 

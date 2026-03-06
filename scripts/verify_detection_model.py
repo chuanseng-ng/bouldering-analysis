@@ -251,7 +251,8 @@ def main() -> int:
             print(f"ERROR: Weights file not found: {weights_path}", file=sys.stderr)
             return 1
         print(f"Using specified weights: {weights_path}")
-        is_legacy = "hold_detection" in str(weights_path)
+        stem = weights_path.stem
+        is_legacy = (weights_path.parent / f"{stem}_metadata.yaml").exists()
     else:
         weights_path = _find_latest_trained_weights()
         is_legacy = False
