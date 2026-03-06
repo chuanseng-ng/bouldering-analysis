@@ -76,7 +76,7 @@ repos:
           - --cov-fail-under=85  # Current stage requirement
           - --cov-report=term-missing:skip-covered
           - -q  # Quiet mode for faster feedback
-        stages: [pre-commit]
+        stages: [pre-push]
 
   # pylint - Code quality checker
   - repo: local
