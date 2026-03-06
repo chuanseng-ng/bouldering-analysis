@@ -5,6 +5,8 @@
 default_language_version:
   python: python3
 
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

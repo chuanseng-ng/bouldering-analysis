@@ -53,21 +53,11 @@ jobs:
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml
 
-    - name: Update README with Coverage HTML
+    - name: Save coverage HTML
       if: ${{ github.event_name == 'push' }}
       env:
         COVERAGE_HTML: ${{ steps.coverageComment.outputs.coverageHtml }}
-      run: |
-        printf '%s\n' "$COVERAGE_HTML" > /tmp/coverage.html
-        awk '
-          /<!-- Pytest Coverage Comment:Begin -->/ {
-            print
-            while ((getline line < "/tmp/coverage.html") > 0) print line
-            skip=1; next
-          }
-          /<!-- Pytest Coverage Comment:End -->/ { skip=0; print; next }
-          !skip
-        ' README.md > /tmp/README_updated.md && mv /tmp/README_updated.md README.md
+      run: printf '%s\n' "$COVERAGE_HTML" > coverage.html
 
     - name: Upload coverage artifacts
       if: ${{ github.event_name == 'push' }}
@@ -77,4 +67,4 @@ jobs:
         path: |
           pytest-coverage.txt
           pytest.xml
-          README.md
+          coverage.html
