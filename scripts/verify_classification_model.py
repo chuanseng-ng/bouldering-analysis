@@ -344,8 +344,10 @@ def main() -> int:  # pylint: disable=too-many-return-statements
         print("\n--metadata-only: skipping live inference.")
         if metadata:
             m = metadata.get("metrics", {})
-            accuracy = float(m.get("top1_accuracy") or 0.0)
-            ece = float(m.get("ece") or 1.0)
+            raw_acc = m.get("top1_accuracy")
+            raw_ece = m.get("ece")
+            accuracy = float(raw_acc) if raw_acc is not None else 0.0
+            ece = float(raw_ece) if raw_ece is not None else 1.0
             passed = _print_verdict(accuracy, ece)
             return 0 if passed else 1
         print(

@@ -287,8 +287,15 @@ def main() -> int:
         if metadata:
             # Extract recall from stored metadata for the verdict.
             metrics = metadata.get("metrics", metadata)
-            recall = float(metrics.get("recall", 0.0))
-            map50 = float(metrics.get("map50", metrics.get("final_mAP50", 0.0)))
+            try:
+                recall = float(metrics.get("recall", 0.0))
+                map50 = float(metrics.get("map50", metrics.get("final_mAP50", 0.0)))
+            except (TypeError, ValueError):
+                print(
+                    "WARNING: Invalid metric values in metadata; cannot determine verdict.",
+                    file=sys.stderr,
+                )
+                return 1
             passed = _print_verdict(recall, map50)
             return 0 if passed else 1
         print(
