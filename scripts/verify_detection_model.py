@@ -105,8 +105,8 @@ def _find_legacy_weights() -> Path | None:
         if p.exists():
             return p
 
-    # Fall back to any .pt file.
-    pts = list(LEGACY_MODELS_DIR.glob("*.pt"))
+    # Fall back to any .pt file — sort for deterministic selection.
+    pts = sorted(LEGACY_MODELS_DIR.glob("*.pt"), key=lambda p: p.name)
     return pts[0] if pts else None
 
 
@@ -151,7 +151,7 @@ def _read_legacy_metadata(weights_path: Path) -> dict[str, Any] | None:
         return None
 
 
-def _print_metadata_summary(metadata: dict, source: str) -> None:
+def _print_metadata_summary(metadata: dict[str, Any], source: str) -> None:
     """Print a human-readable summary of the stored metadata.
 
     Args:
@@ -164,7 +164,7 @@ def _print_metadata_summary(metadata: dict, source: str) -> None:
         print(f"    {key}: {val}")
 
 
-def _run_yolo_validation(weights_path: Path, data_yaml: Path) -> dict:
+def _run_yolo_validation(weights_path: Path, data_yaml: Path) -> dict[str, Any]:
     """Run YOLO validation and return a metrics dict.
 
     Args:
@@ -309,7 +309,12 @@ def main() -> int:
         print(f"ERROR: data.yaml not found at {data_yaml}", file=sys.stderr)
         return 1
 
-    live = _run_yolo_validation(weights_path, data_yaml)
+    try:
+        live = _run_yolo_validation(weights_path, data_yaml)
+    except Exception as exc:
+        print(f"ERROR during validation: {exc}", file=sys.stderr)
+        return 1
+
     print(
         f"\n  Live validation results:"
         f"\n    Recall    : {live['recall']:.4f}"

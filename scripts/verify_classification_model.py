@@ -169,6 +169,7 @@ def _run_inference(  # pylint: disable=too-many-locals,too-many-statements
         IMAGENET_MEAN,
         IMAGENET_STD,
         ClassifierHyperparameters,
+        apply_classifier_dropout,
         build_hold_classifier,
     )
 
@@ -176,15 +177,22 @@ def _run_inference(  # pylint: disable=too-many-locals,too-many-statements
     metadata = _read_metadata(weights_path)
     arch = "resnet18"
     input_size = 224
+    dropout_rate = 0.0
     if metadata:
-        arch = metadata.get("hyperparameters", {}).get("architecture", arch)
-        input_size = metadata.get("hyperparameters", {}).get("input_size", input_size)
+        hyp_meta = metadata.get("hyperparameters", {})
+        arch = hyp_meta.get("architecture", arch)
+        input_size = hyp_meta.get("input_size", input_size)
+        dropout_rate = float(hyp_meta.get("dropout_rate", 0.0))
 
     # ── build model + load weights ─────────────────────────────────────────
-    print(f"\n  Loading model: architecture={arch}, input_size={input_size}")
+    print(
+        f"\n  Loading model: architecture={arch}, input_size={input_size}, dropout_rate={dropout_rate}"
+    )
     hyp = ClassifierHyperparameters(architecture=arch, input_size=input_size)
     config = build_hold_classifier(hyp)
     model: torch.nn.Module = config["model"]
+    if dropout_rate > 0.0:
+        model = apply_classifier_dropout(model, arch, dropout_rate)
 
     checkpoint = torch.load(weights_path, map_location="cpu", weights_only=True)
     state_dict = checkpoint.get("model_state_dict", checkpoint)

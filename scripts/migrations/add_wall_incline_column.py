@@ -21,12 +21,10 @@ HOW TO ROLLBACK:
 
 from __future__ import annotations
 
-# pylint: disable=import-error,duplicate-code
 import os
 import sys
 import logging
 import argparse
-from pathlib import Path
 
 from sqlalchemy import (
     create_engine,
@@ -35,82 +33,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import SQLAlchemyError
 
-# Add the project root to the Python path to allow imports
-project_root = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-# Ensure logs directory exists before configuring FileHandler
-project_root.joinpath("logs").mkdir(parents=True, exist_ok=True)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(project_root / "logs" / "migration_add_wall_incline.log"),
-    ],
+from migration_utils import (
+    setup_migration_logging,
+    get_database_url,
+    get_database_type,
+    column_exists,
 )
+
+setup_migration_logging("migration_add_wall_incline.log")
 logger = logging.getLogger(__name__)
-
-
-def get_database_url() -> str:
-    """
-    Get the database URL from environment or use default.
-
-    Uses the same configuration pattern as src/main.py.
-
-    Returns:
-        str: Database connection URL
-    """
-    db_url = os.environ.get("DATABASE_URL") or "sqlite:///bouldering_analysis.db"
-
-    # Convert relative SQLite paths to absolute paths from project root
-    if db_url.startswith("sqlite:///") and not db_url.startswith("sqlite:////"):
-        db_path = db_url.replace("sqlite:///", "")
-        if not os.path.isabs(db_path):
-            db_path = str(project_root / db_path)
-            db_url = f"sqlite:///{db_path}"
-
-    return db_url
-
-
-def get_database_type(db_url: str) -> str:
-    """
-    Determine the database type from the connection URL.
-
-    Args:
-        db_url: Database connection URL
-
-    Returns:
-        str: Database type ('sqlite', 'postgresql', etc.)
-    """
-    if db_url.startswith("sqlite"):
-        return "sqlite"
-    if db_url.startswith("postgresql"):
-        return "postgresql"
-    # Extract dialect from URL
-    return db_url.split(":")[0]
-
-
-def column_exists(inspector, table_name: str, column_name: str) -> bool:
-    """
-    Check if a column exists in a table.
-
-    Args:
-        inspector: SQLAlchemy inspector object
-        table_name: Name of the table to check
-        column_name: Name of the column to check
-
-    Returns:
-        bool: True if column exists, False otherwise
-    """
-    try:
-        columns = [col["name"] for col in inspector.get_columns(table_name)]
-        return column_name in columns
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Error checking if column exists: %s", e, exc_info=True)
-        return False
 
 
 def add_wall_incline_column(engine, db_type: str) -> bool:  # pylint: disable=unused-argument

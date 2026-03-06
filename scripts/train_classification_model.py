@@ -280,6 +280,9 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
             continue
 
         output_split_dir = crops_dataset / split
+        if output_split_dir.exists() and output_split_dir.is_dir():
+            shutil.rmtree(output_split_dir)
+        output_split_dir.mkdir(parents=True, exist_ok=True)
         counts = _extract_crops_for_split(images_dir, labels_dir, output_split_dir)
 
         # Ensure every class has ≥1 image so compute_class_weights() succeeds.
