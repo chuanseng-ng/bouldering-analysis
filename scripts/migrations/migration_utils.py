@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy.engine import Inspector
 
@@ -82,6 +83,9 @@ def get_database_type(db_url: str) -> str:
 def mask_db_url(db_url: str) -> str:
     """Mask the password in a database URL for safe logging.
 
+    Uses ``urllib.parse.urlparse`` for robust URL handling rather than
+    fragile string splitting.
+
     Args:
         db_url: Database connection URL.
 
@@ -90,15 +94,17 @@ def mask_db_url(db_url: str) -> str:
         parsing fails.
     """
     try:
-        if "@" in db_url:
-            parts = db_url.split("@")
-            if ":" in parts[0]:
-                user_pass = parts[0].split("://")[1]
-                if ":" in user_pass:
-                    return db_url.replace(user_pass.split(":")[1], "****")
-    except (IndexError, ValueError):
+        parsed = urlparse(db_url)
+        if not parsed.password:
+            return db_url
+        userinfo = f"{parsed.username}:****"
+        host = parsed.hostname or ""
+        netloc = (
+            f"{userinfo}@{host}:{parsed.port}" if parsed.port else f"{userinfo}@{host}"
+        )
+        return urlunparse(parsed._replace(netloc=netloc))
+    except (ValueError, AttributeError):
         return "[database URL - masked for security]"
-    return db_url
 
 
 def column_exists(inspector: Inspector, table_name: str, column_name: str) -> bool:

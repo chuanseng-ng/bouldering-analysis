@@ -45,7 +45,6 @@ from migration_utils import (
     column_exists,
 )
 
-setup_migration_logging("migration_drop_holds_detected.log")
 logger = logging.getLogger(__name__)
 
 
@@ -457,4 +456,5 @@ def main() -> None:  # pylint: disable=too-many-branches,too-many-statements
 
 
 if __name__ == "__main__":
+    setup_migration_logging("migration_drop_holds_detected.log")
     main()

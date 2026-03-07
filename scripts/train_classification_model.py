@@ -25,7 +25,7 @@ Phase 2 — Classification training:
 Usage:
     uv run python scripts/train_classification_model.py
     uv run python scripts/train_classification_model.py --skip-extraction
-    uv run python scripts/train_classification_model.py --epochs 30 --architecture mobilenetv3_small
+    uv run python scripts/train_classification_model.py --epochs 30 --architecture mobilenet_v3_small
 
 Success criteria (MODEL_PRETRAIN.md §6.6):
     - Top-1 accuracy >= 0.80 on the validation set
@@ -300,7 +300,7 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
         print(f"\n  Split '{split}': {total} crops extracted.")
         for cls in HOLD_CLASSES:
             tag = " (placeholder)" if cls in patched else ""
-            print(f"    {cls:<10}: {counts.get(cls, 1 if cls in patched else 0)}{tag}")
+            print(f"    {cls:<10}: {counts.get(cls, 0)}{tag}")
 
     print("\nCrop extraction complete.")
 
