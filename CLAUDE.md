@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.03.04
-**Last Updated**: 2026-03-04
+**Version**: 2026.03.07
+**Last Updated**: 2026-03-07
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 
@@ -74,6 +74,7 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | └─ Route Constraints | ✅ | PR-5.2 | 97% |
 | 6. Feature Extraction | **In Progress** | PR-6.x | - |
 | ├─ Geometry Features | ✅ | PR-6.1 | 97% |
+| ├─ Hold Features | ✅ | PR-6.2 | 100% |
 | 7. Grade Estimation | Pending | PR-7.x | - |
 | 8. Explainability | Pending | PR-8.x | - |
 | 9. Database Schema | Pending | PR-9.x | - |
@@ -95,7 +96,9 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 
 **Route Graph Builder** (`src/graph/`): Exports `RouteGraphError`, `ClassifiedHold`, `make_classified_hold()`, `RouteGraph`, `build_route_graph()`, `apply_route_constraints()`, `NODE_ATTR_IS_START`, `NODE_ATTR_IS_FINISH`. `ClassifiedHold` is a Pydantic model representing a detected hold with classification result. `make_classified_hold()` is a factory for constructing `ClassifiedHold` instances. `RouteGraph` is a Pydantic model wrapping `networkx.Graph` that represents spatial relationships between holds. `build_route_graph()` constructs the graph from a list of classified holds. `apply_route_constraints()` marks start/finish holds and prunes disconnected components. Dependency: networkx 3.4.2.
 
-**Geometry Features** (`src/features/`): Exports `FeatureExtractionError`, `GeometryFeatures`, `extract_geometry_features()`. `FeatureExtractionError(ValueError)` is the base exception for all feature extraction failures. `GeometryFeatures` is a Pydantic model with 11 non-negative fields: edge statistics (`avg/max/min/std_move_distance`), path statistics (`path_length_min/max_distance`, `path_length_min/max_hops`), spatial metrics (`hold_density`), and graph topology (`node_count`, `edge_count`). `extract_geometry_features()` accepts a constrained `RouteGraph` (must have start/finish attributes from `apply_route_constraints`) and returns a `GeometryFeatures` instance. Uses `math.fsum` for compensated summation, `nx.single_source_dijkstra` for shortest paths, and bounding-box area for density. No NumPy dependency.
+**Geometry Features** (`src/features/geometry.py`): Exports `FeatureExtractionError`, `GeometryFeatures`, `extract_geometry_features()`. `FeatureExtractionError(ValueError)` is the base exception for all feature extraction failures. `GeometryFeatures` is a Pydantic model with 11 non-negative fields: edge statistics (`avg/max/min/std_move_distance`), path statistics (`path_length_min/max_distance`, `path_length_min/max_hops`), spatial metrics (`hold_density`), and graph topology (`node_count`, `edge_count`). `extract_geometry_features()` accepts a constrained `RouteGraph` (must have start/finish attributes from `apply_route_constraints`) and returns a `GeometryFeatures` instance. Uses `math.fsum` for compensated summation, `nx.single_source_dijkstra` for shortest paths, and bounding-box area for density. No NumPy dependency.
+
+**Hold Features** (`src/features/holds.py`): Exports `HoldFeatures`, `extract_hold_features()`. `HoldFeatures` is a Pydantic model with 23 non-negative fields: hard counts per type (`jug/crimp/sloper/pinch/volume/unknown_count`), hard ratios per type (`*_ratio`), bounding-box area statistics (`avg/max/min/std_hold_size`), and confidence-weighted soft distribution (`*_soft_ratio`). `extract_hold_features()` accepts a list of `ClassifiedHold` instances (must be non-empty) and returns a `HoldFeatures` instance. Uses `math.fsum` for compensated summation. No NumPy dependency.
 
 ---
 
@@ -133,7 +136,8 @@ bouldering-analysis/
 │   ├── features/
 │   │   ├── __init__.py           # Re-exports public API
 │   │   ├── exceptions.py         # FeatureExtractionError(ValueError)
-│   │   └── geometry.py           # GeometryFeatures model, extract_geometry_features()
+│   │   ├── geometry.py           # GeometryFeatures model, extract_geometry_features()
+│   │   └── holds.py              # HoldFeatures model, extract_hold_features()
 │   └── archive/legacy/           # Reference only — do not import
 ├── tests/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings
