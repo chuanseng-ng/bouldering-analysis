@@ -297,27 +297,6 @@ class TestAssembleFeaturesErrors:
         with pytest.raises(FeatureExtractionError):
             assemble_features(rg)
 
-    def test_empty_graph_raises(self) -> None:
-        """Graph with no nodes (empty holds) must raise FeatureExtractionError.
-
-        build_route_graph itself rejects empty holds, so we verify that
-        assemble_features propagates FeatureExtractionError from a graph
-        whose holds list is empty after pruning (simulated by constraining
-        a graph where start and finish are disconnected).
-
-        Since build_route_graph prevents empty graphs, we instead test
-        that extract_geometry_features raises when passed an unconstrained
-        graph (no start/finish), which is equivalent to the «empty» error path.
-        """
-        holds = [
-            _make_classified_hold(hold_id=0, x_center=0.2, y_center=0.5),
-            _make_classified_hold(hold_id=1, x_center=0.4, y_center=0.5),
-        ]
-        rg = build_route_graph(holds, wall_angle=0.0)
-        # Do not apply constraints → extract_geometry_features raises
-        with pytest.raises(FeatureExtractionError):
-            assemble_features(rg)
-
     def test_error_message_contains_context(self) -> None:
         """FeatureExtractionError.message must contain a diagnostic string."""
         holds = [
