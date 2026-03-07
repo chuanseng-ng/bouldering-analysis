@@ -110,16 +110,27 @@ class HoldFeatures(BaseModel):
     unknown_soft_ratio: float = Field(ge=0.0, le=1.0)
 
 
-# Guard: HoldFeatures has 1 total + 3 groups × len(HOLD_CLASSES) + 4 size fields.
-# Fails at import time if HOLD_CLASSES grows without updating this model.
+# Guard: verify HoldFeatures field names match HOLD_CLASSES exactly.
+# Catches both taxonomy growth (new class → missing fields) and renames
+# (e.g. jug_count → jug_cnt keeps the count at 23 but breaks downstream
+# dict lookups like counts["jug"] → jug_count).
 # Uses an explicit raise rather than assert so it cannot be silenced by python -O.
-_EXPECTED_HOLD_FEATURES_FIELD_COUNT: int = 1 + 3 * len(HOLD_CLASSES) + 4
-if len(HoldFeatures.model_fields) != _EXPECTED_HOLD_FEATURES_FIELD_COUNT:
+_EXPECTED_HOLD_FEATURES_FIELDS: frozenset[str] = frozenset(
+    {"total_count", "avg_hold_size", "max_hold_size", "min_hold_size", "std_hold_size"}
+    | {f"{cls}_count" for cls in HOLD_CLASSES}
+    | {f"{cls}_ratio" for cls in HOLD_CLASSES}
+    | {f"{cls}_soft_ratio" for cls in HOLD_CLASSES}
+)
+_actual_hold_features_fields = frozenset(HoldFeatures.model_fields.keys())
+if _actual_hold_features_fields != _EXPECTED_HOLD_FEATURES_FIELDS:
+    _missing = sorted(_EXPECTED_HOLD_FEATURES_FIELDS - _actual_hold_features_fields)
+    _extra = sorted(_actual_hold_features_fields - _EXPECTED_HOLD_FEATURES_FIELDS)
     raise RuntimeError(
-        f"HoldFeatures fields ({len(HoldFeatures.model_fields)}) out of sync with "
-        f"HOLD_CLASSES (expected {_EXPECTED_HOLD_FEATURES_FIELD_COUNT}). "
+        f"HoldFeatures fields out of sync with HOLD_CLASSES. "
+        f"Missing: {_missing}. Extra: {_extra}. "
         "Add the new hold type's count, ratio, and soft_ratio fields."
     )
+del _actual_hold_features_fields
 
 
 # ---------------------------------------------------------------------------
