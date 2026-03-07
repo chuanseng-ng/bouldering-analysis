@@ -46,7 +46,7 @@ jobs:
         uv run pytest tests -v --cov=src --cov-fail-under=85 --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
 
     - name: Pytest coverage comment
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@v1.2.0
       with:
@@ -54,13 +54,13 @@ jobs:
         junitxml-path: ./pytest.xml
 
     - name: Save coverage HTML
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
       env:
         COVERAGE_HTML: ${{ steps.coverageComment.outputs.coverageHtml }}
       run: printf '%s\n' "$COVERAGE_HTML" > coverage.html
 
     - name: Upload coverage artifacts
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
