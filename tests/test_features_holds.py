@@ -6,6 +6,8 @@ Covers:
                            _compute_size_stats, _compute_soft_distribution
 """
 
+import math
+
 import pydantic
 import pytest
 
@@ -21,6 +23,8 @@ from src.features.holds import (
 from src.graph.types import ClassifiedHold
 from src.training.classification_dataset import HOLD_CLASSES
 from tests.conftest import make_classified_hold_for_tests as _make_classified_hold
+
+pytestmark = pytest.mark.usefixtures("app")
 
 
 # ---------------------------------------------------------------------------
@@ -287,8 +291,6 @@ class TestComputeSizeStats:
         areas = [0.01, 0.04, 0.09], mean = 14/300
         variance = sum((a - mean)^2) / 3
         """
-        import math as _math
-
         holds = [
             _make_classified_hold(hold_id=0, width=0.1, height=0.1),  # area=0.01
             _make_classified_hold(hold_id=1, width=0.2, height=0.2),  # area=0.04
@@ -297,7 +299,7 @@ class TestComputeSizeStats:
         avg, mx, mn, std = _compute_size_stats(holds)
         areas = [0.01, 0.04, 0.09]
         mean = sum(areas) / 3
-        expected_std = _math.sqrt(sum((a - mean) ** 2 for a in areas) / 3)
+        expected_std = math.sqrt(sum((a - mean) ** 2 for a in areas) / 3)
         assert std > 0.0
         assert std == pytest.approx(expected_std, rel=1e-6)
 
