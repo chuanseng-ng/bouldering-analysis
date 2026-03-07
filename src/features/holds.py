@@ -112,12 +112,14 @@ class HoldFeatures(BaseModel):
 
 # Guard: HoldFeatures has 1 total + 3 groups × len(HOLD_CLASSES) + 4 size fields.
 # Fails at import time if HOLD_CLASSES grows without updating this model.
+# Uses an explicit raise rather than assert so it cannot be silenced by python -O.
 _EXPECTED_HOLD_FEATURES_FIELD_COUNT: int = 1 + 3 * len(HOLD_CLASSES) + 4
-assert len(HoldFeatures.model_fields) == _EXPECTED_HOLD_FEATURES_FIELD_COUNT, (
-    f"HoldFeatures fields ({len(HoldFeatures.model_fields)}) out of sync with "
-    f"HOLD_CLASSES (expected {_EXPECTED_HOLD_FEATURES_FIELD_COUNT}). "
-    "Add the new hold type's count, ratio, and soft_ratio fields."
-)
+if len(HoldFeatures.model_fields) != _EXPECTED_HOLD_FEATURES_FIELD_COUNT:
+    raise RuntimeError(
+        f"HoldFeatures fields ({len(HoldFeatures.model_fields)}) out of sync with "
+        f"HOLD_CLASSES (expected {_EXPECTED_HOLD_FEATURES_FIELD_COUNT}). "
+        "Add the new hold type's count, ratio, and soft_ratio fields."
+    )
 
 
 # ---------------------------------------------------------------------------
