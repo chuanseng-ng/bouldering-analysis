@@ -700,7 +700,11 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
         hyperparameters.epochs,
     )
 
-    device = _get_device()
+    device = (
+        torch.device(hyperparameters.device)
+        if hyperparameters.device
+        else _get_device()
+    )
 
     # Build model and apply dropout
     config = build_hold_classifier(hyperparameters)

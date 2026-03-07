@@ -5,6 +5,8 @@
 default_language_version:
   python: python3
 
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -76,7 +78,7 @@ repos:
           - --cov-fail-under=85  # Current stage requirement
           - --cov-report=term-missing:skip-covered
           - -q  # Quiet mode for faster feedback
-        stages: [pre-commit]
+        stages: [pre-push]
 
   # pylint - Code quality checker
   - repo: local

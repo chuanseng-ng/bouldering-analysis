@@ -25,94 +25,27 @@ import os
 import sys
 import logging
 import argparse
-from pathlib import Path
 
 from sqlalchemy import (
     create_engine,
     inspect,
     text,
 )
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
-# Add the project root to the Python path to allow imports
-project_root = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-# Ensure logs directory exists before configuring FileHandler
-project_root.joinpath("logs").mkdir(parents=True, exist_ok=True)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(project_root / "logs" / "migration_add_wall_incline.log"),
-    ],
+from migration_utils import (
+    setup_migration_logging,
+    get_database_url,
+    get_database_type,
+    mask_db_url,
+    column_exists,
 )
+
 logger = logging.getLogger(__name__)
 
 
-def get_database_url() -> str:
-    """
-    Get the database URL from environment or use default.
-
-    Uses the same configuration pattern as src/main.py.
-
-    Returns:
-        str: Database connection URL
-    """
-    db_url = os.environ.get("DATABASE_URL") or "sqlite:///bouldering_analysis.db"
-
-    # Convert relative SQLite paths to absolute paths from project root
-    if db_url.startswith("sqlite:///") and not db_url.startswith("sqlite:////"):
-        db_path = db_url.replace("sqlite:///", "")
-        if not os.path.isabs(db_path):
-            db_path = str(project_root / db_path)
-            db_url = f"sqlite:///{db_path}"
-
-    return db_url
-
-
-def get_database_type(db_url: str) -> str:
-    """
-    Determine the database type from the connection URL.
-
-    Args:
-        db_url: Database connection URL
-
-    Returns:
-        str: Database type ('sqlite', 'postgresql', etc.)
-    """
-    if db_url.startswith("sqlite"):
-        return "sqlite"
-    if db_url.startswith("postgresql"):
-        return "postgresql"
-    # Extract dialect from URL
-    return db_url.split(":")[0]
-
-
-def column_exists(inspector, table_name: str, column_name: str) -> bool:
-    """
-    Check if a column exists in a table.
-
-    Args:
-        inspector: SQLAlchemy inspector object
-        table_name: Name of the table to check
-        column_name: Name of the column to check
-
-    Returns:
-        bool: True if column exists, False otherwise
-    """
-    try:
-        columns = [col["name"] for col in inspector.get_columns(table_name)]
-        return column_name in columns
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.error("Error checking if column exists: %s", e, exc_info=True)
-        return False
-
-
-def add_wall_incline_column(engine, db_type: str) -> bool:  # pylint: disable=unused-argument
+def add_wall_incline_column(engine: Engine, db_type: str) -> bool:  # pylint: disable=unused-argument
     """
     Add the wall_incline column to the analyses table.
 
@@ -167,7 +100,7 @@ def add_wall_incline_column(engine, db_type: str) -> bool:  # pylint: disable=un
         return False
 
 
-def rollback_drop_wall_incline_column(engine, db_type: str) -> bool:
+def rollback_drop_wall_incline_column(engine: Engine, db_type: str) -> bool:
     """
     Rollback: Remove the wall_incline column from the analyses table.
 
@@ -232,7 +165,7 @@ def rollback_drop_wall_incline_column(engine, db_type: str) -> bool:
         return False
 
 
-def verify_migration(engine) -> bool:
+def verify_migration(engine: Engine) -> bool:
     """
     Verify that the migration was successful.
 
@@ -273,7 +206,7 @@ def verify_migration(engine) -> bool:
         return False
 
 
-def main():  # pylint: disable=too-many-branches,too-many-statements
+def main() -> None:  # pylint: disable=too-many-branches,too-many-statements
     """Main migration execution function."""
     parser = argparse.ArgumentParser(
         description="Add wall_incline column to analyses table for Phase 1a grade prediction"
@@ -310,18 +243,7 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
     db_type = get_database_type(db_url)
 
     # Mask password in log output
-    safe_db_url = db_url
-    try:
-        if "@" in db_url:
-            # Mask password for PostgreSQL URLs
-            parts = db_url.split("@")
-            if ":" in parts[0]:
-                user_pass = parts[0].split("://")[1]
-                if ":" in user_pass:
-                    safe_db_url = db_url.replace(user_pass.split(":")[1], "****")
-    except (IndexError, ValueError):
-        # If URL parsing fails, fall back to showing "[masked]"
-        safe_db_url = "[database URL - masked for security]"
+    safe_db_url = mask_db_url(db_url)
 
     logger.info("Database URL: %s", safe_db_url)
     logger.info("Database Type: %s", db_type)
@@ -441,4 +363,5 @@ def main():  # pylint: disable=too-many-branches,too-many-statements
 
 
 if __name__ == "__main__":
+    setup_migration_logging("migration_add_wall_incline.log")
     main()

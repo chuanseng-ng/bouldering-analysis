@@ -1,3 +1,9 @@
+# PyTorch CUDA wheels (CUDA 12.8)
+# NOTE: uv sync uses pyproject.toml with "explicit = true" so only torch/torchvision
+# are resolved from this index. pip's --extra-index-url searches all packages here.
+# Prefer "uv sync" for reproducible CUDA wheel resolution.
+--extra-index-url https://download.pytorch.org/whl/cu128
+
 # Web Framework
 fastapi==0.128.6
 uvicorn[standard]==0.40.0

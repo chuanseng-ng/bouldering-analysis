@@ -91,6 +91,18 @@ exclude_also = [
     'if api_key:',
 ]
 
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch" }]
+torchvision = [{ index = "pytorch" }]
+
+[tool.pylint.messages_control]
+disable = ["line-too-long"]
+
 [tool.coverage.run]
 omit = [
     "tests/*",

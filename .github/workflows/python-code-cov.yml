@@ -42,37 +42,29 @@ jobs:
 
     - name: Test with pytest
       run: |
-        uv run pytest tests -v --cov --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
+        set -o pipefail
+        uv run pytest tests -v --cov=src --cov-fail-under=85 --junitxml=pytest.xml --cov-report=term-missing:skip-covered | tee pytest-coverage.txt
 
     - name: Pytest coverage comment
-      if: ${{ github.ref == 'refs/heads/python/pre_release' }}
+      if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@v1.2.0
       with:
-        default-branch: python/pre_release
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml
 
-    - name: Update README with Coverage HTML
-      if: ${{ github.ref == 'refs/heads/python/pre_release' }}
+    - name: Save coverage HTML
+      if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
       env:
         COVERAGE_HTML: ${{ steps.coverageComment.outputs.coverageHtml }}
-      run: |
-        printf '%s\n' "$COVERAGE_HTML" > /tmp/coverage.html
-        awk '
-          /<!-- Pytest Coverage Comment:Begin -->/ {
-            print
-            while ((getline line < "/tmp/coverage.html") > 0) print line
-            skip=1; next
-          }
-          /<!-- Pytest Coverage Comment:End -->/ { skip=0; print; next }
-          !skip
-        ' README.md > /tmp/README_updated.md && mv /tmp/README_updated.md README.md
+      run: printf '%s\n' "$COVERAGE_HTML" > coverage.html
 
-    - name: Commit & Push changes to README
-      if: ${{ github.ref == 'refs/heads/python/pre_release' }}
-      uses: actions-js/push@v1.5
+    - name: Upload coverage artifacts
+      if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+      uses: actions/upload-artifact@v4
       with:
-        branch: python/pre_release
-        message: Update coverage in README [skip ci]
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        name: coverage-report
+        path: |
+          pytest-coverage.txt
+          pytest.xml
+          coverage.html

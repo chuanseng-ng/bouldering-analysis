@@ -81,6 +81,9 @@ class ClassifierHyperparameters(BaseModel):
             Not applied during model construction — the training loop (PR-4.4)
             is responsible for inserting ``nn.Dropout`` into the optimizer or
             loss pipeline.  Range [0, 1).
+        device: Compute device override. ``''`` (empty string) triggers
+            auto-detection (CUDA → CPU). Explicit values: ``'cuda'``,
+            ``'cpu'``, or a device index string such as ``'0'``.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -107,6 +110,11 @@ class ClassifierHyperparameters(BaseModel):
     # Regularisation
     label_smoothing: float = Field(default=0.1, ge=0.0, lt=1.0)
     dropout_rate: float = Field(default=0.2, ge=0.0, lt=1.0)
+
+    # Compute device
+    device: str = Field(
+        default="", description="Compute device: 'cuda', 'cpu', '0', or '' for auto."
+    )
 
     @field_validator("architecture")
     @classmethod
