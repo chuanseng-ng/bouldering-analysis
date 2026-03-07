@@ -109,6 +109,7 @@ bouldering-analysis/
 ├── src/
 │   ├── app.py                    # FastAPI application factory
 │   ├── config.py                 # Pydantic Settings (all BA_* env vars)
+│   ├── constants.py              # Shared domain constants (MAX_HOLD_COUNT)
 │   ├── logging_config.py         # Structured JSON logging
 │   ├── routes/
 │   │   ├── health.py             # GET /health, /api/v1/health
