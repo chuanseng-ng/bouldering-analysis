@@ -27,6 +27,7 @@ from typing import Final
 import networkx as nx
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from src.constants import MAX_HOLD_COUNT
 from src.graph.exceptions import RouteGraphError
 from src.graph.types import ClassifiedHold
 from src.logging_config import get_logger
@@ -55,10 +56,7 @@ WALL_ANGLE_MAX: Final[float] = 90.0  # full slab
 
 _LARGE_HOLD_COUNT_THRESHOLD: Final[int] = 100
 
-# Hard upper limit on hold count for DoS prevention.  O(n²) edge construction
-# at n=500 performs ~125,000 comparisons — still fast.  Above this bound the
-# computation time becomes unreasonable for a single API request.
-_MAX_HOLD_COUNT: Final[int] = 500
+# Hard upper limit — imported from src.constants so all modules share the cap.
 
 
 # ---------------------------------------------------------------------------
@@ -310,10 +308,10 @@ def build_route_graph(
     if not holds:
         raise RouteGraphError("holds must not be empty")
 
-    if len(holds) > _MAX_HOLD_COUNT:
+    if len(holds) > MAX_HOLD_COUNT:
         raise RouteGraphError(
-            f"hold count {len(holds)} exceeds the maximum {_MAX_HOLD_COUNT}; "
-            "pass a smaller hold list or increase _MAX_HOLD_COUNT"
+            f"hold count {len(holds)} exceeds the maximum {MAX_HOLD_COUNT}; "
+            "pass a smaller hold list or increase MAX_HOLD_COUNT in src/constants.py"
         )
 
     if wall_angle < WALL_ANGLE_MIN or wall_angle > WALL_ANGLE_MAX:

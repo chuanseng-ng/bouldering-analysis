@@ -10,6 +10,7 @@ import networkx as nx
 import pytest
 from pydantic import ValidationError
 
+from src.constants import MAX_HOLD_COUNT
 from src.graph.exceptions import RouteGraphError
 from src.graph.route_graph import (
     BASE_REACH_RADIUS,
@@ -17,7 +18,6 @@ from src.graph.route_graph import (
     WALL_ANGLE_MIN,
     WALL_ANGLE_REACH_SCALE,
     RouteGraph,
-    _MAX_HOLD_COUNT,
     _compute_effective_reach,
     _euclidean_distance,
     build_route_graph,
@@ -171,19 +171,19 @@ class TestBuildRouteGraphValidation:
         assert rg.wall_angle == pytest.approx(0.0)
 
     def test_exceeds_max_hold_count_raises_route_graph_error(self) -> None:
-        """hold count > _MAX_HOLD_COUNT raises RouteGraphError."""
-        holds = [_make_classified_hold(hold_id=i) for i in range(_MAX_HOLD_COUNT + 1)]
+        """hold count > MAX_HOLD_COUNT raises RouteGraphError."""
+        holds = [_make_classified_hold(hold_id=i) for i in range(MAX_HOLD_COUNT + 1)]
         with pytest.raises(RouteGraphError, match="exceeds the maximum"):
             build_route_graph(holds)
 
     def test_at_max_hold_count_boundary_is_accepted(self) -> None:
-        """_MAX_HOLD_COUNT holds (boundary) is accepted without error."""
+        """MAX_HOLD_COUNT holds (boundary) is accepted without error."""
         holds = [
             _make_classified_hold(hold_id=i, x_center=0.5, y_center=0.5)
-            for i in range(_MAX_HOLD_COUNT)
+            for i in range(MAX_HOLD_COUNT)
         ]
         rg = build_route_graph(holds)
-        assert rg.node_count == _MAX_HOLD_COUNT
+        assert rg.node_count == MAX_HOLD_COUNT
 
     def test_duplicate_hold_ids_raises_route_graph_error(self) -> None:
         """Two holds sharing the same hold_id raise RouteGraphError."""
