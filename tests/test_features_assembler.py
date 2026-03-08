@@ -10,9 +10,9 @@ from pydantic import ValidationError
 from src.features.assembler import RouteFeatures, assemble_features
 from src.features.exceptions import FeatureExtractionError
 from src.features.geometry import GeometryFeatures
-from src.features.holds import HoldFeatures
+from src.features.holds import HoldFeatures, extract_hold_features
 from src.graph.constraints import apply_route_constraints
-from src.graph.route_graph import build_route_graph
+from src.graph.route_graph import RouteGraph, build_route_graph
 from src.graph.types import ClassifiedHold
 from tests.conftest import make_classified_hold_for_tests as _make_classified_hold
 
@@ -27,7 +27,7 @@ def _make_constrained_graph(
     start_ids: list[int],
     finish_id: int,
     wall_angle: float = 0.0,
-):
+) -> RouteGraph:
     """Build a constrained RouteGraph for assembler tests.
 
     Args:
@@ -66,8 +66,6 @@ def _make_valid_hold_features() -> HoldFeatures:
         _make_classified_hold(hold_id=0, hold_type="jug"),
         _make_classified_hold(hold_id=1, hold_type="crimp"),
     ]
-    from src.features.holds import extract_hold_features
-
     return extract_hold_features(holds)
 
 
@@ -79,28 +77,28 @@ def _make_valid_hold_features() -> HoldFeatures:
 class TestRouteFeatures:
     """Tests for RouteFeatures Pydantic model structure."""
 
-    def test_valid_composition(self) -> None:
+    def test_valid_composition_creates_RouteFeatures(self) -> None:
         """RouteFeatures accepts valid GeometryFeatures + HoldFeatures."""
         gf = _make_valid_geometry_features()
         hf = _make_valid_hold_features()
         rf = RouteFeatures(geometry=gf, holds=hf)
         assert isinstance(rf, RouteFeatures)
 
-    def test_geometry_accessible(self) -> None:
+    def test_geometry_accessible_returns_avg_move_distance(self) -> None:
         """rf.geometry.avg_move_distance must return the correct value."""
         gf = _make_valid_geometry_features()
         hf = _make_valid_hold_features()
         rf = RouteFeatures(geometry=gf, holds=hf)
         assert rf.geometry.avg_move_distance == pytest.approx(0.2)
 
-    def test_holds_accessible(self) -> None:
+    def test_holds_accessible_returns_total_count(self) -> None:
         """rf.holds.total_count must return the correct value."""
         gf = _make_valid_geometry_features()
         hf = _make_valid_hold_features()
         rf = RouteFeatures(geometry=gf, holds=hf)
         assert rf.holds.total_count == 2
 
-    def test_immutable_geometry(self) -> None:
+    def test_immutable_geometry_raises_ValidationError_on_assign(self) -> None:
         """Assigning rf.geometry must raise ValidationError (frozen=True)."""
         gf = _make_valid_geometry_features()
         hf = _make_valid_hold_features()
@@ -108,7 +106,7 @@ class TestRouteFeatures:
         with pytest.raises(ValidationError):
             rf.geometry = _make_valid_geometry_features()  # type: ignore[misc]
 
-    def test_immutable_holds(self) -> None:
+    def test_immutable_holds_raises_ValidationError_on_assign(self) -> None:
         """Assigning rf.holds must raise ValidationError (frozen=True)."""
         gf = _make_valid_geometry_features()
         hf = _make_valid_hold_features()
@@ -306,5 +304,4 @@ class TestAssembleFeaturesErrors:
         rg = build_route_graph(holds, wall_angle=0.0)
         with pytest.raises(FeatureExtractionError) as exc_info:
             assemble_features(rg)
-        # The sub-extractor message references apply_route_constraints
-        assert "apply_route_constraints" in exc_info.value.message
+        assert "Graph has no start nodes" in exc_info.value.message
