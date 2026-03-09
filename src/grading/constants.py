@@ -4,6 +4,7 @@ Defines the V-scale grade taxonomy, threshold mapping, and feature weights
 used by :func:`~src.grading.heuristic.estimate_grade_heuristic`.
 """
 
+import math
 from typing import Final
 
 V_GRADES: Final[tuple[str, ...]] = (
@@ -33,6 +34,11 @@ GRADE_THRESHOLDS: Final[tuple[float, ...]] = tuple(i / _N for i in range(_N))
 # (0.0, 0.0556, 0.1111, ..., 0.9444)
 
 MAX_HOPS_NORM: Final[int] = 20  # empirical upper bound for path hop count
+
+# Maximum possible Euclidean distance between two points in normalised [0,1]×[0,1]
+# image coordinates (diagonal of the unit square). Used to normalise avg/max move
+# distances to [0, 1] before applying FEATURE_WEIGHTS.
+MAX_MOVE_DISTANCE: Final[float] = math.sqrt(2.0)
 
 FEATURE_WEIGHTS: Final[dict[str, float]] = {
     # Hold difficulty sub-score (positive = harder, negative = easier)

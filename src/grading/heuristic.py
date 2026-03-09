@@ -19,7 +19,7 @@ Example::
     V3 0.82
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.features.assembler import RouteFeatures
 from src.features.exceptions import FeatureExtractionError
@@ -27,6 +27,7 @@ from src.grading.constants import (
     FEATURE_WEIGHTS,
     GRADE_THRESHOLDS,
     MAX_HOPS_NORM,
+    MAX_MOVE_DISTANCE,
     V_GRADES,
 )
 from src.grading.exceptions import GradeEstimationError
@@ -75,6 +76,23 @@ class HeuristicGradeResult(BaseModel):
     grade_index: int = Field(ge=0, le=17)
     confidence: float = Field(ge=0.5, le=1.0)
     difficulty_score: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _validate_grade_consistency(self) -> "HeuristicGradeResult":
+        """Validate that grade and grade_index are mutually consistent.
+
+        Returns:
+            The validated model instance.
+
+        Raises:
+            ValueError: If ``grade`` does not match ``V_GRADES[grade_index]``.
+        """
+        if self.grade != V_GRADES[self.grade_index]:
+            raise ValueError(
+                f"grade {self.grade!r} does not match "
+                f"V_GRADES[{self.grade_index}] = {V_GRADES[self.grade_index]!r}"
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -133,9 +151,16 @@ def _compute_hold_difficulty(vec: dict[str, float]) -> float:
 def _compute_geometry_difficulty(vec: dict[str, float]) -> float:
     """Compute the movement geometry difficulty sub-score.
 
-    Combines normalised average move distance, max move distance, and
-    normalised max-hop path length.  Weights sum to 1.0 so the raw value
-    is naturally in ``[0, 1]``; it is clamped defensively.
+    Normalises all three geometry inputs before weighting:
+
+    * avg/max move distances are divided by :data:`~src.grading.constants.MAX_MOVE_DISTANCE`
+      (``sqrt(2)`` — the maximum Euclidean distance in normalised [0,1]×[0,1]
+      image coordinates), then capped at 1.0.
+    * path hop count is divided by :data:`~src.grading.constants.MAX_HOPS_NORM`,
+      then capped at 1.0.
+
+    Weights sum to 1.0 so the raw value is naturally in ``[0, 1]``;
+    it is clamped defensively.
 
     Args:
         vec: Feature vector from :meth:`~src.features.assembler.RouteFeatures.to_vector`.
@@ -148,10 +173,12 @@ def _compute_geometry_difficulty(vec: dict[str, float]) -> float:
         >>> score = _compute_geometry_difficulty(vec)
         >>> assert 0.0 <= score <= 1.0
     """
+    norm_avg = min(vec["avg_move_distance"] / MAX_MOVE_DISTANCE, 1.0)
+    norm_max = min(vec["max_move_distance"] / MAX_MOVE_DISTANCE, 1.0)
     norm_hops = min(vec["path_length_max_hops"] / MAX_HOPS_NORM, 1.0)
     raw = (
-        FEATURE_WEIGHTS["avg_move_distance"] * vec["avg_move_distance"]
-        + FEATURE_WEIGHTS["max_move_distance"] * vec["max_move_distance"]
+        FEATURE_WEIGHTS["avg_move_distance"] * norm_avg
+        + FEATURE_WEIGHTS["max_move_distance"] * norm_max
         + FEATURE_WEIGHTS["path_length_max_hops"] * norm_hops
     )
     return _clamp(raw, 0.0, 1.0)
