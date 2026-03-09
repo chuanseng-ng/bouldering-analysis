@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.03.07
-**Last Updated**: 2026-03-07
+**Version**: 2026.03.08
+**Last Updated**: 2026-03-08
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 
@@ -75,7 +75,8 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | 6. Feature Extraction | **In Progress** | PR-6.x | - |
 | ├─ Geometry Features | ✅ | PR-6.1 | 97% |
 | ├─ Hold Features | ✅ | PR-6.2 | 100% |
-| 7. Grade Estimation | Pending | PR-7.x | - |
+| 7. Grade Estimation | **In Progress** | PR-7.x | - |
+| ├─ Heuristic Grade Estimator | ✅ | PR-7.1 | - |
 | 8. Explainability | Pending | PR-8.x | - |
 | 9. Database Schema | Pending | PR-9.x | - |
 | 10. Frontend Development | Pending | PR-10.x | - |
@@ -99,6 +100,8 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 **Geometry Features** (`src/features/geometry.py`): Exports `FeatureExtractionError`, `GeometryFeatures`, `extract_geometry_features()`. `FeatureExtractionError(ValueError)` is the base exception for all feature extraction failures. `GeometryFeatures` is a Pydantic model with 11 non-negative fields: edge statistics (`avg/max/min/std_move_distance`), path statistics (`path_length_min/max_distance`, `path_length_min/max_hops`), spatial metrics (`hold_density`), and graph topology (`node_count`, `edge_count`). `extract_geometry_features()` accepts a constrained `RouteGraph` (must have start/finish attributes from `apply_route_constraints`) and returns a `GeometryFeatures` instance. Uses `math.fsum` for compensated summation, `nx.single_source_dijkstra` for shortest paths, and bounding-box area for density. No NumPy dependency.
 
 **Hold Features** (`src/features/holds.py`): Exports `HoldFeatures`, `extract_hold_features()`. `HoldFeatures` is a Pydantic model with 23 non-negative fields: hard counts per type (`jug/crimp/sloper/pinch/volume/unknown_count`), hard ratios per type (`*_ratio`), bounding-box area statistics (`avg/max/min/std_hold_size`), and confidence-weighted soft distribution (`*_soft_ratio`). `extract_hold_features()` accepts a list of `ClassifiedHold` instances (must be non-empty) and returns a `HoldFeatures` instance. Uses `math.fsum` for compensated summation. No NumPy dependency.
+
+**Heuristic Grade Estimator** (`src/grading/heuristic.py`): Exports `HeuristicGradeResult`, `estimate_grade_heuristic()`. `GradeEstimationError(ValueError)` is the base exception for all grade estimation failures (`src/grading/exceptions.py`). `HeuristicGradeResult` is a frozen Pydantic model with 4 fields: `grade` (V-scale label), `grade_index` (ordinal 0–17), `confidence` (0.5–1.0), `difficulty_score` (0.0–1.0). `estimate_grade_heuristic()` accepts a `RouteFeatures` instance, computes hold-composition (45%) and geometry (55%) sub-scores via weighted feature combination, maps the combined difficulty score to a V-grade (V0–V17), and returns a `HeuristicGradeResult`. Constants in `src/grading/constants.py` (not re-exported): `V_GRADES` (18-entry tuple V0–V17), `GRADE_THRESHOLDS`, `MAX_HOPS_NORM=20`, `FEATURE_WEIGHTS`. Calibrated conservatively; tends to underestimate above V8. Hold size features intentionally unused pending dataset-level normalization in PR-7.2. Public API re-exports from `src/grading/__init__.py`: `GradeEstimationError`, `HeuristicGradeResult`, `estimate_grade_heuristic`.
 
 ---
 
@@ -139,6 +142,11 @@ bouldering-analysis/
 │   │   ├── exceptions.py         # FeatureExtractionError(ValueError)
 │   │   ├── geometry.py           # GeometryFeatures model, extract_geometry_features()
 │   │   └── holds.py              # HoldFeatures model, extract_hold_features()
+│   ├── grading/
+│   │   ├── __init__.py           # Re-exports public API
+│   │   ├── exceptions.py         # GradeEstimationError(ValueError)
+│   │   ├── constants.py          # V_GRADES, GRADE_THRESHOLDS, FEATURE_WEIGHTS
+│   │   └── heuristic.py          # HeuristicGradeResult, estimate_grade_heuristic()
 │   └── archive/legacy/           # Reference only — do not import
 ├── tests/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings
