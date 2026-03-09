@@ -1,23 +1,26 @@
-"""Tests for src.grading.heuristic and src.grading.constants modules.
+"""Tests for src.grading.heuristic module.
 
 Covers:
-- src/grading/exceptions.py  — GradeEstimationError
-- src/grading/constants.py   — V_GRADES, GRADE_THRESHOLDS, FEATURE_WEIGHTS
-- src/grading/heuristic.py   — HeuristicGradeResult, estimate_grade_heuristic()
-                                and all private helpers
+- src/grading/heuristic.py  — HeuristicGradeResult, estimate_grade_heuristic()
+                               and all private helpers (_clamp, _combine_scores,
+                               _compute_confidence, _compute_geometry_difficulty,
+                               _compute_hold_difficulty, _score_to_grade_index)
 """
+
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
 
 from src.features.assembler import RouteFeatures, assemble_features
+from src.features.exceptions import FeatureExtractionError
 from src.graph.constraints import apply_route_constraints
 from src.graph.route_graph import RouteGraph, build_route_graph
 from src.graph.types import ClassifiedHold
 from src.grading.constants import (
     FEATURE_WEIGHTS,
-    GRADE_THRESHOLDS,
     MAX_HOPS_NORM,
+    MAX_MOVE_DISTANCE,
     V_GRADES,
 )
 from src.grading.exceptions import GradeEstimationError
@@ -191,37 +194,12 @@ class TestHeuristicGradeResult:
         with pytest.raises(ValidationError):
             result.grade = "V4"  # type: ignore[misc]
 
-
-# ---------------------------------------------------------------------------
-# TestVGradesConstants
-# ---------------------------------------------------------------------------
-
-
-class TestVGradesConstants:
-    """Tests for V_GRADES and GRADE_THRESHOLDS constants."""
-
-    def test_v_grades_has_18_entries(self) -> None:
-        """V_GRADES must contain exactly 18 entries."""
-        assert len(V_GRADES) == 18
-
-    def test_v_grades_starts_at_v0(self) -> None:
-        """First entry must be 'V0'."""
-        assert V_GRADES[0] == "V0"
-
-    def test_v_grades_ends_at_v17(self) -> None:
-        """Last entry must be 'V17'."""
-        assert V_GRADES[-1] == "V17"
-
-    def test_grade_thresholds_has_18_entries(self) -> None:
-        """GRADE_THRESHOLDS must contain exactly 18 entries."""
-        assert len(GRADE_THRESHOLDS) == 18
-
-    def test_grade_thresholds_spacing(self) -> None:
-        """Consecutive thresholds must differ by approximately 1/18."""
-        expected_step = 1.0 / 18
-        for i in range(1, len(GRADE_THRESHOLDS)):
-            diff = GRADE_THRESHOLDS[i] - GRADE_THRESHOLDS[i - 1]
-            assert diff == pytest.approx(expected_step, rel=1e-6)
+    def test_inconsistent_grade_and_index_raises_validation_error(self) -> None:
+        """grade/grade_index mismatch must raise ValidationError."""
+        with pytest.raises(ValidationError):
+            HeuristicGradeResult(
+                grade="V0", grade_index=17, confidence=0.7, difficulty_score=0.9
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -329,19 +307,25 @@ class TestComputeGeometryDifficulty:
         assert _compute_geometry_difficulty(vec) == pytest.approx(0.0)
 
     def test_max_avg_move_distance_contributes(self) -> None:
-        """avg_move_distance=1.0 alone → 0.50 contribution."""
-        vec = _make_vec(avg_move_distance=1.0)
-        assert _compute_geometry_difficulty(vec) == pytest.approx(0.50)
+        """avg_move_distance=MAX_MOVE_DISTANCE → normalised to 1.0 → 0.50 contribution."""
+        vec = _make_vec(avg_move_distance=MAX_MOVE_DISTANCE)
+        assert _compute_geometry_difficulty(vec) == pytest.approx(
+            FEATURE_WEIGHTS["avg_move_distance"]
+        )
 
     def test_max_max_move_distance_contributes(self) -> None:
-        """max_move_distance=1.0 alone → 0.30 contribution."""
-        vec = _make_vec(max_move_distance=1.0)
-        assert _compute_geometry_difficulty(vec) == pytest.approx(0.30)
+        """max_move_distance=MAX_MOVE_DISTANCE → normalised to 1.0 → 0.30 contribution."""
+        vec = _make_vec(max_move_distance=MAX_MOVE_DISTANCE)
+        assert _compute_geometry_difficulty(vec) == pytest.approx(
+            FEATURE_WEIGHTS["max_move_distance"]
+        )
 
     def test_hops_normalized_by_max_hops_norm(self) -> None:
         """path_length_max_hops=MAX_HOPS_NORM → norm_hops=1.0 → 0.20 contribution."""
         vec = _make_vec(path_length_max_hops=float(MAX_HOPS_NORM))
-        assert _compute_geometry_difficulty(vec) == pytest.approx(0.20)
+        assert _compute_geometry_difficulty(vec) == pytest.approx(
+            FEATURE_WEIGHTS["path_length_max_hops"]
+        )
 
     def test_hops_beyond_max_capped_at_one(self) -> None:
         """path_length_max_hops > MAX_HOPS_NORM → norm_hops capped at 1.0."""
@@ -351,14 +335,28 @@ class TestComputeGeometryDifficulty:
             _compute_geometry_difficulty(vec_over)
         )
 
+    def test_distances_beyond_max_capped_at_one(self) -> None:
+        """avg/max move distances > MAX_MOVE_DISTANCE → normalised to 1.0."""
+        vec_max = _make_vec(avg_move_distance=MAX_MOVE_DISTANCE)
+        vec_over = _make_vec(avg_move_distance=MAX_MOVE_DISTANCE * 2)
+        assert _compute_geometry_difficulty(vec_max) == pytest.approx(
+            _compute_geometry_difficulty(vec_over)
+        )
+
     def test_all_max_returns_one(self) -> None:
         """All geometry at maximum → score = 1.0."""
         vec = _make_vec(
-            avg_move_distance=1.0,
-            max_move_distance=1.0,
+            avg_move_distance=MAX_MOVE_DISTANCE,
+            max_move_distance=MAX_MOVE_DISTANCE,
             path_length_max_hops=float(MAX_HOPS_NORM),
         )
         assert _compute_geometry_difficulty(vec) == pytest.approx(1.0)
+
+    def test_partial_distance_normalised_correctly(self) -> None:
+        """avg_move_distance=MAX_MOVE_DISTANCE/2 → 0.25 contribution."""
+        vec = _make_vec(avg_move_distance=MAX_MOVE_DISTANCE / 2.0)
+        expected = FEATURE_WEIGHTS["avg_move_distance"] * 0.5
+        assert _compute_geometry_difficulty(vec) == pytest.approx(expected)
 
 
 # ---------------------------------------------------------------------------
@@ -614,11 +612,20 @@ class TestEstimateGradeHeuristic:
 class TestEstimateGradeHeuristicErrors:
     """Tests for estimate_grade_heuristic() error handling."""
 
-    def test_grade_estimation_error_is_value_error(self) -> None:
-        """GradeEstimationError must be a subclass of ValueError."""
-        assert issubclass(GradeEstimationError, ValueError)
+    def test_feature_extraction_error_wrapped_as_grade_estimation_error(self) -> None:
+        """FeatureExtractionError from to_vector() must be wrapped in GradeEstimationError."""
+        rf = _make_route_features()
+        original = FeatureExtractionError("simulated taxonomy drift")
+        with patch.object(type(rf), "to_vector", side_effect=original):
+            with pytest.raises(GradeEstimationError) as exc_info:
+                estimate_grade_heuristic(rf)
+        assert exc_info.value.__cause__ is original
 
-    def test_grade_estimation_error_message_attribute(self) -> None:
-        """GradeEstimationError.message must hold the provided string."""
-        exc = GradeEstimationError("test error")
-        assert exc.message == "test error"
+    def test_wrapped_error_message_contains_context(self) -> None:
+        """Wrapped GradeEstimationError.message must include the original message."""
+        rf = _make_route_features()
+        original = FeatureExtractionError("simulated taxonomy drift")
+        with patch.object(type(rf), "to_vector", side_effect=original):
+            with pytest.raises(GradeEstimationError) as exc_info:
+                estimate_grade_heuristic(rf)
+        assert "simulated taxonomy drift" in exc_info.value.message
