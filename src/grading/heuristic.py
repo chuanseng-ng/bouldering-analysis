@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.features.assembler import RouteFeatures
 from src.features.exceptions import FeatureExtractionError
+from src.grading._utils import _clamp
 from src.grading.constants import (
     FEATURE_WEIGHTS,
     GRADE_THRESHOLDS,
@@ -98,25 +99,6 @@ class HeuristicGradeResult(BaseModel):
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
-
-
-def _clamp(value: float, lo: float, hi: float) -> float:
-    """Clamp *value* to the inclusive range [lo, hi].
-
-    Args:
-        value: The value to clamp.
-        lo: Lower bound (inclusive).
-        hi: Upper bound (inclusive).
-
-    Returns:
-        Clamped float value.
-
-    Example::
-
-        >>> _clamp(-0.5, 0.0, 1.0)
-        0.0
-    """
-    return max(lo, min(hi, value))
 
 
 def _compute_hold_difficulty(vec: dict[str, float]) -> float:

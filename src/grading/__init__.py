@@ -5,7 +5,9 @@ Public API::
     from src.grading import (
         GradeEstimationError,
         HeuristicGradeResult,
+        MLGradeResult,
         estimate_grade_heuristic,
+        estimate_grade_ml,
     )
 
 Note:
@@ -17,9 +19,12 @@ Note:
 
 from src.grading.exceptions import GradeEstimationError
 from src.grading.heuristic import HeuristicGradeResult, estimate_grade_heuristic
+from src.grading.ml_estimator import MLGradeResult, estimate_grade_ml
 
 __all__ = [
     "GradeEstimationError",
     "HeuristicGradeResult",
+    "MLGradeResult",
     "estimate_grade_heuristic",
+    "estimate_grade_ml",
 ]
