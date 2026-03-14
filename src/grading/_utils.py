@@ -50,7 +50,8 @@ def _normalize_vector(
         New ``dict[str, float]`` with z-scored values, same keys as *vector*.
 
     Raises:
-        KeyError: If a key in *vector* is missing from *mean* or *std*.
+        KeyError: If the key sets of *vector*, *mean*, and *std* are not identical
+            (extra or missing keys in any dict).
 
     Example::
 
@@ -59,6 +60,12 @@ def _normalize_vector(
         >>> _normalize_vector({"x": 3.0}, {"x": 1.0}, {"x": 0.0})  # zero-variance
         {'x': 2.0}
     """
+    v_keys, m_keys, s_keys = set(vector), set(mean), set(std)
+    if v_keys != m_keys or v_keys != s_keys:
+        raise KeyError(
+            f"Feature key mismatch: vector has {v_keys}, "
+            f"mean has {m_keys}, std has {s_keys}"
+        )
     return {
         k: (vector[k] - mean[k]) / (std[k] if std[k] != 0.0 else 1.0) for k in vector
     }
