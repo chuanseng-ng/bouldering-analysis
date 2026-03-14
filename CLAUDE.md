@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.03.10
-**Last Updated**: 2026-03-10
+**Version**: 2026.03.14
+**Last Updated**: 2026-03-14
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 
@@ -78,7 +78,8 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | 7. Grade Estimation | **In Progress** | PR-7.x | - |
 | ├─ Heuristic Grade Estimator | ✅ | PR-7.1 | - |
 | └─ ML Grade Estimator | ✅ | PR-7.2 | 97% |
-| 8. Explainability | Pending | PR-8.x | - |
+| 8. Explainability | **In Progress** | PR-8.x | 99% |
+| ├─ Explanation Engine | ✅ | PR-8.1 | 99% |
 | 9. Database Schema | Pending | PR-9.x | - |
 | 10. Frontend Development | Pending | PR-10.x | - |
 
@@ -105,6 +106,8 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 **Heuristic Grade Estimator** (`src/grading/heuristic.py`): Exports `HeuristicGradeResult`, `estimate_grade_heuristic()`. `GradeEstimationError(ValueError)` is the base exception for all grade estimation failures (`src/grading/exceptions.py`). `HeuristicGradeResult` is a frozen Pydantic model with 4 fields: `grade` (V-scale label), `grade_index` (ordinal 0–17), `confidence` (0.5–1.0), `difficulty_score` (0.0–1.0). `estimate_grade_heuristic()` accepts a `RouteFeatures` instance, computes hold-composition (45%) and geometry (55%) sub-scores via weighted feature combination, maps the combined difficulty score to a V-grade (V0–V17), and returns a `HeuristicGradeResult`. Constants in `src/grading/constants.py` (not re-exported): `V_GRADES` (18-entry tuple V0–V17), `GRADE_THRESHOLDS`, `MAX_HOPS_NORM=20`, `FEATURE_WEIGHTS`. Calibrated conservatively; tends to underestimate above V8. Shared internal helpers (`_clamp`, `_normalize_vector`) extracted to `src/grading/_utils.py` in PR-7.2. Public API re-exports from `src/grading/__init__.py`: `GradeEstimationError`, `HeuristicGradeResult`, `estimate_grade_heuristic`, `MLGradeResult`, `estimate_grade_ml`.
 
 **ML Grade Estimator** (`src/grading/ml_estimator.py`): Exports `MLGradeResult`, `estimate_grade_ml()`. `MLGradeResult` is a frozen Pydantic model with 5 fields: `grade` (V-scale label), `grade_index` (ordinal 0–17), `confidence` (normalized entropy: `1 - H(p)/log(18)`, 0.0–1.0), `difficulty_score` (probability-weighted mean grade index / 17, 0.0–1.0), `grade_probabilities` (full 18-grade dict keyed by V-grade label). `estimate_grade_ml()` accepts a `RouteFeatures` instance and a `model_path` (directory containing `model.pkl` + `metadata.json`), loads (or retrieves from cache) the XGBClassifier, z-score normalizes the feature vector using training statistics from metadata, and returns a full probability distribution over V0–V17. Module-level cache keyed by resolved path; `_clear_model_cache()` for test teardown. Logs a WARNING when running a model trained on synthetic data (`data_source="synthetic"`). `isinstance(classifier, XGBClassifier)` check after `joblib.load` for safety. Dependencies: xgboost, joblib, numpy.
+
+**Explanation Engine** (`src/explanation/engine.py`): Exports `ExplanationError`, `FeatureContribution`, `ExplanationResult`, `generate_explanation`. `ExplanationError(ValueError)` is the base exception for all explanation failures (`src/explanation/exceptions.py`). `FeatureContribution` is a frozen Pydantic model with 4 fields: `name` (human-readable), `value` (raw feature value), `impact` (signed: weight * normalized_value), `description` (one sentence). `ExplanationResult` is a frozen Pydantic model with 6 fields: `grade`, `estimator_type` (Literal["heuristic","ml"]), `confidence_qualifier` (Literal["very confident","confident","uncertain"]), `top_features` (up to 5 ranked by abs(impact)), `summary` (1-2 sentences), `hold_highlights` (top 3 hold types by ratio). `generate_explanation()` accepts a `RouteFeatures` and a `HeuristicGradeResult | MLGradeResult`, wraps `FeatureExtractionError` into `ExplanationError`, computes 5 hold contributions + 3 geometry contributions, ranks by abs(impact), builds highlights and summary. Normalization mirrors `heuristic.py`: ratios as-is for hold features; avg/max distances / MAX_MOVE_DISTANCE, hops / MAX_HOPS_NORM for geometry. Module-level `RuntimeError` guard validates `FEATURE_WEIGHTS` keys match `_FEATURE_DISPLAY_NAMES` at import time. Public API re-exports from `src/explanation/__init__.py`: `ExplanationError`, `FeatureContribution`, `ExplanationResult`, `generate_explanation`.
 
 **Grade Estimator Training** (`src/training/train_grade_estimator.py`): Exports `GradeTrainingMetrics`, `GradeTrainingResult`, `generate_synthetic_training_data()`, `train_grade_estimator()`. `GradeTrainingMetrics` has 3 fields: `train_accuracy`, `val_accuracy`, `mean_absolute_error`. `GradeTrainingResult` has 10 fields including `version`, `model_path`, `metadata_path`, `metrics`, `data_source`, `git_commit`. `generate_synthetic_training_data()` builds routes from a fixed 3x4 spatial grid (12 holds, positions chosen for guaranteed graph connectivity within `BASE_REACH_RADIUS=0.35`), labels via heuristic estimator. `train_grade_estimator()` validates inputs, computes z-score normalization stats (population std, `std=1` fallback), remaps labels to contiguous `[0, n_unique-1]` for XGBoost `multi:softprob`, trains with 80/20 split and early stopping, writes artifacts atomically via `tempfile` + `shutil.move`. Artifacts: `models/grading/v<YYYYMMDD_HHMMSS>/model.pkl` + `metadata.json`. `metadata.json` includes: `feature_names`, `normalization_mean/std`, `classes` (sorted grade indices), `n_classes=18`, `data_source`, `git_commit`, `metrics`, `hyperparameters`.
 
@@ -155,6 +158,11 @@ bouldering-analysis/
 │   │   ├── constants.py          # V_GRADES, GRADE_THRESHOLDS, FEATURE_WEIGHTS
 │   │   ├── heuristic.py          # HeuristicGradeResult, estimate_grade_heuristic()
 │   │   └── ml_estimator.py       # MLGradeResult, estimate_grade_ml()
+│   ├── explanation/
+│   │   ├── __init__.py           # Re-exports public API
+│   │   ├── exceptions.py         # ExplanationError(ValueError)
+│   │   ├── types.py              # FeatureContribution, ExplanationResult models
+│   │   └── engine.py             # generate_explanation() + private helpers
 │   └── archive/legacy/           # Reference only — do not import
 ├── tests/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings
@@ -267,7 +275,7 @@ def create_app(config_override: dict[str, Any] | None = None) -> FastAPI: ...
 
 ### Test conventions
 
-- Framework: pytest | One test file per source module | Current coverage: 98%+
+- Framework: pytest | One test file per source module | Current coverage: 97%+
 - Each test uses a fresh app instance (via `app` fixture in `tests/conftest.py`)
 - Test class per feature group; method names: `test_<scenario>_<expected_outcome>`
 
