@@ -97,3 +97,13 @@ class TestNormalizeVector:
         """Missing key in std must raise KeyError."""
         with pytest.raises(KeyError):
             _normalize_vector({"x": 1.0}, {"x": 0.0}, {})
+
+    def test_extra_key_in_mean_raises(self) -> None:
+        """Extra key in mean (not in vector) must raise KeyError."""
+        with pytest.raises(KeyError):
+            _normalize_vector({"x": 1.0}, {"x": 0.0, "y": 0.0}, {"x": 1.0})
+
+    def test_extra_key_in_std_raises(self) -> None:
+        """Extra key in std (not in vector) must raise KeyError."""
+        with pytest.raises(KeyError):
+            _normalize_vector({"x": 1.0}, {"x": 0.0}, {"x": 1.0, "y": 1.0})

@@ -11,6 +11,7 @@ Covers:
 from __future__ import annotations
 
 import json
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -64,7 +65,7 @@ def trained_model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(autouse=True)
-def _clear_cache_after_each() -> Any:
+def _clear_cache_after_each() -> Generator[None, None, None]:
     """Clear model cache before and after each test."""
     _clear_model_cache()
     yield

@@ -351,12 +351,21 @@ class TestTrainGradeEstimator:
         samples = generate_synthetic_training_data(n_samples=20, seed=0)
         features, labels = zip(*samples)
 
+        # Identify features that are constant across all samples (e.g. node_count,
+        # which is always 12 on the fixed synthetic grid).
+        all_vectors = [f.to_vector() for f in features]
+        constant_keys = [
+            k for k in all_vectors[0] if len({v[k] for v in all_vectors}) == 1
+        ]
+        assert constant_keys, "Expected at least one constant feature in synthetic data"
+
         result = train_grade_estimator(list(features), list(labels), tmp_path)
         with result.metadata_path.open() as fh:
             meta = json.load(fh)
-        # All std values must be >= 0.0 (no negative from floating point)
-        for val in meta["normalization_std"].values():
-            assert val >= 0.0
+        for key in constant_keys:
+            assert meta["normalization_std"][key] == pytest.approx(0.0), (
+                f"Expected std=0.0 for constant feature '{key}'"
+            )
 
     # ------------------------------------------------------------------
     # Input validation errors
