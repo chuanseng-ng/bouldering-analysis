@@ -34,7 +34,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
-from migration_utils import (
+from migration_utils import (  # type: ignore[import-not-found]
     setup_migration_logging,
     get_database_url,
     get_database_type,
