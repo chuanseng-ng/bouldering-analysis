@@ -377,19 +377,47 @@ This plan outlines the migration from the current Flask-based implementation to 
 
 **Goal**: Complete database schema for production
 
+#### PR-9.1: Routes Table — ✅ COMPLETED (2026-03-15)
+
+Migration file: `migrations/sql/001_create_routes_table.sql`
+Verifier script: `scripts/migrations/create_routes_table.py`
+Tests: `tests/test_migrations_routes.py`
+
 #### Schema Design
 
-##### Table: routes
+##### Table: routes (✅ COMPLETED — PR-9.1)
 
 ```sql
-CREATE TABLE routes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    image_url TEXT NOT NULL,
-    wall_angle FLOAT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+-- migrations/sql/001_create_routes_table.sql
+CREATE EXTENSION IF NOT EXISTS moddatetime;
+
+CREATE TABLE IF NOT EXISTS routes (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    image_url   TEXT        NOT NULL
+                            CHECK (char_length(image_url) <= 2048),
+    wall_angle  FLOAT       CHECK (wall_angle IS NULL OR wall_angle BETWEEN -90 AND 90),
+    status      VARCHAR(20) NOT NULL DEFAULT 'pending'
+                            CHECK (status IN ('pending', 'processing', 'done', 'failed')),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE OR REPLACE TRIGGER set_routes_updated_at
+    BEFORE UPDATE ON routes
+    FOR EACH ROW
+    EXECUTE FUNCTION moddatetime(updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_routes_created_at ON routes (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_routes_status_pending ON routes (status)
+    WHERE status IN ('pending', 'processing');
 ```
+
+Key deviations from original plan:
+- `status VARCHAR(20)` column added (load-bearing in `src/routes/routes.py`)
+- `gen_random_uuid()` instead of `uuid_generate_v4()` (no extension dependency)
+- `moddatetime` trigger instead of custom PL/pgSQL function
+- CHECK constraints on `wall_angle`, `status`, and `image_url` length
+- Partial index on active `status` values for background job polling
 
 ##### Table: holds
 
