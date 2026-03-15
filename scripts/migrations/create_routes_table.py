@@ -56,35 +56,16 @@ from src.database.supabase_client import (  # noqa: E402  # pylint: disable=wron
 # ---------------------------------------------------------------------------
 
 
-class _ExecuteResult(Protocol):
-    """Minimal protocol for a PostgREST execute() result."""
-
-    @property
-    def data(self) -> list[dict[str, Any]]:
-        """Rows returned by the query."""
-        ...
-
-
-class _QueryBuilder(Protocol):
-    """Minimal protocol for a chainable PostgREST query builder."""
-
-    def select(self, columns: str) -> "_QueryBuilder":
-        """Specify columns to return."""
-        ...
-
-    def eq(self, column: str, value: str) -> "_QueryBuilder":
-        """Add an equality filter."""
-        ...
-
-    def execute(self) -> _ExecuteResult:
-        """Execute the query and return the result."""
-        ...
-
-
 class _SupabaseClient(Protocol):
-    """Minimal protocol for the Supabase client used by verifier helpers."""
+    """Minimal protocol for the Supabase client used by verifier helpers.
 
-    def table(self, name: str) -> _QueryBuilder:
+    Only the ``table()`` entry-point is typed here.  The returned builder's
+    chain methods (``.select()``, ``.eq()``, ``.execute()``) vary between the
+    real ``SyncRequestBuilder`` and test mocks, so the return type is ``Any``
+    to remain compatible with both.
+    """
+
+    def table(self, table_name: str) -> Any:
         """Return a query builder targeting the named table/view."""
         ...
 
