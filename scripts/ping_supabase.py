@@ -24,11 +24,15 @@ GitHub Actions example (every Monday at noon UTC):
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+
+logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 _HEALTH_PATH = "/api/v1/health/db"
 _TIMEOUT_SECONDS = 15
@@ -105,34 +109,40 @@ def main() -> None:
     try:
         status_code = ping(args.url)
     except ValueError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        logger.error("%s", exc)
         sys.exit(1)
     except urllib.error.HTTPError as exc:
-        print(
-            f"PING FAILED — HTTP {exc.code} {exc.reason} — {args.url}{_HEALTH_PATH}",
-            file=sys.stderr,
+        logger.error(
+            "PING FAILED — HTTP %s %s — %s%s",
+            exc.code,
+            exc.reason,
+            args.url,
+            _HEALTH_PATH,
         )
         sys.exit(1)
     except urllib.error.URLError as exc:
-        print(
-            f"PING FAILED — connection error: {exc.reason} — {args.url}{_HEALTH_PATH}",
-            file=sys.stderr,
+        logger.error(
+            "PING FAILED — connection error: %s — %s%s",
+            exc.reason,
+            args.url,
+            _HEALTH_PATH,
         )
         sys.exit(1)
     except TimeoutError:
-        print(
-            f"PING FAILED — timed out after {_TIMEOUT_SECONDS}s — {args.url}{_HEALTH_PATH}",
-            file=sys.stderr,
+        logger.error(
+            "PING FAILED — timed out after %ss — %s%s",
+            _TIMEOUT_SECONDS,
+            args.url,
+            _HEALTH_PATH,
         )
         sys.exit(1)
 
     if status_code == 200:
-        print(f"PING OK — HTTP {status_code} — {args.url}{_HEALTH_PATH}")
+        logger.info("PING OK — HTTP %s — %s%s", status_code, args.url, _HEALTH_PATH)
         sys.exit(0)
     else:
-        print(
-            f"PING FAILED — HTTP {status_code} — {args.url}{_HEALTH_PATH}",
-            file=sys.stderr,
+        logger.error(
+            "PING FAILED — HTTP %s — %s%s", status_code, args.url, _HEALTH_PATH
         )
         sys.exit(1)
 
