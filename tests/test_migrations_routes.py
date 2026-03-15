@@ -161,7 +161,11 @@ def _make_mock_client(
             "updated_at",
         ]
     if constraints is None:
-        constraints = ["routes_status_check", "routes_image_url_check", "routes_pkey"]
+        constraints = [
+            "routes_status_check",
+            "routes_image_url_check",
+            "routes_wall_angle_check",
+        ]
 
     client = MagicMock()
 
@@ -243,14 +247,14 @@ class TestCreateRoutesTableVerifier:
         assert any("Missing columns" in e for e in result.errors)
 
     def test_verify_constraint_missing(self) -> None:
-        """verify_routes_table fails when no constraints are present."""
+        """verify_routes_table fails when expected CHECK constraints are absent."""
         from scripts.migrations.create_routes_table import verify_routes_table
 
         client = _make_mock_client(constraints=[])
         result = verify_routes_table(client)
 
         assert result.success is False
-        assert any("constraint" in e.lower() for e in result.errors)
+        assert any("Missing CHECK constraints" in e for e in result.errors)
 
     def test_verify_trigger_missing(self) -> None:
         """verify_routes_table fails when the moddatetime trigger is absent."""

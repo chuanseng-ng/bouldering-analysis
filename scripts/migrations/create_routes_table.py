@@ -38,17 +38,55 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
-project_root: Path = Path(__file__).resolve().parent.parent.parent
+_PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(
-    0, str(project_root)
+    0, str(_PROJECT_ROOT)
 )  # ensure src/ is importable when run from any directory
 
 from src.database.supabase_client import (  # noqa: E402  # pylint: disable=wrong-import-position
     SupabaseClientError,
     get_supabase_client,
 )
+
+
+# ---------------------------------------------------------------------------
+# Typed Protocol for the Supabase client surface used by verifier helpers
+# ---------------------------------------------------------------------------
+
+
+class _ExecuteResult(Protocol):
+    """Minimal protocol for a PostgREST execute() result."""
+
+    @property
+    def data(self) -> list[dict[str, Any]]:
+        """Rows returned by the query."""
+        ...
+
+
+class _QueryBuilder(Protocol):
+    """Minimal protocol for a chainable PostgREST query builder."""
+
+    def select(self, columns: str) -> "_QueryBuilder":
+        """Specify columns to return."""
+        ...
+
+    def eq(self, column: str, value: str) -> "_QueryBuilder":
+        """Add an equality filter."""
+        ...
+
+    def execute(self) -> _ExecuteResult:
+        """Execute the query and return the result."""
+        ...
+
+
+class _SupabaseClient(Protocol):
+    """Minimal protocol for the Supabase client used by verifier helpers."""
+
+    def table(self, name: str) -> _QueryBuilder:
+        """Return a query builder targeting the named table/view."""
+        ...
 
 
 def setup_migration_logging(log_filename: str) -> None:
@@ -60,13 +98,13 @@ def setup_migration_logging(log_filename: str) -> None:
     Args:
         log_filename: Name of the log file (e.g. ``"verify_routes_table.log"``).
     """
-    project_root.joinpath("logs").mkdir(parents=True, exist_ok=True)
+    _PROJECT_ROOT.joinpath("logs").mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler(project_root / "logs" / log_filename),
+            logging.FileHandler(_PROJECT_ROOT / "logs" / log_filename),
         ],
     )
 
@@ -77,7 +115,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_SQL_FILE = project_root / "migrations" / "sql" / "001_create_routes_table.sql"
+_SQL_FILE = _PROJECT_ROOT / "migrations" / "sql" / "001_create_routes_table.sql"
 
 _EXPECTED_COLUMNS: tuple[str, ...] = (
     "id",
@@ -89,6 +127,16 @@ _EXPECTED_COLUMNS: tuple[str, ...] = (
 )
 
 _TRIGGER_NAME = "set_routes_updated_at"
+
+# PostgreSQL auto-generates these names for the three unnamed inline CHECK
+# constraints in 001_create_routes_table.sql.
+_EXPECTED_CHECK_CONSTRAINTS: frozenset[str] = frozenset(
+    {
+        "routes_image_url_check",
+        "routes_wall_angle_check",
+        "routes_status_check",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +171,7 @@ class VerificationResult:
 # ---------------------------------------------------------------------------
 
 
-def _check_table_exists(client: Any) -> bool:
+def _check_table_exists(client: _SupabaseClient) -> bool:
     """Return True if the routes table exists in information_schema.
 
     Args:
@@ -132,7 +180,7 @@ def _check_table_exists(client: Any) -> bool:
     Returns:
         True if table is present, False otherwise.
     """
-    result = (  # type: ignore[attr-defined]
+    result = (
         client.table("information_schema.tables")
         .select("table_name")
         .eq("table_schema", "public")
@@ -142,7 +190,7 @@ def _check_table_exists(client: Any) -> bool:
     return bool(result.data)
 
 
-def _get_columns(client: Any) -> list[str]:
+def _get_columns(client: _SupabaseClient) -> list[str]:
     """Return the list of column names present in the routes table.
 
     Args:
@@ -151,7 +199,7 @@ def _get_columns(client: Any) -> list[str]:
     Returns:
         Sorted list of column name strings.
     """
-    result = (  # type: ignore[attr-defined]
+    result = (
         client.table("information_schema.columns")
         .select("column_name")
         .eq("table_schema", "public")
@@ -161,7 +209,7 @@ def _get_columns(client: Any) -> list[str]:
     return sorted(row["column_name"] for row in (result.data or []))
 
 
-def _check_constraints(client: Any) -> list[str]:
+def _check_constraints(client: _SupabaseClient) -> list[str]:
     """Return the list of CHECK constraint names on the routes table.
 
     Args:
@@ -170,7 +218,7 @@ def _check_constraints(client: Any) -> list[str]:
     Returns:
         List of CHECK constraint name strings.
     """
-    result = (  # type: ignore[attr-defined]
+    result = (
         client.table("information_schema.table_constraints")
         .select("constraint_name")
         .eq("table_schema", "public")
@@ -181,7 +229,7 @@ def _check_constraints(client: Any) -> list[str]:
     return [row["constraint_name"] for row in (result.data or [])]
 
 
-def _check_trigger_exists(client: Any) -> bool:
+def _check_trigger_exists(client: _SupabaseClient) -> bool:
     """Return True if the moddatetime trigger is present.
 
     Args:
@@ -190,7 +238,7 @@ def _check_trigger_exists(client: Any) -> bool:
     Returns:
         True if trigger is present, False otherwise.
     """
-    result = (  # type: ignore[attr-defined]
+    result = (
         client.table("information_schema.triggers")
         .select("trigger_name")
         .eq("event_object_schema", "public")
@@ -206,13 +254,15 @@ def _check_trigger_exists(client: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def verify_routes_table(client: Any) -> VerificationResult:
+def verify_routes_table(client: _SupabaseClient) -> VerificationResult:
     """Verify the routes table schema in the connected Supabase database.
 
     Checks performed:
     1. Table ``routes`` exists.
     2. All 6 expected columns are present.
-    3. At least one CHECK constraint is defined.
+    3. All 3 expected CHECK constraints are present
+       (``routes_image_url_check``, ``routes_wall_angle_check``,
+       ``routes_status_check``).
     4. The ``set_routes_updated_at`` trigger is present.
 
     Args:
@@ -245,17 +295,18 @@ def verify_routes_table(client: Any) -> VerificationResult:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         result.fail(f"Failed to check columns: {exc}")
 
-    # 3. CHECK constraints — query returns only CHECK-type constraints
+    # 3. CHECK constraints — verify all 3 expected constraints are present
     try:
-        check_constraints = _check_constraints(client)
-        if not check_constraints:
+        actual_constraints = set(_check_constraints(client))
+        missing_constraints = _EXPECTED_CHECK_CONSTRAINTS - actual_constraints
+        if missing_constraints:
             result.fail(
-                "No CHECK constraints found on 'routes' table "
-                "(expected at least status and image_url CHECK constraints)."
+                f"Missing CHECK constraints on 'routes': {sorted(missing_constraints)}"
             )
         else:
             logger.info(
-                "[OK] Found %d CHECK constraint(s) on 'routes'", len(check_constraints)
+                "[OK] All %d expected CHECK constraint(s) present on 'routes'",
+                len(_EXPECTED_CHECK_CONSTRAINTS),
             )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         result.fail(f"Failed to check constraints: {exc}")
