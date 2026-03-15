@@ -160,19 +160,20 @@ def _get_columns(client: Any) -> list[str]:
 
 
 def _check_constraints(client: Any) -> list[str]:
-    """Return the list of constraint names on the routes table.
+    """Return the list of CHECK constraint names on the routes table.
 
     Args:
         client: Supabase client instance.
 
     Returns:
-        List of constraint name strings.
+        List of CHECK constraint name strings.
     """
     result = (  # type: ignore[attr-defined]
         client.table("information_schema.table_constraints")
         .select("constraint_name")
         .eq("table_schema", "public")
         .eq("table_name", "routes")
+        .eq("constraint_type", "CHECK")
         .execute()
     )
     return [row["constraint_name"] for row in (result.data or [])]
@@ -242,12 +243,9 @@ def verify_routes_table(client: Any) -> VerificationResult:
     except Exception as exc:  # pylint: disable=broad-exception-caught
         result.fail(f"Failed to check columns: {exc}")
 
-    # 3. CHECK constraints — look specifically for CHECK-type constraints
+    # 3. CHECK constraints — query returns only CHECK-type constraints
     try:
-        constraints = _check_constraints(client)
-        check_constraints = [
-            c for c in constraints if c and ("check" in c.lower() or "chk" in c.lower())
-        ]
+        check_constraints = _check_constraints(client)
         if not check_constraints:
             result.fail(
                 "No CHECK constraints found on 'routes' table "
