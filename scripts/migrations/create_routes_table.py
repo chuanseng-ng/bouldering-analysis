@@ -42,6 +42,9 @@ from pathlib import Path
 from typing import Any
 
 project_root: Path = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(
+    0, str(project_root)
+)  # ensure src/ is importable when run from any directory
 
 from src.database.supabase_client import (  # noqa: E402  # pylint: disable=wrong-import-position
     SupabaseClientError,
@@ -320,7 +323,7 @@ def main() -> None:
             print(f"-- SQL file: {_SQL_FILE}\n")
             print(_SQL_FILE.read_text(encoding="utf-8"))
         else:
-            print(f"ERROR: SQL file not found at {_SQL_FILE}", file=sys.stderr)
+            logger.error("SQL file not found at %s", _SQL_FILE)
             sys.exit(1)
         sys.exit(0)
 

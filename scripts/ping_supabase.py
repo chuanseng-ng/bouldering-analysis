@@ -24,6 +24,7 @@ GitHub Actions example (every Monday at noon UTC):
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -69,6 +70,11 @@ Examples:
 def ping(base_url: str) -> int:
     """Send a GET request to the health endpoint and return the HTTP status code.
 
+    Parses the JSON response body and raises ``RuntimeError`` if the service
+    reports a non-healthy status (e.g. ``"degraded"`` or ``"unhealthy"``), so
+    that degraded database states are treated as failures even when the HTTP
+    response is 200.
+
     Args:
         base_url: Base URL of the backend (e.g. ``"https://your-backend.com"``).
 
@@ -77,7 +83,8 @@ def ping(base_url: str) -> int:
 
     Raises:
         urllib.error.URLError: If the connection could not be established.
-        ValueError: If ``base_url`` is empty.
+        ValueError: If ``base_url`` is empty or has an invalid scheme.
+        RuntimeError: If the response JSON indicates a non-healthy service status.
     """
     if not base_url:
         raise ValueError("Base URL is required. Pass --url or set BA_APP_BASE_URL.")
@@ -94,8 +101,14 @@ def ping(base_url: str) -> int:
 
     request = urllib.request.Request(url, method="GET")
     with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:  # noqa: S310
-        status: int = response.status
-    return status
+        http_status: int = response.status
+        body: dict = json.loads(response.read().decode())
+
+    service_status = body.get("status")
+    if service_status != "healthy":
+        raise RuntimeError(f"service status is '{service_status}'")
+
+    return http_status
 
 
 def main() -> None:
@@ -110,6 +123,9 @@ def main() -> None:
         status_code = ping(args.url)
     except ValueError as exc:
         logger.error("%s", exc)
+        sys.exit(1)
+    except RuntimeError as exc:
+        logger.error("PING FAILED — %s — %s%s", exc, args.url, _HEALTH_PATH)
         sys.exit(1)
     except urllib.error.HTTPError as exc:
         logger.error(
