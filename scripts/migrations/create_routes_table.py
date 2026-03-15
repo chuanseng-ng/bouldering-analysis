@@ -7,9 +7,8 @@ Does NOT apply the migration — run the SQL file directly in the Supabase
 SQL Editor for that.
 
 Usage:
-    python scripts/migrations/create_routes_table.py              # verify (default)
-    python scripts/migrations/create_routes_table.py --verify-only
-    python scripts/migrations/create_routes_table.py --dry-run    # print SQL, no DB call
+    python scripts/migrations/create_routes_table.py           # verify (default)
+    python scripts/migrations/create_routes_table.py --dry-run # print SQL, no DB call
 
 Exit codes:
     0  — verification passed (or dry-run completed)
@@ -290,18 +289,10 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   python scripts/migrations/create_routes_table.py
-  python scripts/migrations/create_routes_table.py --verify-only
   python scripts/migrations/create_routes_table.py --dry-run
 """,
     )
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument(
-        "--verify-only",
-        action="store_true",
-        default=True,
-        help="Verify the routes table schema (default mode).",
-    )
-    mode.add_argument(
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the migration SQL to stdout without connecting to the database.",
