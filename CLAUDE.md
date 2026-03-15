@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.03.14
-**Last Updated**: 2026-03-14
+**Version**: 2026.03.15
+**Last Updated**: 2026-03-15
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 
@@ -80,7 +80,8 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | └─ ML Grade Estimator | ✅ | PR-7.2 | 97% |
 | 8. Explainability | **In Progress** | PR-8.x | 99% |
 | ├─ Explanation Engine | ✅ | PR-8.1 | 99% |
-| 9. Database Schema | Pending | PR-9.x | - |
+| 9. Database Schema | **In Progress** | PR-9.x | - |
+| ├─ Routes Table | ✅ | PR-9.1 | - |
 | 10. Frontend Development | Pending | PR-10.x | - |
 
 ### Archived Code
@@ -91,7 +92,7 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 
 **Supabase Client** (`src/database/supabase_client.py`): `get_supabase_client()`, `upload_to_storage()`, `delete_from_storage()`, `get_storage_url()`, `list_storage_files()`. Storage buckets: `route-images`, `model-outputs`. See `docs/SUPABASE_SETUP.md`.
 
-**Database Schema** (❌ PENDING — PR-2.2 & PR-9.x): Tables `routes`, `holds`, `features`, `predictions`, `feedback` are defined in `plans/MIGRATION_PLAN.md` but not yet created in Supabase.
+**Database Schema — Routes Table** (`migrations/sql/001_create_routes_table.sql`): Created in PR-9.1. UUID primary key (`gen_random_uuid()`), `image_url` (TEXT, max 2048), `wall_angle` (FLOAT, nullable, CHECK -90..90), `status` (VARCHAR(20), CHECK pending/processing/done/failed, DEFAULT 'pending'), `created_at`/`updated_at` (TIMESTAMPTZ NOT NULL DEFAULT NOW()). `moddatetime` trigger auto-updates `updated_at`. Indexes: `idx_routes_created_at` (DESC) for pagination, `idx_routes_status_pending` (partial) for job polling. RLS enabled: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier script: `scripts/migrations/create_routes_table.py` (`verify_routes_table()`, `VerificationResult`, `--dry-run`/`--verify-only` modes). Keep-alive script: `scripts/ping_supabase.py` (stdlib-only `urllib`, hits `/api/v1/health/db`). Remaining tables (`holds`, `features`, `predictions`, `feedback`) are still pending (PR-9.2+).
 
 **Classification Training** (`src/training/train_classification.py`): Exports `ClassificationMetrics`, `ClassificationTrainingResult`, `train_hold_classifier()`. ResNet-18/MobileNetV3 backbones, weighted cross-entropy, Adam/AdamW/SGD, StepLR/CosineAnnealingLR. Artifacts: `models/classification/v<YYYYMMDD_HHMMSS>/weights/{best,last}.pt` + `metadata.json`.
 
@@ -124,6 +125,7 @@ bouldering-analysis/
 │   ├── logging_config.py         # Structured JSON logging
 │   ├── routes/
 │   │   ├── health.py             # GET /health, /api/v1/health
+│   │   ├── routes.py             # POST /api/v1/routes, GET /api/v1/routes/{id}[/status]
 │   │   └── upload.py             # POST /api/v1/routes/upload
 │   ├── database/
 │   │   └── supabase_client.py    # Supabase client & storage helpers
@@ -168,6 +170,13 @@ bouldering-analysis/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings
 │   ├── test_*.py                 # One test file per src module
 │   └── archive/legacy/
+├── migrations/
+│   └── sql/
+│       └── 001_create_routes_table.sql  # Routes table DDL (RLS, triggers, indexes)
+├── scripts/
+│   ├── ping_supabase.py                 # Keep-alive ping (stdlib urllib)
+│   └── migrations/
+│       └── create_routes_table.py       # Routes table verifier (PostgREST)
 ├── docs/                         # DESIGN.md, MODEL_PRETRAIN.md, setup guides
 ├── plans/
 │   ├── MIGRATION_PLAN.md         # Full roadmap and DB schema definitions
@@ -318,12 +327,19 @@ All variables prefixed `BA_`. Access via `from src.config import get_settings`. 
 | GET | `/health` | Health check | HealthResponse |
 | GET | `/api/v1/health` | Health check (versioned) | HealthResponse |
 | POST | `/api/v1/routes/upload` | Upload route image | UploadResponse |
+| POST | `/api/v1/routes` | Create route record | RouteResponse |
+| GET | `/api/v1/routes/{route_id}` | Retrieve route by ID | RouteResponse |
+| GET | `/api/v1/routes/{route_id}/status` | Poll route processing status | RouteStatusResponse |
 | GET | `/docs` | Swagger UI (debug only) | HTML |
 | GET | `/openapi.json` | OpenAPI schema (debug only) | JSON |
 
 **HealthResponse**: `{status: "healthy"|"degraded"|"unhealthy", version, timestamp}`
 
 **UploadResponse**: `{file_id, public_url, file_size, content_type, uploaded_at}`
+
+**RouteResponse**: `{id, image_url, wall_angle, created_at, updated_at, status}`
+
+**RouteStatusResponse**: `{id, status}`
 
 ---
 

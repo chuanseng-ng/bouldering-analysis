@@ -143,100 +143,47 @@ The application uses PostgreSQL tables for storing route data and analysis resul
 
 ### Create the routes table
 
+The canonical migration file lives at `migrations/sql/001_create_routes_table.sql`.
+
 1. **Navigate to SQL Editor**:
    - In your Supabase dashboard, click "SQL Editor" in the left sidebar
    - Click "New query"
 
-2. **Run the following SQL**:
+2. **Paste and run** the contents of `migrations/sql/001_create_routes_table.sql`.
+   The script is idempotent — safe to re-run.
 
-```sql
--- Create routes table for storing route records
-CREATE TABLE routes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    image_url TEXT NOT NULL,
-    wall_angle FLOAT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
-
--- Create policy for public read access
-CREATE POLICY "Allow public read access" ON routes
-    FOR SELECT TO PUBLIC USING (true);
-
--- Create policy for service role write access
-CREATE POLICY "Allow service write access" ON routes
-    FOR INSERT TO service_role WITH CHECK (true);
-
--- Create policy for service role update access
-CREATE POLICY "Allow service update access" ON routes
-    FOR UPDATE TO service_role USING (true);
-
--- Create index for faster lookups by creation date
-CREATE INDEX idx_routes_created_at ON routes (created_at DESC);
-
--- Create function to automatically update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create trigger to auto-update updated_at on row changes
-CREATE TRIGGER update_routes_updated_at
-    BEFORE UPDATE ON routes
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-```
-
-1. **Click "Run"** to execute the SQL
-
-1. **Verify the table was created**:
+3. **Verify the table was created**:
    - Navigate to "Table Editor" in the left sidebar
    - You should see the `routes` table listed
 
-1. **Verify the `updated_at` trigger exists**:
+4. **Run the verifier script** (optional):
 
-   In the SQL Editor, run:
+   ```bash
+   python scripts/migrations/create_routes_table.py
+   ```
+
+   Expected output: `VERIFICATION PASSED — routes table is correctly configured.`
+
+5. **Verify the `updated_at` trigger exists** (SQL Editor):
 
    ```sql
    SELECT tgname, tgrelid::regclass
    FROM pg_trigger
-   WHERE tgname = 'update_routes_updated_at';
+   WHERE tgname = 'set_routes_updated_at';
    ```
 
-   - If this query **returns one row**, the trigger was created successfully.
-   - If it **returns no rows**, the auto-update trigger was not created. Re-run the
-     trigger creation SQL from the routes table setup section above:
-
-   ```sql
-   CREATE OR REPLACE FUNCTION update_updated_at_column()
-   RETURNS TRIGGER AS $$
-   BEGIN
-       NEW.updated_at = NOW();
-       RETURN NEW;
-   END;
-   $$ LANGUAGE plpgsql;
-
-   CREATE TRIGGER update_routes_updated_at
-       BEFORE UPDATE ON routes
-       FOR EACH ROW
-       EXECUTE FUNCTION update_updated_at_column();
-   ```
+   If this query returns one row, the moddatetime trigger was created successfully.
 
 ### Table Schema Reference
 
-| Column | Type | Default | Description |
-|--------|------|---------|-------------|
-| `id` | UUID | auto-generated | Primary key |
-| `image_url` | TEXT | required | Public URL of route image |
-| `wall_angle` | FLOAT | NULL | Wall angle in degrees (-90 to 90) |
-| `created_at` | TIMESTAMPTZ | NOW() | Creation timestamp |
-| `updated_at` | TIMESTAMPTZ | NOW() | Last update timestamp |
+| Column | Type | Default | Constraints | Description |
+|--------|------|---------|-------------|-------------|
+| `id` | UUID | `gen_random_uuid()` | PRIMARY KEY | Unique route identifier |
+| `image_url` | TEXT | required | `char_length <= 2048` | Public URL of route image |
+| `wall_angle` | FLOAT | NULL | `BETWEEN -90 AND 90` | Wall angle in degrees |
+| `status` | VARCHAR(20) | `'pending'` | `IN ('pending','processing','done','failed')` | Processing status |
+| `created_at` | TIMESTAMPTZ | `NOW()` | NOT NULL | Creation timestamp |
+| `updated_at` | TIMESTAMPTZ | `NOW()` | NOT NULL, auto-updated | Last update timestamp |
 
 ---
 
@@ -344,10 +291,10 @@ CREATE POLICY "Public routes are viewable by everyone"
 ON routes FOR SELECT
 USING (true);
 
--- Allow authenticated users to insert
+-- Allow authenticated users to insert (no ownership column; auth presence check only)
 CREATE POLICY "Users can create their own routes"
 ON routes FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (auth.uid() IS NOT NULL);
 ```
 
 ### Storage Policies
@@ -434,6 +381,52 @@ for file in files:
 
 ---
 
+## Preventing Project Pauses (Free Tier)
+
+Supabase pauses free projects after ~1 week of inactivity. To prevent this, send a
+periodic request to the health endpoint so the database stays active.
+
+### Option A: External uptime monitor (recommended)
+
+Configure UptimeRobot, Better Uptime, or cron-job.org to hit:
+
+```text
+GET https://your-backend.com/api/v1/health/db
+```
+
+every 5–6 days. No credentials required — this endpoint returns HTTP 200 when the
+database is reachable.
+
+### Option B: GitHub Actions scheduled workflow
+
+Use `scripts/ping_supabase.py` in a scheduled workflow:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 12 * * 1'   # Every Monday at noon UTC
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/ping_supabase.py --url ${{ secrets.BACKEND_URL }}
+```
+
+Add `BACKEND_URL` as a GitHub Actions secret (Settings → Secrets → Actions).
+
+### Option C: Local cron job
+
+```cron
+0 12 * * 1 python /path/to/scripts/ping_supabase.py --url https://your-backend.com
+```
+
+---
+
 ## Resources
 
 - [Supabase Documentation](https://supabase.com/docs)
@@ -443,5 +436,5 @@ for file in files:
 
 ---
 
-**Last Updated**: 2026-01-15
+**Last Updated**: 2026-03-15
 **Related Documentation**: [FASTAPI_ROLE.md](FASTAPI_ROLE.md), [DESIGN.md](DESIGN.md)

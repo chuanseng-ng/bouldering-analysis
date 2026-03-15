@@ -7,6 +7,7 @@ route records that link uploaded images to route metadata.
 import asyncio
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, status
@@ -30,6 +31,19 @@ WALL_ANGLE_MIN = -90.0
 WALL_ANGLE_MAX = 90.0
 IMAGE_URL_MAX_LENGTH = 2048
 _ROUTES_TABLE = "routes"
+
+
+class RouteStatus(str, Enum):
+    """Processing status values for a route record.
+
+    Mirrors the CHECK constraint in ``migrations/sql/001_create_routes_table.sql``.
+    Extends ``str`` so Pydantic serialises values as plain strings in JSON.
+    """
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    DONE = "done"
+    FAILED = "failed"
 
 
 class RouteCreate(BaseModel):
@@ -100,7 +114,7 @@ class RouteResponse(BaseModel):
     wall_angle: float | None
     created_at: str
     updated_at: str
-    status: str = "pending"
+    status: RouteStatus = RouteStatus.PENDING
 
 
 class RouteStatusResponse(BaseModel):
@@ -112,7 +126,7 @@ class RouteStatusResponse(BaseModel):
     """
 
     id: str
-    status: str
+    status: RouteStatus
 
 
 def _format_timestamp(value: str | None) -> str:
@@ -176,7 +190,7 @@ def _record_to_response(record: dict[str, Any]) -> RouteResponse:
         wall_angle=record.get("wall_angle"),
         created_at=_format_timestamp(record.get("created_at")),
         updated_at=_format_timestamp(record.get("updated_at")),
-        status=record.get("status") or "pending",
+        status=RouteStatus(record.get("status") or RouteStatus.PENDING),
     )
 
 
@@ -240,7 +254,7 @@ async def create_route(
     # Prepare data for insertion
     insert_data: dict[str, Any] = {
         "image_url": route_data.image_url,
-        "status": "pending",
+        "status": RouteStatus.PENDING,
     }
 
     # Only include wall_angle if provided (let DB handle NULL)
@@ -455,7 +469,7 @@ async def get_route_status(
 
         return RouteStatusResponse(
             id=str(record["id"]),
-            status=record.get("status") or "pending",
+            status=RouteStatus(record.get("status") or RouteStatus.PENDING),
         )
 
     except HTTPException:
