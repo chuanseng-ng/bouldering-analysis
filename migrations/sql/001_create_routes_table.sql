@@ -43,26 +43,30 @@ ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
 -- service role (backend only).
 
 -- Allow public read access (e.g. frontend status polling)
-CREATE POLICY IF NOT EXISTS "routes_select_public"
+DROP POLICY IF EXISTS "routes_select_public" ON routes;
+CREATE POLICY "routes_select_public"
     ON routes FOR SELECT
     TO PUBLIC
     USING (true);
 
 -- Restrict INSERT to service role (backend API writes only)
-CREATE POLICY IF NOT EXISTS "routes_insert_service"
+DROP POLICY IF EXISTS "routes_insert_service" ON routes;
+CREATE POLICY "routes_insert_service"
     ON routes FOR INSERT
     TO service_role
     WITH CHECK (true);
 
 -- Restrict UPDATE to service role (background ML pipeline updates status)
-CREATE POLICY IF NOT EXISTS "routes_update_service"
+DROP POLICY IF EXISTS "routes_update_service" ON routes;
+CREATE POLICY "routes_update_service"
     ON routes FOR UPDATE
     TO service_role
     USING (true)
     WITH CHECK (true);
 
 -- Restrict DELETE to service role
-CREATE POLICY IF NOT EXISTS "routes_delete_service"
+DROP POLICY IF EXISTS "routes_delete_service" ON routes;
+CREATE POLICY "routes_delete_service"
     ON routes FOR DELETE
     TO service_role
     USING (true);
