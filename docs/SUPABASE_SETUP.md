@@ -291,10 +291,10 @@ CREATE POLICY "Public routes are viewable by everyone"
 ON routes FOR SELECT
 USING (true);
 
--- Allow authenticated users to insert
+-- Allow authenticated users to insert (no ownership column; auth presence check only)
 CREATE POLICY "Users can create their own routes"
 ON routes FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (auth.uid() IS NOT NULL);
 ```
 
 ### Storage Policies
@@ -390,7 +390,7 @@ periodic request to the health endpoint so the database stays active.
 
 Configure UptimeRobot, Better Uptime, or cron-job.org to hit:
 
-```
+```text
 GET https://your-backend.com/api/v1/health/db
 ```
 
