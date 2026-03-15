@@ -890,3 +890,73 @@ class TestBackgroundTask:
 
         call_kwargs = mock_insert.call_args.kwargs
         assert call_kwargs["data"]["status"] == "pending"
+
+
+class TestRecordToResponseStatus:
+    """Parametrized coverage for status field mapping in _record_to_response."""
+
+    def _make_record(self, status_val: str | None) -> dict[str, Any]:
+        """Return a minimal valid record dict with the given status value."""
+        record: dict[str, Any] = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "image_url": "https://example.com/image.jpg",
+            "created_at": "2026-01-27T12:00:00Z",
+            "updated_at": "2026-01-27T12:00:00Z",
+        }
+        if status_val is not None:
+            record["status"] = status_val
+        return record
+
+    @pytest.mark.parametrize(
+        "status_val,expected",
+        [
+            (None, "pending"),
+            ("pending", "pending"),
+            ("processing", "processing"),
+            ("done", "done"),
+            ("failed", "failed"),
+        ],
+    )
+    def test_status_field_mapping(self, status_val: str | None, expected: str) -> None:
+        """_record_to_response must map all valid status values correctly."""
+        from src.routes.routes import _record_to_response
+
+        result = _record_to_response(self._make_record(status_val))
+        assert result.status == expected
+
+
+class TestRouteCreateWallAngleBoundaries:
+    """Parametrized boundary tests for wall_angle validation."""
+
+    @pytest.mark.parametrize(
+        "angle,valid",
+        [
+            (-90.0, True),
+            (90.0, True),
+            (-90.001, False),
+            (90.001, False),
+        ],
+    )
+    @patch("src.routes.routes.insert_record")
+    def test_wall_angle_boundary(
+        self,
+        mock_insert: MagicMock,
+        client: TestClient,
+        angle: float,
+        valid: bool,
+        sample_route_record: dict[str, Any],
+    ) -> None:
+        """Boundary wall_angle values must be accepted or rejected correctly."""
+        record = sample_route_record.copy()
+        record["wall_angle"] = angle
+        mock_insert.return_value = record
+
+        response = client.post(
+            "/api/v1/routes",
+            json={"image_url": "https://example.com/image.jpg", "wall_angle": angle},
+        )
+
+        if valid:
+            assert response.status_code == status.HTTP_201_CREATED
+        else:
+            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
