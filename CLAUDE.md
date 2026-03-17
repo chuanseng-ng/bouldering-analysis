@@ -82,7 +82,7 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Explanation Engine | ✅ | PR-8.1 | 99% |
 | 9. Database Schema | **In Progress** | PR-9.x | - |
 | ├─ Routes Table | ✅ | PR-9.1 | - |
-| └─ Holds Table | ✅ | PR-9.2 | - |
+| └─ Holds Table | IN REVIEW | PR-9.2 | - |
 | 10. Frontend Development | Pending | PR-10.x | - |
 
 ### Archived Code

@@ -472,8 +472,6 @@ Shared utilities (`scripts/migrations/_migration_utils.py`) extracted in PR-9.2 
 N-file duplication as more tables are added.  `create_routes_table.py` was refactored to
 delegate to `verify_table()` from this module; public API unchanged.
 
-##### Table: holds (original stub — superseded above)
-
 ##### Table: features
 
 ```sql
