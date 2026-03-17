@@ -332,10 +332,17 @@ class TestCreateRoutesTableVerifier:
         assert any("RLS policies" in e for e in result.errors)
 
     def test_config_has_all_4_rls_policies(self) -> None:
-        """_CONFIG must list all 4 expected RLS policies."""
+        """_CONFIG must list the exact 4 expected RLS policy names."""
         from scripts.migrations.create_routes_table import _CONFIG
 
-        assert len(_CONFIG.expected_rls_policies) == 4
+        assert _CONFIG.expected_rls_policies == frozenset(
+            {
+                "routes_select_public",
+                "routes_insert_service",
+                "routes_update_service",
+                "routes_delete_service",
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
