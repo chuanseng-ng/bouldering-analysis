@@ -81,9 +81,14 @@ _CONFIG = TableVerificationConfig(
             "routes_status_check",
         }
     ),
-    # RLS policy check is not performed for the routes table verifier;
-    # policies are verified manually via the Supabase dashboard.
-    expected_rls_policies=frozenset(),
+    expected_rls_policies=frozenset(
+        {
+            "routes_select_public",
+            "routes_insert_service",
+            "routes_update_service",
+            "routes_delete_service",
+        }
+    ),
 )
 
 
@@ -102,6 +107,7 @@ def verify_routes_table(client: SupabaseClientLike) -> VerificationResult:
        (``routes_image_url_check``, ``routes_wall_angle_check``,
        ``routes_status_check``).
     4. The ``set_routes_updated_at`` trigger is present.
+    5. All 4 expected RLS policies are present.
 
     Args:
         client: Supabase client instance (from ``get_supabase_client()``).
