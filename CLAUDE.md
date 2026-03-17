@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.03.15
-**Last Updated**: 2026-03-15
+**Version**: 2026.03.16
+**Last Updated**: 2026-03-16
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 
@@ -82,6 +82,7 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Explanation Engine | ✅ | PR-8.1 | 99% |
 | 9. Database Schema | **In Progress** | PR-9.x | - |
 | ├─ Routes Table | ✅ | PR-9.1 | - |
+| └─ Holds Table | IN REVIEW | PR-9.2 | - |
 | 10. Frontend Development | Pending | PR-10.x | - |
 
 ### Archived Code
@@ -92,7 +93,9 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 
 **Supabase Client** (`src/database/supabase_client.py`): `get_supabase_client()`, `upload_to_storage()`, `delete_from_storage()`, `get_storage_url()`, `list_storage_files()`. Storage buckets: `route-images`, `model-outputs`. See `docs/SUPABASE_SETUP.md`.
 
-**Database Schema — Routes Table** (`migrations/sql/001_create_routes_table.sql`): Created in PR-9.1. UUID primary key (`gen_random_uuid()`), `image_url` (TEXT, max 2048), `wall_angle` (FLOAT, nullable, CHECK -90..90), `status` (VARCHAR(20), CHECK pending/processing/done/failed, DEFAULT 'pending'), `created_at`/`updated_at` (TIMESTAMPTZ NOT NULL DEFAULT NOW()). `moddatetime` trigger auto-updates `updated_at`. Indexes: `idx_routes_created_at` (DESC) for pagination, `idx_routes_status_pending` (partial) for job polling. RLS enabled: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier script: `scripts/migrations/create_routes_table.py` (`verify_routes_table()`, `VerificationResult`, `--dry-run`/`--verify-only` modes). Keep-alive script: `scripts/ping_supabase.py` (stdlib-only `urllib`, hits `/api/v1/health/db`). Remaining tables (`holds`, `features`, `predictions`, `feedback`) are still pending (PR-9.2+).
+**Database Schema — Routes Table** (`migrations/sql/001_create_routes_table.sql`): Created in PR-9.1. UUID primary key (`gen_random_uuid()`), `image_url` (TEXT, max 2048), `wall_angle` (FLOAT, nullable, CHECK -90..90), `status` (VARCHAR(20), CHECK pending/processing/done/failed, DEFAULT 'pending'), `created_at`/`updated_at` (TIMESTAMPTZ NOT NULL DEFAULT NOW()). `moddatetime` trigger auto-updates `updated_at`. Indexes: `idx_routes_created_at` (DESC) for pagination, `idx_routes_status_pending` (partial) for job polling. RLS enabled: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier script: `scripts/migrations/create_routes_table.py` (`verify_routes_table()`, `VerificationResult`, `--dry-run` mode; default = live verify). Keep-alive script: `scripts/ping_supabase.py` (stdlib-only `urllib`, hits `/api/v1/health/db`). Remaining tables (`features`, `predictions`, `feedback`) are still pending (PR-9.3+).
+
+**Database Schema — Holds Table** (`migrations/sql/002_create_holds_table.sql`): Created in PR-9.2. UUID PK (`gen_random_uuid()`), `route_id` UUID FK with `ON DELETE CASCADE`, `hold_id` INT (`CHECK >= 0`), `x_center`/`y_center`/`width`/`height` FLOAT (all `BETWEEN 0 AND 1`), `detection_class` VARCHAR(10) (`'hold'|'volume'`), `detection_confidence` FLOAT, `hold_type` VARCHAR(20) (`'jug'|'crimp'|'sloper'|'pinch'|'volume'|'unknown'`), `type_confidence` FLOAT, 6 `prob_*` FLOAT columns (per hold class, all `BETWEEN 0 AND 1`), `created_at` TIMESTAMPTZ. `UNIQUE (route_id, hold_id)` doubles as route lookup index (no separate index). No `updated_at`/trigger — write-once; re-run = `DELETE WHERE route_id` + bulk `INSERT`. Probability sum invariant enforced by `ClassifiedHold.type_probabilities` Pydantic validator (PR-9.3 must not bypass it). RLS: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier: `scripts/migrations/create_holds_table.py` (`verify_holds_table()`, `--dry-run` mode; default = live verify). Shared utilities: `scripts/migrations/_migration_utils.py` (`TableVerificationConfig`, `VerificationResult`, `verify_table()`, individual helpers). `create_routes_table.py` refactored to delegate to `verify_table()` (public API unchanged).
 
 **Classification Training** (`src/training/train_classification.py`): Exports `ClassificationMetrics`, `ClassificationTrainingResult`, `train_hold_classifier()`. ResNet-18/MobileNetV3 backbones, weighted cross-entropy, Adam/AdamW/SGD, StepLR/CosineAnnealingLR. Artifacts: `models/classification/v<YYYYMMDD_HHMMSS>/weights/{best,last}.pt` + `metadata.json`.
 
@@ -169,14 +172,19 @@ bouldering-analysis/
 ├── tests/
 │   ├── conftest.py               # Fixtures: test_settings, app, client, app_settings
 │   ├── test_*.py                 # One test file per src module
+│   ├── test_migration_utils.py   # Shared migration utility tests
+│   ├── test_migrations_holds.py  # Holds table migration tests
 │   └── archive/legacy/
 ├── migrations/
 │   └── sql/
-│       └── 001_create_routes_table.sql  # Routes table DDL (RLS, triggers, indexes)
+│       ├── 001_create_routes_table.sql  # Routes table DDL (RLS, triggers, indexes)
+│       └── 002_create_holds_table.sql   # Holds table DDL (FK, RLS, unique constraint)
 ├── scripts/
 │   ├── ping_supabase.py                 # Keep-alive ping (stdlib urllib)
 │   └── migrations/
-│       └── create_routes_table.py       # Routes table verifier (PostgREST)
+│       ├── _migration_utils.py          # Shared PostgREST verifier utilities
+│       ├── create_routes_table.py       # Routes table verifier (PostgREST)
+│       └── create_holds_table.py        # Holds table verifier (PostgREST)
 ├── docs/                         # DESIGN.md, MODEL_PRETRAIN.md, setup guides
 ├── plans/
 │   ├── MIGRATION_PLAN.md         # Full roadmap and DB schema definitions

@@ -419,19 +419,58 @@ Key deviations from original plan:
 - CHECK constraints on `wall_angle`, `status`, and `image_url` length
 - Partial index on active `status` values for background job polling
 
-##### Table: holds
+#### PR-9.2: Holds Table — IN REVIEW (PR #85, opened 2026-03-16)
+
+Migration file: `migrations/sql/002_create_holds_table.sql`
+Verifier script: `scripts/migrations/create_holds_table.py`
+Shared utilities: `scripts/migrations/_migration_utils.py`
+Tests: `tests/test_migrations_holds.py`, `tests/test_migration_utils.py`
+
+##### Table: holds (IN REVIEW — PR-9.2)
 
 ```sql
-CREATE TABLE holds (
-    id SERIAL PRIMARY KEY,
-    route_id UUID REFERENCES routes(id),
-    x FLOAT NOT NULL,  -- normalized [0,1]
-    y FLOAT NOT NULL,
-    size FLOAT,
-    type VARCHAR(20),  -- jug, crimp, sloper, pinch, volume, unknown
-    confidence FLOAT
+-- migrations/sql/002_create_holds_table.sql
+CREATE EXTENSION IF NOT EXISTS moddatetime;
+
+CREATE TABLE IF NOT EXISTS holds (
+    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    route_id             UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+    hold_id              INT         NOT NULL CHECK (hold_id >= 0),
+    x_center             FLOAT       NOT NULL CHECK (x_center BETWEEN 0 AND 1),
+    y_center             FLOAT       NOT NULL CHECK (y_center BETWEEN 0 AND 1),
+    width                FLOAT       NOT NULL CHECK (width BETWEEN 0 AND 1),
+    height               FLOAT       NOT NULL CHECK (height BETWEEN 0 AND 1),
+    detection_class      VARCHAR(10) NOT NULL CHECK (detection_class IN ('hold', 'volume')),
+    detection_confidence FLOAT       NOT NULL CHECK (detection_confidence BETWEEN 0 AND 1),
+    hold_type            VARCHAR(20) NOT NULL CHECK (hold_type IN ('jug', 'crimp', 'sloper', 'pinch', 'volume', 'unknown')),
+    type_confidence      FLOAT       NOT NULL CHECK (type_confidence BETWEEN 0 AND 1),
+    prob_jug             FLOAT       NOT NULL CHECK (prob_jug BETWEEN 0 AND 1),
+    prob_crimp           FLOAT       NOT NULL CHECK (prob_crimp BETWEEN 0 AND 1),
+    prob_sloper          FLOAT       NOT NULL CHECK (prob_sloper BETWEEN 0 AND 1),
+    prob_pinch           FLOAT       NOT NULL CHECK (prob_pinch BETWEEN 0 AND 1),
+    prob_volume          FLOAT       NOT NULL CHECK (prob_volume BETWEEN 0 AND 1),
+    prob_unknown         FLOAT       NOT NULL CHECK (prob_unknown BETWEEN 0 AND 1),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (route_id, hold_id)
 );
+-- No updated_at / trigger — holds are write-once (delete + reinsert on re-run)
 ```
+
+Key design decisions vs. original plan:
+- UUID PK (`gen_random_uuid()`) instead of `SERIAL` — consistent with `routes` table
+- `ON DELETE CASCADE` — holds are meaningless without their route
+- `UNIQUE (route_id, hold_id)` doubles as the route lookup index — no separate `idx_holds_route_id`
+- 6 flat `prob_*` columns instead of `JSONB` — explicit CHECK per column, queryable, type-safe
+- No `updated_at` / trigger — write-once design; re-run = `DELETE WHERE route_id` + bulk `INSERT`
+- Probability sum invariant enforced by `ClassifiedHold.type_probabilities` Pydantic validator
+
+Re-run contract (forward obligation for PR-9.3):
+- Before re-inserting holds: `DELETE FROM holds WHERE route_id = $1`, then bulk `INSERT`
+- Never bypass `ClassifiedHold` Pydantic validation when inserting (raw dicts skip the sum-to-1.0 check)
+
+Shared utilities (`scripts/migrations/_migration_utils.py`) extracted in PR-9.2 to avoid
+N-file duplication as more tables are added.  `create_routes_table.py` was refactored to
+delegate to `verify_table()` from this module; public API unchanged.
 
 ##### Table: features
 
@@ -577,7 +616,8 @@ These endpoints must be implemented in the backend to support the frontend:
 | :------: | :----: | :-----: | :----: |
 | `POST /api/v1/routes/upload` | POST | Upload route image | ✅ Completed (PR-2.1) |
 | `POST /api/v1/routes` | POST | Create route record | ✅ Completed (PR-2.2) |
-| `GET /api/v1/routes/{id}` | GET | Get route details | Pending |
+| `GET /api/v1/routes/{id}` | GET | Get route details | ✅ Completed (PR-2.2) |
+| `GET /api/v1/routes/{id}/status` | GET | Poll route processing status | ✅ Completed (PR-2.2) |
 | `POST /api/v1/routes/{id}/analyze` | POST | Trigger hold detection & analysis | Pending |
 | `GET /api/v1/routes/{id}/holds` | GET | Get detected holds | Pending |
 | `PUT /api/v1/routes/{id}/constraints` | PUT | Set start/finish holds | Pending (PR-5.x) |

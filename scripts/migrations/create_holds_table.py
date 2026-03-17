@@ -1,34 +1,33 @@
 #!/usr/bin/env python3
-"""Verifier script for the routes table migration (001_create_routes_table.sql).
+"""Verifier script for the holds table migration (002_create_holds_table.sql).
 
-Checks that the routes table, its columns, CHECK constraints, and the
-moddatetime trigger are all present in the target Supabase database.
-Does NOT apply the migration — run the SQL file directly in the Supabase
-SQL Editor for that.
+Checks that the holds table, its columns, CHECK constraints, and RLS policies
+are all present in the target Supabase database.  Does NOT apply the migration
+— run the SQL file directly in the Supabase SQL Editor for that.
 
 Usage:
-    python scripts/migrations/create_routes_table.py           # verify (default)
-    python scripts/migrations/create_routes_table.py --dry-run # print SQL, no DB call
+    python scripts/migrations/create_holds_table.py           # verify (default)
+    python scripts/migrations/create_holds_table.py --dry-run # print SQL, no DB call
 
 Exit codes:
     0  — verification passed (or dry-run completed)
     1  — verification failed or unexpected error
 
 Supabase PostgREST note:
-    Verification queries target ``information_schema`` views.  By default
-    Supabase's PostgREST only exposes the ``public`` schema.  To use the
-    live-database verify mode, you must expose ``information_schema`` in your
+    Verification queries target ``information_schema`` views and
+    ``pg_catalog.pg_policies``.  By default Supabase's PostgREST only
+    exposes the ``public`` schema.  To use the live-database verify mode
+    you must expose ``information_schema`` and ``pg_catalog`` in your
     Supabase project settings (API → Extra search paths) or run the SQL
     queries directly via the Supabase SQL Editor.  The dry-run mode and all
     unit tests work without this configuration.
 
-wall_angle range note:
-    The database stores wall_angle in [-90, 90] to match the API layer
-    (``src/routes/routes.py``).  The graph builder (``src/graph/route_graph.py``)
-    uses a tighter range of [-15, 90] for biomechanical reasons.  Values
-    between -90 and -15.1 are valid at the DB level but will be rejected at
-    graph-build time; this is intentional — the DB is the wider authority and
-    application logic enforces domain constraints.
+Re-run contract:
+    Holds are write-once.  To re-run hold detection for a route, the caller
+    must ``DELETE FROM holds WHERE route_id = $1`` before reinserting.
+    The ``UNIQUE (route_id, hold_id)`` constraint enforces ordering uniqueness
+    within a route and doubles as the covering index for route-scoped reads,
+    so no separate ``idx_holds_route_id`` index is created.
 """
 
 from __future__ import annotations
@@ -61,32 +60,57 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_SQL_FILE = _PROJECT_ROOT / "migrations" / "sql" / "001_create_routes_table.sql"
+_SQL_FILE = _PROJECT_ROOT / "migrations" / "sql" / "002_create_holds_table.sql"
 
 _CONFIG = TableVerificationConfig(
-    table_name="routes",
+    table_name="holds",
     expected_columns=(
         "id",
-        "image_url",
-        "wall_angle",
-        "status",
+        "route_id",
+        "hold_id",
+        "x_center",
+        "y_center",
+        "width",
+        "height",
+        "detection_class",
+        "detection_confidence",
+        "hold_type",
+        "type_confidence",
+        "prob_jug",
+        "prob_crimp",
+        "prob_sloper",
+        "prob_pinch",
+        "prob_volume",
+        "prob_unknown",
         "created_at",
-        "updated_at",
     ),
-    trigger_name="set_routes_updated_at",
+    # Holds are write-once — no updated_at column, no moddatetime trigger.
+    trigger_name=None,
     expected_check_constraints=frozenset(
         {
-            "routes_image_url_check",
-            "routes_wall_angle_check",
-            "routes_status_check",
+            "holds_hold_id_check",
+            "holds_x_center_check",
+            "holds_y_center_check",
+            "holds_width_check",
+            "holds_height_check",
+            "holds_detection_class_check",
+            "holds_detection_confidence_check",
+            "holds_hold_type_check",
+            "holds_type_confidence_check",
+            "holds_prob_jug_check",
+            "holds_prob_crimp_check",
+            "holds_prob_sloper_check",
+            "holds_prob_pinch_check",
+            "holds_prob_volume_check",
+            "holds_prob_unknown_check",
         }
     ),
     expected_rls_policies=frozenset(
         {
-            "routes_select_public",
-            "routes_insert_service",
-            "routes_update_service",
-            "routes_delete_service",
+            "holds_select_public",
+            "holds_insert_service",
+            "holds_update_service",
+            "holds_delete_service",
         }
     ),
 )
@@ -97,17 +121,17 @@ _CONFIG = TableVerificationConfig(
 # ---------------------------------------------------------------------------
 
 
-def verify_routes_table(client: SupabaseClientLike) -> VerificationResult:
-    """Verify the routes table schema in the connected Supabase database.
+def verify_holds_table(client: SupabaseClientLike) -> VerificationResult:
+    """Verify the holds table schema in the connected Supabase database.
 
     Checks performed:
-    1. Table ``routes`` exists.
-    2. All 6 expected columns are present.
-    3. All 3 expected CHECK constraints are present
-       (``routes_image_url_check``, ``routes_wall_angle_check``,
-       ``routes_status_check``).
-    4. The ``set_routes_updated_at`` trigger is present.
-    5. All 4 expected RLS policies are present.
+    1. Table ``holds`` exists.
+    2. All 18 expected columns are present.
+    3. All 15 expected CHECK constraints are present.
+    4. All 4 expected RLS policies are present.
+
+    (No trigger check: holds are write-once, so no ``updated_at`` trigger
+    is configured.)
 
     Args:
         client: Supabase client instance (from ``get_supabase_client()``).
@@ -131,12 +155,12 @@ def _build_parser() -> argparse.ArgumentParser:
         Configured :class:`argparse.ArgumentParser`.
     """
     parser = argparse.ArgumentParser(
-        description="Verify that the routes table migration has been applied.",
+        description="Verify that the holds table migration has been applied.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python scripts/migrations/create_routes_table.py
-  python scripts/migrations/create_routes_table.py --dry-run
+  python scripts/migrations/create_holds_table.py
+  python scripts/migrations/create_holds_table.py --dry-run
 """,
     )
     parser.add_argument(
@@ -148,7 +172,7 @@ Examples:
 
 
 def main() -> None:
-    """Entry point for the routes table verifier script.
+    """Entry point for the holds table verifier script.
 
     Exits with code 0 on success, 1 on failure.
     """
@@ -167,7 +191,7 @@ def main() -> None:
 
     # Verify mode (default)
     logger.info("=" * 60)
-    logger.info("Verifying routes table migration")
+    logger.info("Verifying holds table migration")
     logger.info("=" * 60)
 
     try:
@@ -176,11 +200,11 @@ def main() -> None:
         logger.error("Could not connect to Supabase: %s", exc)
         sys.exit(1)
 
-    result = verify_routes_table(client)
+    result = verify_holds_table(client)
 
     if result.success:
         logger.info("=" * 60)
-        logger.info("VERIFICATION PASSED — routes table is correctly configured.")
+        logger.info("VERIFICATION PASSED — holds table is correctly configured.")
         logger.info("=" * 60)
         sys.exit(0)
     else:
@@ -194,5 +218,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    setup_migration_logging("verify_routes_table.log")
+    setup_migration_logging("verify_holds_table.log")
     main()

@@ -139,14 +139,16 @@ def _make_mock_client(
     columns: list[str] | None = None,
     constraints: list[str] | None = None,
     trigger_exists: bool = True,
+    policies: list[str] | None = None,
 ) -> MagicMock:
     """Build a mock Supabase client for verifier unit tests.
 
     Args:
         table_exists: Whether the routes table query returns rows.
         columns: List of column names to return. Defaults to all 6 expected.
-        constraints: List of constraint names. Defaults to a CHECK constraint.
+        constraints: List of constraint names. Defaults to all 3 expected.
         trigger_exists: Whether the trigger query returns rows.
+        policies: RLS policy names to return. Defaults to all 4 expected.
 
     Returns:
         Configured mock client.
@@ -166,6 +168,13 @@ def _make_mock_client(
             "routes_image_url_check",
             "routes_wall_angle_check",
         ]
+    if policies is None:
+        policies = [
+            "routes_select_public",
+            "routes_insert_service",
+            "routes_update_service",
+            "routes_delete_service",
+        ]
 
     client = MagicMock()
 
@@ -183,6 +192,7 @@ def _make_mock_client(
     col_data = [{"column_name": c} for c in columns]
     constraint_data = [{"constraint_name": c} for c in constraints]
     trigger_data = [{"trigger_name": "set_routes_updated_at"}] if trigger_exists else []
+    policy_data = [{"policyname": p} for p in policies]
 
     def _table_side_effect(name: str) -> MagicMock:
         if name == "information_schema.tables":
@@ -193,6 +203,8 @@ def _make_mock_client(
             return _make_chain(constraint_data)
         if name == "information_schema.triggers":
             return _make_chain(trigger_data)
+        if name == "pg_catalog.pg_policies":
+            return _make_chain(policy_data)
         return _make_chain([])
 
     client.table.side_effect = _table_side_effect
@@ -308,6 +320,29 @@ class TestCreateRoutesTableVerifier:
 
         assert result.success is False
         assert len(result.errors) == 2
+
+    def test_verify_rls_policy_missing(self) -> None:
+        """verify_routes_table fails when an RLS policy is absent."""
+        from scripts.migrations.create_routes_table import verify_routes_table
+
+        client = _make_mock_client(policies=["routes_select_public"])  # 3 missing
+        result = verify_routes_table(client)
+
+        assert result.success is False
+        assert any("RLS policies" in e for e in result.errors)
+
+    def test_config_has_all_4_rls_policies(self) -> None:
+        """_CONFIG must list the exact 4 expected RLS policy names."""
+        from scripts.migrations.create_routes_table import _CONFIG
+
+        assert _CONFIG.expected_rls_policies == frozenset(
+            {
+                "routes_select_public",
+                "routes_insert_service",
+                "routes_update_service",
+                "routes_delete_service",
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
