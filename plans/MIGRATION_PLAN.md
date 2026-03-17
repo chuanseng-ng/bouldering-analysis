@@ -419,14 +419,14 @@ Key deviations from original plan:
 - CHECK constraints on `wall_angle`, `status`, and `image_url` length
 - Partial index on active `status` values for background job polling
 
-#### PR-9.2: Holds Table — ✅ COMPLETED (2026-03-15)
+#### PR-9.2: Holds Table — IN REVIEW (PR #85, opened 2026-03-16)
 
 Migration file: `migrations/sql/002_create_holds_table.sql`
 Verifier script: `scripts/migrations/create_holds_table.py`
 Shared utilities: `scripts/migrations/_migration_utils.py`
 Tests: `tests/test_migrations_holds.py`, `tests/test_migration_utils.py`
 
-##### Table: holds (✅ COMPLETED — PR-9.2)
+##### Table: holds (IN REVIEW — PR-9.2)
 
 ```sql
 -- migrations/sql/002_create_holds_table.sql
