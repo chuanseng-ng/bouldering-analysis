@@ -419,14 +419,14 @@ Key deviations from original plan:
 - CHECK constraints on `wall_angle`, `status`, and `image_url` length
 - Partial index on active `status` values for background job polling
 
-#### PR-9.2: Holds Table — IN REVIEW (PR #85, opened 2026-03-16)
+#### PR-9.2: Holds Table — ✅ COMPLETED
 
 Migration file: `migrations/sql/002_create_holds_table.sql`
 Verifier script: `scripts/migrations/create_holds_table.py`
 Shared utilities: `scripts/migrations/_migration_utils.py`
 Tests: `tests/test_migrations_holds.py`, `tests/test_migration_utils.py`
 
-##### Table: holds (IN REVIEW — PR-9.2)
+##### Table: holds (✅ COMPLETED — PR-9.2)
 
 ```sql
 -- migrations/sql/002_create_holds_table.sql
@@ -472,42 +472,61 @@ Shared utilities (`scripts/migrations/_migration_utils.py`) extracted in PR-9.2 
 N-file duplication as more tables are added.  `create_routes_table.py` was refactored to
 delegate to `verify_table()` from this module; public API unchanged.
 
-##### Table: features
+#### PR-9.3: Features Table — ✅ COMPLETED
+
+Migration file: `migrations/sql/003_create_features_table.sql`
+Verifier script: `scripts/migrations/create_features_table.py`
+Tests: `tests/test_migrations_features.py`
+
+##### Table: features (✅ COMPLETED — PR-9.3)
 
 ```sql
-CREATE TABLE features (
-    id SERIAL PRIMARY KEY,
-    route_id UUID REFERENCES routes(id) UNIQUE,
-    feature_vector JSONB NOT NULL,
-    extracted_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS features (
+    id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    route_id       UUID        NOT NULL UNIQUE REFERENCES routes(id) ON DELETE CASCADE,
+    feature_vector JSONB       NOT NULL,
+    extracted_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    -- No CHECK constraints: JSONB contents validated by RouteFeatures Pydantic model.
+    -- UNIQUE (route_id) doubles as the route lookup index (no separate index needed).
+    -- Write-once: re-run = DELETE WHERE route_id + INSERT.
 );
 ```
 
-##### Table: predictions
+#### PR-9.4: Predictions Table — Pending
+
+##### Table: predictions (Pending — PR-9.4)
 
 ```sql
-CREATE TABLE predictions (
-    id SERIAL PRIMARY KEY,
-    route_id UUID REFERENCES routes(id),
-    grade VARCHAR(10) NOT NULL,
-    confidence FLOAT,
-    uncertainty FLOAT,
-    explanation TEXT,
+CREATE TABLE IF NOT EXISTS predictions (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    route_id     UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+    grade        VARCHAR(10) NOT NULL,
+    confidence   FLOAT       CHECK (confidence BETWEEN 0 AND 1),
+    uncertainty  FLOAT       CHECK (uncertainty BETWEEN 0 AND 1),
+    explanation  TEXT,
     model_version VARCHAR(50),
-    predicted_at TIMESTAMPTZ DEFAULT NOW()
+    predicted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    -- Multiple predictions per route allowed (history/versioning).
+    -- No UNIQUE on route_id. Index on route_id needed for listing.
+    -- Write-once: immutable prediction history.
 );
 ```
 
-##### Table: feedback
+#### PR-9.5: Feedback Table — Pending
+
+##### Table: feedback (Pending — PR-9.5)
 
 ```sql
-CREATE TABLE feedback (
-    id SERIAL PRIMARY KEY,
-    route_id UUID REFERENCES routes(id),
-    user_grade VARCHAR(10),
+CREATE TABLE IF NOT EXISTS feedback (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    route_id    UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+    user_grade  VARCHAR(10),
     is_accurate BOOLEAN,
-    comments TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    comments    TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    -- Multiple feedback entries per route allowed.
+    -- No UNIQUE on route_id. Public INSERT (anonymous submission).
+    -- Write-once: immutable feedback history.
 );
 ```
 
@@ -737,9 +756,13 @@ Phase 3: Intelligence (M5 + M6 + M7) — ✅ COMPLETED
 └── ✅ PR-7.2: Ordinal ML Estimator
 
 Phase 4: Polish (M8 + M9 + M10)
-├── PR-8.1: Explanation Engine
-├── PR-9.x: Supabase Migrations (one per table)
-└── PR-10.x: Frontend Integration (API documentation)
+├── ✅ PR-8.1: Explanation Engine
+├── ✅ PR-9.1: Routes Table
+├── ✅ PR-9.2: Holds Table
+├── ✅ PR-9.3: Features Table
+├── PR-9.4: Predictions Table
+├── PR-9.5: Feedback Table
+└── PR-10.x: Frontend Integration
 ```
 
 ---
@@ -810,6 +833,7 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-03-19**: Marked PR-9.2 (Holds Table) as completed; marked PR-9.3 (Features Table) as completed; added PR-9.3 section with verifier/test details; refined PR-9.4/PR-9.5 schemas to use UUID PKs, NOT NULL, ON DELETE CASCADE; updated Phase 4 implementation order
 - **2026-03-10**: Marked PR-7.2 (Ordinal ML Estimator) as completed; marked Phase 3 (Intelligence) as completed; updated PR-7.2 task list with final implementation details
 - **2026-02-23**: Updated endpoint statuses to reflect Phase 1 (M1+M2) and Phase 2 (M3+M4) completion; marked POST /api/v1/routes/upload and POST /api/v1/routes as Completed; corrected POST /api/v1/routes/{id}/analyze and GET /api/v1/routes/{id}/holds back to Pending (HTTP handlers not yet implemented)
 - **2026-02-21**: Added "Agent Reviews" quality gate (item 7) and "Agent Requirements Per PR" section with mandatory/conditional agent tables and parallel execution rule
