@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.03.18
-**Last Updated**: 2026-03-18
+**Version**: 2026.03.20
+**Last Updated**: 2026-03-20
 **Architecture**: FastAPI + Supabase (Migration in Progress)
 **Repository**: bouldering-analysis
 
@@ -83,7 +83,8 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | 9. Database Schema | **In Progress** | PR-9.x | - |
 | ├─ Routes Table | ✅ | PR-9.1 | - |
 | ├─ Holds Table | ✅ | PR-9.2 | - |
-| └─ Features Table | ✅ | PR-9.3 | - |
+| ├─ Features Table | ✅ | PR-9.3 | - |
+| └─ Predictions Table | ✅ | PR-9.4 | 97% |
 | 10. Frontend Development | Pending | PR-10.x | - |
 
 ### Archived Code
@@ -94,11 +95,13 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 
 **Supabase Client** (`src/database/supabase_client.py`): `get_supabase_client()`, `upload_to_storage()`, `delete_from_storage()`, `get_storage_url()`, `list_storage_files()`. Storage buckets: `route-images`, `model-outputs`. See `docs/SUPABASE_SETUP.md`.
 
-**Database Schema — Routes Table** (`migrations/sql/001_create_routes_table.sql`): Created in PR-9.1. UUID primary key (`gen_random_uuid()`), `image_url` (TEXT, max 2048), `wall_angle` (FLOAT, nullable, CHECK -90..90), `status` (VARCHAR(20), CHECK pending/processing/done/failed, DEFAULT 'pending'), `created_at`/`updated_at` (TIMESTAMPTZ NOT NULL DEFAULT NOW()). `moddatetime` trigger auto-updates `updated_at`. Indexes: `idx_routes_created_at` (DESC) for pagination, `idx_routes_status_pending` (partial) for job polling. RLS enabled: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier script: `scripts/migrations/create_routes_table.py` (`verify_routes_table()`, `VerificationResult`, `--dry-run` mode; default = live verify). Keep-alive script: `scripts/ping_supabase.py` (stdlib-only `urllib`, hits `/api/v1/health/db`). Remaining tables (`predictions`, `feedback`) are still pending (PR-9.4+).
+**Database Schema — Routes Table** (`migrations/sql/001_create_routes_table.sql`): Created in PR-9.1. UUID primary key (`gen_random_uuid()`), `image_url` (TEXT, max 2048), `wall_angle` (FLOAT, nullable, CHECK -90..90), `status` (VARCHAR(20), CHECK pending/processing/done/failed, DEFAULT 'pending'), `created_at`/`updated_at` (TIMESTAMPTZ NOT NULL DEFAULT NOW()). `moddatetime` trigger auto-updates `updated_at`. Indexes: `idx_routes_created_at` (DESC) for pagination, `idx_routes_status_pending` (partial) for job polling. RLS enabled: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier script: `scripts/migrations/create_routes_table.py` (`verify_routes_table()`, `VerificationResult`, `--dry-run` mode; default = live verify). Keep-alive script: `scripts/ping_supabase.py` (stdlib-only `urllib`, hits `/api/v1/health/db`). Remaining tables (`feedback`) are still pending (PR-9.5+).
 
 **Database Schema — Holds Table** (`migrations/sql/002_create_holds_table.sql`): Created in PR-9.2. UUID PK (`gen_random_uuid()`), `route_id` UUID FK with `ON DELETE CASCADE`, `hold_id` INT (`CHECK >= 0`), `x_center`/`y_center`/`width`/`height` FLOAT (all `BETWEEN 0 AND 1`), `detection_class` VARCHAR(10) (`'hold'|'volume'`), `detection_confidence` FLOAT, `hold_type` VARCHAR(20) (`'jug'|'crimp'|'sloper'|'pinch'|'volume'|'unknown'`), `type_confidence` FLOAT, 6 `prob_*` FLOAT columns (per hold class, all `BETWEEN 0 AND 1`), `created_at` TIMESTAMPTZ. `UNIQUE (route_id, hold_id)` doubles as route lookup index (no separate index). No `updated_at`/trigger — write-once; re-run = `DELETE WHERE route_id` + bulk `INSERT`. Probability sum invariant enforced by `ClassifiedHold.type_probabilities` Pydantic validator (PR-9.3 must not bypass it). RLS: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier: `scripts/migrations/create_holds_table.py` (`verify_holds_table()`, `--dry-run` mode; default = live verify). Shared utilities: `scripts/migrations/_migration_utils.py` (`TableVerificationConfig`, `VerificationResult`, `verify_table()`, individual helpers). `create_routes_table.py` refactored to delegate to `verify_table()` (public API unchanged).
 
 **Database Schema — Features Table** (`migrations/sql/003_create_features_table.sql`): Created in PR-9.3. UUID PK (`gen_random_uuid()`), `route_id` UUID FK `UNIQUE` with `ON DELETE CASCADE`, `feature_vector` JSONB NOT NULL (validated at app layer by `RouteFeatures` Pydantic model), `extracted_at` TIMESTAMPTZ NOT NULL DEFAULT NOW(). No CHECK constraints, no trigger — write-once. `UNIQUE (route_id)` doubles as route lookup index (no separate index). RLS: public SELECT, service-role INSERT/UPDATE/DELETE. Re-run contract: `DELETE FROM features WHERE route_id = $1` then INSERT. Verifier: `scripts/migrations/create_features_table.py` (`verify_features_table()`, `--dry-run` mode; default = live verify). Uses shared `_migration_utils.py` utilities.
+
+**Database Schema -- Predictions Table** (`migrations/sql/004_create_predictions_table.sql`): Created in PR-9.4. UUID PK (`gen_random_uuid()`), `route_id` UUID FK with `ON DELETE CASCADE` (no UNIQUE -- multiple predictions per route allowed), `estimator_type` VARCHAR(20) NOT NULL CHECK IN ('heuristic','ml'), `grade` VARCHAR(10) NOT NULL CHECK IN (V0-V17), `grade_index` INT NOT NULL CHECK BETWEEN 0 AND 17, `confidence` FLOAT NOT NULL CHECK BETWEEN 0 AND 1, `difficulty_score` FLOAT NOT NULL CHECK BETWEEN 0 AND 1, `uncertainty` FLOAT nullable CHECK BETWEEN 0 AND 1 (reserved for future calibrated uncertainty output), `explanation` JSONB nullable (validated at app layer by `ExplanationResult` Pydantic model), `model_version` VARCHAR(20) nullable (NULL for heuristic, `v<YYYYMMDD_HHMMSS>` for ML), `predicted_at` TIMESTAMPTZ NOT NULL DEFAULT NOW(). 6 CHECK constraints total. Compound index: `idx_predictions_route_id_predicted_at` ON (route_id, predicted_at DESC) for sorted per-route listing. No `updated_at`/trigger -- append-only immutable history. Write contract: INSERT only on every analysis run; old rows are never deleted or overwritten. RLS: public SELECT, service-role INSERT/UPDATE/DELETE (4-policy pattern). Verifier: `scripts/migrations/create_predictions_table.py` (`verify_predictions_table()`, `--dry-run` mode; default = live verify). Uses shared `_migration_utils.py` utilities.
 
 **Classification Training** (`src/training/train_classification.py`): Exports `ClassificationMetrics`, `ClassificationTrainingResult`, `train_hold_classifier()`. ResNet-18/MobileNetV3 backbones, weighted cross-entropy, Adam/AdamW/SGD, StepLR/CosineAnnealingLR. Artifacts: `models/classification/v<YYYYMMDD_HHMMSS>/weights/{best,last}.pt` + `metadata.json`.
 
@@ -178,19 +181,22 @@ bouldering-analysis/
 │   ├── test_migration_utils.py   # Shared migration utility tests
 │   ├── test_migrations_holds.py  # Holds table migration tests
 │   ├── test_migrations_features.py  # Features table migration tests
+│   ├── test_migrations_predictions.py  # Predictions table migration tests
 │   └── archive/legacy/
 ├── migrations/
 │   └── sql/
 │       ├── 001_create_routes_table.sql  # Routes table DDL (RLS, triggers, indexes)
 │       ├── 002_create_holds_table.sql   # Holds table DDL (FK, RLS, unique constraint)
-│       └── 003_create_features_table.sql # Features table DDL (FK, RLS, JSONB)
+│       ├── 003_create_features_table.sql # Features table DDL (FK, RLS, JSONB)
+│       └── 004_create_predictions_table.sql # Predictions table DDL (FK, RLS, CHECKs, compound index)
 ├── scripts/
 │   ├── ping_supabase.py                 # Keep-alive ping (stdlib urllib)
 │   └── migrations/
 │       ├── _migration_utils.py          # Shared PostgREST verifier utilities
 │       ├── create_routes_table.py       # Routes table verifier (PostgREST)
 │       ├── create_holds_table.py        # Holds table verifier (PostgREST)
-│       └── create_features_table.py     # Features table verifier (PostgREST)
+│       ├── create_features_table.py     # Features table verifier (PostgREST)
+│       └── create_predictions_table.py  # Predictions table verifier (PostgREST)
 ├── docs/                         # DESIGN.md, MODEL_PRETRAIN.md, setup guides
 ├── plans/
 │   ├── MIGRATION_PLAN.md         # Full roadmap and DB schema definitions

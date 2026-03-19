@@ -492,25 +492,51 @@ CREATE TABLE IF NOT EXISTS features (
 );
 ```
 
-#### PR-9.4: Predictions Table — Pending
+#### PR-9.4: Predictions Table — ✅ COMPLETED (2026-03-20)
 
-##### Table: predictions (Pending — PR-9.4)
+Migration file: `migrations/sql/004_create_predictions_table.sql`
+Verifier script: `scripts/migrations/create_predictions_table.py`
+Tests: `tests/test_migrations_predictions.py`
+
+##### Table: predictions (✅ COMPLETED — PR-9.4)
 
 ```sql
 CREATE TABLE IF NOT EXISTS predictions (
-    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    route_id     UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
-    grade        VARCHAR(10) NOT NULL,
-    confidence   FLOAT       CHECK (confidence BETWEEN 0 AND 1),
-    uncertainty  FLOAT       CHECK (uncertainty BETWEEN 0 AND 1),
-    explanation  TEXT,
-    model_version VARCHAR(50),
-    predicted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    -- Multiple predictions per route allowed (history/versioning).
-    -- No UNIQUE on route_id. Index on route_id needed for listing.
-    -- Write-once: immutable prediction history.
+    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    route_id         UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+    estimator_type   VARCHAR(20) NOT NULL CHECK (estimator_type IN ('heuristic', 'ml')),
+    grade            VARCHAR(10) NOT NULL CHECK (grade IN (
+                         'V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9',
+                         'V10', 'V11', 'V12', 'V13', 'V14', 'V15', 'V16', 'V17'
+                     )),
+    grade_index      INT         NOT NULL CHECK (grade_index BETWEEN 0 AND 17),
+    confidence       FLOAT       NOT NULL CHECK (confidence BETWEEN 0 AND 1),
+    difficulty_score FLOAT       NOT NULL CHECK (difficulty_score BETWEEN 0 AND 1),
+    -- NULL for all current estimators (reserved for future calibrated uncertainty output).
+    uncertainty      FLOAT                CHECK (uncertainty BETWEEN 0 AND 1),
+    -- JSONB: contents validated at app layer by ExplanationResult Pydantic model.
+    explanation      JSONB,
+    -- NULL for heuristic estimator; v<YYYYMMDD_HHMMSS> for ML models.
+    model_version    VARCHAR(20),
+    predicted_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    -- Multiple predictions per route allowed (immutable history / model versioning).
+    -- No UNIQUE on route_id. Append-only: never DELETE before INSERT on re-run.
 );
+
+CREATE INDEX IF NOT EXISTS idx_predictions_route_id_predicted_at
+    ON predictions (route_id, predicted_at DESC);
 ```
+
+Key deviations from original plan:
+- `confidence NOT NULL` — always computed by both estimators (heuristic and ML)
+- `explanation JSONB` instead of `TEXT` — queryable structure, consistent with `feature_vector`
+- `model_version VARCHAR(20)` instead of `VARCHAR(50)` — matches `v<YYYYMMDD_HHMMSS>` format (16 chars)
+- Added `estimator_type VARCHAR(20)` — distinguishes heuristic vs ML predictions
+- Added `grade_index INT` — ordinal index (0–17) for efficient sorting/range queries
+- Added `difficulty_score FLOAT` — continuous difficulty metric for filtering/sorting
+- 6 CHECK constraints on all scalar domain columns (grade IN list, grade_index range, confidence, difficulty_score, uncertainty, estimator_type enum)
+- Compound index `(route_id, predicted_at DESC)` — optimised for sorted per-route listing
+- Write contract: append-only (INSERT only); no DELETE+INSERT re-run contract (unlike holds/features)
 
 #### PR-9.5: Feedback Table — Pending
 
@@ -760,7 +786,7 @@ Phase 4: Polish (M8 + M9 + M10)
 ├── ✅ PR-9.1: Routes Table
 ├── ✅ PR-9.2: Holds Table
 ├── ✅ PR-9.3: Features Table
-├── PR-9.4: Predictions Table
+├── ✅ PR-9.4: Predictions Table
 ├── PR-9.5: Feedback Table
 └── PR-10.x: Frontend Integration
 ```
@@ -833,6 +859,7 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-03-20**: Marked PR-9.4 (Predictions Table) as completed; updated predictions schema to match implementation (added estimator_type, grade_index, difficulty_score; changed explanation TEXT→JSONB, confidence nullable→NOT NULL, model_version VARCHAR(50)→VARCHAR(20)); added compound index, 6 CHECK constraints, and key deviation notes
 - **2026-03-19**: Marked PR-9.2 (Holds Table) as completed; marked PR-9.3 (Features Table) as completed; added PR-9.3 section with verifier/test details; refined PR-9.4/PR-9.5 schemas to use UUID PKs, NOT NULL, ON DELETE CASCADE; updated Phase 4 implementation order
 - **2026-03-10**: Marked PR-7.2 (Ordinal ML Estimator) as completed; marked Phase 3 (Intelligence) as completed; updated PR-7.2 task list with final implementation details
 - **2026-02-23**: Updated endpoint statuses to reflect Phase 1 (M1+M2) and Phase 2 (M3+M4) completion; marked POST /api/v1/routes/upload and POST /api/v1/routes as Completed; corrected POST /api/v1/routes/{id}/analyze and GET /api/v1/routes/{id}/holds back to Pending (HTTP handlers not yet implemented)
