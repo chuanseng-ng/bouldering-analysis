@@ -3,9 +3,6 @@
 -- Compatible with Supabase (PostgreSQL 15+).
 -- Depends on: 001_create_routes_table.sql (routes table must exist first).
 
--- Enable moddatetime extension (idempotent - also enabled in 001)
-CREATE EXTENSION IF NOT EXISTS moddatetime;
-
 -- Predictions table - persists grade prediction results from the grading pipeline.
 -- Predictions are append-only immutable history: every analysis run inserts a new
 -- row.  Old rows are never deleted or overwritten.  Multiple predictions per route

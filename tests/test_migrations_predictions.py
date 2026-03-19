@@ -141,9 +141,9 @@ class TestPredictionsMigrationSQL:
         """CREATE TABLE must use IF NOT EXISTS for idempotency."""
         assert "IF NOT EXISTS" in sql_content
 
-    def test_moddatetime_extension_enabled(self, sql_content: str) -> None:
-        """SQL must enable the moddatetime extension idempotently."""
-        assert "CREATE EXTENSION IF NOT EXISTS moddatetime" in sql_content
+    def test_no_moddatetime_extension(self, sql_content: str) -> None:
+        """SQL must NOT enable moddatetime — predictions table uses no trigger."""
+        assert "CREATE EXTENSION IF NOT EXISTS moddatetime" not in sql_content
 
     # ── Primary key ────────────────────────────────────────────────────────
 
