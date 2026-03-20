@@ -185,13 +185,15 @@ bouldering-analysis/
 │   ├── test_migrations_holds.py  # Holds table migration tests
 │   ├── test_migrations_features.py  # Features table migration tests
 │   ├── test_migrations_predictions.py  # Predictions table migration tests
+│   ├── test_migrations_feedback.py   # Feedback table migration tests
 │   └── archive/legacy/
 ├── migrations/
 │   └── sql/
 │       ├── 001_create_routes_table.sql  # Routes table DDL (RLS, triggers, indexes)
 │       ├── 002_create_holds_table.sql   # Holds table DDL (FK, RLS, unique constraint)
 │       ├── 003_create_features_table.sql # Features table DDL (FK, RLS, JSONB)
-│       └── 004_create_predictions_table.sql # Predictions table DDL (FK, RLS, CHECKs, compound index)
+│       ├── 004_create_predictions_table.sql # Predictions table DDL (FK, RLS, CHECKs, compound index)
+│       └── 005_create_feedback_table.sql # Feedback table DDL (FK, RLS, CHECK; feedback_insert_public intentionally TO PUBLIC for anonymous frontend submissions)
 ├── scripts/
 │   ├── ping_supabase.py                 # Keep-alive ping (stdlib urllib)
 │   └── migrations/
@@ -199,7 +201,8 @@ bouldering-analysis/
 │       ├── create_routes_table.py       # Routes table verifier (PostgREST)
 │       ├── create_holds_table.py        # Holds table verifier (PostgREST)
 │       ├── create_features_table.py     # Features table verifier (PostgREST)
-│       └── create_predictions_table.py  # Predictions table verifier (PostgREST)
+│       ├── create_predictions_table.py  # Predictions table verifier (PostgREST)
+│       └── create_feedback_table.py     # Feedback table verifier (PostgREST)
 ├── docs/                         # DESIGN.md, MODEL_PRETRAIN.md, setup guides
 ├── plans/
 │   ├── MIGRATION_PLAN.md         # Full roadmap and DB schema definitions
