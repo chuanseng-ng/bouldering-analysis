@@ -538,23 +538,37 @@ Key deviations from original plan:
 - Compound index `(route_id, predicted_at DESC)` — optimised for sorted per-route listing
 - Write contract: append-only (INSERT only); no DELETE+INSERT re-run contract (unlike holds/features)
 
-#### PR-9.5: Feedback Table — Pending
+#### PR-9.5: Feedback Table — Completed
 
-##### Table: feedback (Pending — PR-9.5)
+##### Table: feedback (Completed — PR-9.5)
 
 ```sql
 CREATE TABLE IF NOT EXISTS feedback (
     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     route_id    UUID        NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
-    user_grade  VARCHAR(10),
+    user_grade  VARCHAR(10) CHECK (user_grade IS NULL OR user_grade IN (
+                    'V0','V1','V2','V3','V4','V5','V6','V7','V8',
+                    'V9','V10','V11','V12','V13','V14','V15','V16','V17'
+                )),
     is_accurate BOOLEAN,
     comments    TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    -- Multiple feedback entries per route allowed.
-    -- No UNIQUE on route_id. Public INSERT (anonymous submission).
-    -- Write-once: immutable feedback history.
 );
+
+CREATE INDEX IF NOT EXISTS idx_feedback_route_id_created_at
+    ON feedback (route_id, created_at DESC);
 ```
+
+Key implementation notes:
+- `user_grade` nullable + `IS NULL OR IN (V0..V17)` CHECK — user may omit grade; 1 constraint `feedback_user_grade_check`
+- `is_accurate` plain nullable BOOLEAN — no CHECK needed
+- `comments` plain nullable TEXT — no length limit
+- No `UNIQUE (route_id)` — explicit `CREATE INDEX` (not UNIQUE) for route lookup
+- No `updated_at` / trigger — append-only, write-once
+- INSERT policy `TO PUBLIC` (not `TO service_role`) — anonymous submission from frontend
+- 4 RLS policies: `feedback_select_public`, `feedback_insert_public`, `feedback_update_service`, `feedback_delete_service`
+- Verifier: `scripts/migrations/create_feedback_table.py` (`verify_feedback_table()`, `--dry-run` mode; default = live verify)
+- 41 tests in `tests/test_migrations_feedback.py` (Layer 1: ~25 SQL, Layer 2: ~15 verifier + config, Layer 3: 1 integration skipped)
 
 **One migration per PR** as specified.
 
@@ -787,7 +801,7 @@ Phase 4: Polish (M8 + M9 + M10)
 ├── ✅ PR-9.2: Holds Table
 ├── ✅ PR-9.3: Features Table
 ├── ✅ PR-9.4: Predictions Table
-├── PR-9.5: Feedback Table
+├── ✅ PR-9.5: Feedback Table
 └── PR-10.x: Frontend Integration
 ```
 
@@ -859,6 +873,7 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-03-20**: Marked PR-9.5 (Feedback Table) as completed; added feedback schema with nullable user_grade CHECK, public INSERT policy, explicit index, and verifier/test details
 - **2026-03-20**: Marked PR-9.4 (Predictions Table) as completed; updated predictions schema to match implementation (added estimator_type, grade_index, difficulty_score; changed explanation TEXT→JSONB, confidence nullable→NOT NULL, model_version VARCHAR(50)→VARCHAR(20)); added compound index, 6 CHECK constraints, and key deviation notes
 - **2026-03-19**: Marked PR-9.2 (Holds Table) as completed; marked PR-9.3 (Features Table) as completed; added PR-9.3 section with verifier/test details; refined PR-9.4/PR-9.5 schemas to use UUID PKs, NOT NULL, ON DELETE CASCADE; updated Phase 4 implementation order
 - **2026-03-10**: Marked PR-7.2 (Ordinal ML Estimator) as completed; marked Phase 3 (Intelligence) as completed; updated PR-7.2 task list with final implementation details

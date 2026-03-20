@@ -80,11 +80,12 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | └─ ML Grade Estimator | ✅ | PR-7.2 | 97% |
 | 8. Explainability | **In Progress** | PR-8.x | 99% |
 | ├─ Explanation Engine | ✅ | PR-8.1 | 99% |
-| 9. Database Schema | **In Progress** | PR-9.x | - |
+| 9. Database Schema | **Completed** | PR-9.x | - |
 | ├─ Routes Table | ✅ | PR-9.1 | - |
 | ├─ Holds Table | ✅ | PR-9.2 | - |
 | ├─ Features Table | ✅ | PR-9.3 | - |
-| └─ Predictions Table | ✅ | PR-9.4 | 97% |
+| ├─ Predictions Table | ✅ | PR-9.4 | 97% |
+| └─ Feedback Table | ✅ | PR-9.5 | - |
 | 10. Frontend Development | Pending | PR-10.x | - |
 
 ### Archived Code
@@ -102,6 +103,8 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 **Database Schema — Features Table** (`migrations/sql/003_create_features_table.sql`): Created in PR-9.3. UUID PK (`gen_random_uuid()`), `route_id` UUID FK `UNIQUE` with `ON DELETE CASCADE`, `feature_vector` JSONB NOT NULL (validated at app layer by `RouteFeatures` Pydantic model), `extracted_at` TIMESTAMPTZ NOT NULL DEFAULT NOW(). No CHECK constraints, no trigger — write-once. `UNIQUE (route_id)` doubles as route lookup index (no separate index). RLS: public SELECT, service-role INSERT/UPDATE/DELETE. Re-run contract: `DELETE FROM features WHERE route_id = $1` then INSERT. Verifier: `scripts/migrations/create_features_table.py` (`verify_features_table()`, `--dry-run` mode; default = live verify). Uses shared `_migration_utils.py` utilities.
 
 **Database Schema -- Predictions Table** (`migrations/sql/004_create_predictions_table.sql`): Created in PR-9.4. UUID PK (`gen_random_uuid()`), `route_id` UUID FK with `ON DELETE CASCADE` (no UNIQUE -- multiple predictions per route allowed), `estimator_type` VARCHAR(20) NOT NULL CHECK IN ('heuristic','ml'), `grade` VARCHAR(10) NOT NULL CHECK IN (V0-V17), `grade_index` INT NOT NULL CHECK BETWEEN 0 AND 17, `confidence` FLOAT NOT NULL CHECK BETWEEN 0 AND 1, `difficulty_score` FLOAT NOT NULL CHECK BETWEEN 0 AND 1, `uncertainty` FLOAT nullable CHECK BETWEEN 0 AND 1 (reserved for future calibrated uncertainty output), `explanation` JSONB nullable (validated at app layer by `ExplanationResult` Pydantic model), `model_version` VARCHAR(20) nullable (NULL for heuristic, `v<YYYYMMDD_HHMMSS>` for ML), `predicted_at` TIMESTAMPTZ NOT NULL DEFAULT NOW(). 6 CHECK constraints total. Compound index: `idx_predictions_route_id_predicted_at` ON (route_id, predicted_at DESC) for sorted per-route listing. No `updated_at`/trigger -- append-only immutable history. Write contract: INSERT only on every analysis run; old rows are never deleted or overwritten. RLS: public SELECT, service-role INSERT/UPDATE/DELETE (4-policy pattern). Verifier: `scripts/migrations/create_predictions_table.py` (`verify_predictions_table()`, `--dry-run` mode; default = live verify). Uses shared `_migration_utils.py` utilities.
+
+**Database Schema -- Feedback Table** (`migrations/sql/005_create_feedback_table.sql`): Created in PR-9.5. UUID PK (`gen_random_uuid()`), `route_id` UUID FK with `ON DELETE CASCADE` (no UNIQUE -- multiple feedback per route allowed), `user_grade` VARCHAR(10) nullable CHECK (`IS NULL OR IN (V0-V17)`) -- user may omit grade, `is_accurate` BOOLEAN nullable (no CHECK), `comments` TEXT nullable (no length limit), `created_at` TIMESTAMPTZ NOT NULL DEFAULT NOW(). 1 CHECK constraint (`feedback_user_grade_check`). Explicit index: `idx_feedback_route_id_created_at` ON (route_id, created_at DESC) -- not UNIQUE. No `updated_at`/trigger -- append-only write-once. Key distinction: INSERT policy is `TO PUBLIC` (anonymous submission from frontend), not `TO service_role`. 4 RLS policies: `feedback_select_public`, `feedback_insert_public`, `feedback_update_service`, `feedback_delete_service`. Verifier: `scripts/migrations/create_feedback_table.py` (`verify_feedback_table()`, `--dry-run` mode; default = live verify). Uses shared `_migration_utils.py` utilities.
 
 **Classification Training** (`src/training/train_classification.py`): Exports `ClassificationMetrics`, `ClassificationTrainingResult`, `train_hold_classifier()`. ResNet-18/MobileNetV3 backbones, weighted cross-entropy, Adam/AdamW/SGD, StepLR/CosineAnnealingLR. Artifacts: `models/classification/v<YYYYMMDD_HHMMSS>/weights/{best,last}.pt` + `metadata.json`.
 
