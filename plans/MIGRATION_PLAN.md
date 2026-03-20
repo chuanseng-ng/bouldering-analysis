@@ -568,7 +568,7 @@ Key implementation notes:
 - INSERT policy `TO PUBLIC` (not `TO service_role`) — anonymous submission from frontend
 - 4 RLS policies: `feedback_select_public`, `feedback_insert_public`, `feedback_update_service`, `feedback_delete_service`
 - Verifier: `scripts/migrations/create_feedback_table.py` (`verify_feedback_table()`, `--dry-run` mode; default = live verify)
-- 41 tests in `tests/test_migrations_feedback.py` (Layer 1: ~25 SQL, Layer 2: ~15 verifier + config, Layer 3: 1 integration skipped)
+- 52 tests in `tests/test_migrations_feedback.py` (Layer 1: 35 SQL, Layer 2: 16 verifier + config, Layer 3: 1 integration skipped)
 
 **One migration per PR** as specified.
 
