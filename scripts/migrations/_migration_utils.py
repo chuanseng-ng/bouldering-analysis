@@ -2,8 +2,8 @@
 
 Provides common types, helpers, and a generic ``verify_table()`` entry-point
 used by ``create_routes_table.py``, ``create_holds_table.py``,
-``create_features_table.py``, ``create_predictions_table.py``, and future
-migration scripts.  All helpers query ``information_schema`` (for schema
+``create_features_table.py``, ``create_predictions_table.py``,
+``create_feedback_table.py``, and future migration scripts.  All helpers query ``information_schema`` (for schema
 metadata) or ``pg_catalog.pg_policies`` (for RLS policies) via the Supabase
 PostgREST client — no direct database connection is required.
 
