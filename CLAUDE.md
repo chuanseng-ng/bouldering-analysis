@@ -167,7 +167,8 @@ bouldering-analysis/
 │   │   ├── __init__.py           # Re-exports public API
 │   │   ├── exceptions.py         # FeatureExtractionError(ValueError)
 │   │   ├── geometry.py           # GeometryFeatures model, extract_geometry_features()
-│   │   └── holds.py              # HoldFeatures model, extract_hold_features()
+│   │   ├── holds.py              # HoldFeatures model, extract_hold_features()
+│   │   └── assembler.py          # RouteFeatures model, assemble_features()
 │   ├── grading/
 │   │   ├── __init__.py           # Re-exports public API
 │   │   ├── _utils.py             # Shared internal helpers (_clamp, _normalize_vector)
