@@ -433,6 +433,171 @@ def insert_records_bulk(table: str, rows: list[dict[str, Any]]) -> list[dict[str
         return records
 
 
+def update_record(table: str, record_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    """Update a record in a Supabase table by its ID.
+
+    Args:
+        table: Name of the table (e.g., ``"routes"``).
+        record_id: UUID of the record to update (must be a valid UUID string).
+        data: Dictionary of column names to new values.  Must not be empty.
+
+    Returns:
+        The updated record with all server-side fields.
+
+    Raises:
+        SupabaseClientError: If ``data`` is empty, ``record_id`` is invalid,
+            the record is not found, or the update fails.
+
+    Example:
+        >>> updated = update_record("routes", "uuid-here", {"status": "done"})
+        >>> print(updated["status"])
+        done
+    """
+    _validate_table_name(table)
+
+    if not record_id:
+        raise SupabaseClientError("Record ID cannot be empty")
+
+    try:
+        _uuid_module.UUID(record_id)
+    except ValueError as e:
+        raise SupabaseClientError(
+            f"Invalid record ID '{record_id}': must be a valid UUID"
+        ) from e
+
+    if not data:
+        raise SupabaseClientError("Data dictionary cannot be empty")
+
+    client = get_supabase_client()
+
+    with _supabase_op(f"Failed to update record in table '{table}'"):
+        result = client.table(table).update(data).eq("id", record_id).execute()
+
+        if not result.data:
+            raise SupabaseClientError(
+                f"Record '{record_id}' not found in table '{table}'"
+            )
+
+        record: dict[str, Any] = result.data[0]  # type: ignore[assignment]
+        return record
+
+
+def select_records(
+    table: str,
+    filters: dict[str, Any] | None = None,
+    columns: str = "*",
+    order_by: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> list[dict[str, Any]]:
+    """Select records from a Supabase table with optional filtering and pagination.
+
+    Args:
+        table: Name of the table (e.g., ``"holds"``).
+        filters: Optional dictionary of ``{column: value}`` equality filters.
+            All filters are combined with AND.
+        columns: Comma-separated column names to select (default ``"*"``).
+        order_by: Optional ordering in ``"column.direction"`` format
+            (e.g., ``"created_at.desc"`` or ``"hold_id.asc"``).
+            If direction is omitted, ascending order is used.
+        limit: Maximum number of records to return.
+        offset: Number of records to skip before returning results.
+            Only applied when ``limit`` is also specified.
+
+    Returns:
+        List of matching records as dictionaries.  Empty list if no matches.
+
+    Raises:
+        SupabaseClientError: If the query fails or table name is invalid.
+
+    Example:
+        >>> holds = select_records(
+        ...     "holds",
+        ...     filters={"route_id": "uuid-here"},
+        ...     order_by="hold_id.asc",
+        ... )
+        >>> print(len(holds))
+        5
+    """
+    _validate_table_name(table)
+
+    if columns != "*" and not re.fullmatch(r"[A-Za-z0-9_,\s]+", columns):
+        raise SupabaseClientError(
+            f"Invalid columns selector '{columns}': only identifiers, commas, and spaces are allowed"
+        )
+
+    client = get_supabase_client()
+
+    with _supabase_op(f"Failed to select records from table '{table}'"):
+        query = client.table(table).select(columns)
+
+        if filters:
+            for k, v in filters.items():
+                query = query.eq(k, v)
+
+        if order_by:
+            parts = order_by.split(".", 1)
+            col = parts[0]
+            desc = len(parts) > 1 and parts[1].lower() == "desc"
+            query = query.order(col, desc=desc)
+
+        if limit is not None:
+            if offset is not None:
+                query = query.range(offset, offset + limit - 1)
+            else:
+                query = query.limit(limit)
+
+        result = query.execute()
+        records: list[dict[str, Any]] = (
+            list(result.data)  # type: ignore[arg-type]
+            if result.data
+            else []
+        )
+        return records
+
+
+def delete_records(table: str, filters: dict[str, Any]) -> int:
+    """Delete records from a Supabase table matching the given filters.
+
+    Requires at least one filter to prevent accidental full-table deletion.
+
+    Args:
+        table: Name of the table (e.g., ``"features"``).
+        filters: Non-empty dictionary of ``{column: value}`` equality filters.
+            All filters are combined with AND.
+
+    Returns:
+        Number of records deleted.
+
+    Raises:
+        SupabaseClientError: If ``filters`` is empty, table name is invalid,
+            or the delete operation fails.
+
+    Example:
+        >>> count = delete_records("features", {"route_id": "uuid-here"})
+        >>> print(count)
+        1
+    """
+    _validate_table_name(table)
+
+    if not filters:
+        raise SupabaseClientError(
+            "filters cannot be empty: refusing to delete all records from table "
+            f"'{table}'"
+        )
+
+    client = get_supabase_client()
+
+    with _supabase_op(f"Failed to delete records from table '{table}'"):
+        query = client.table(table).delete()
+
+        for k, v in filters.items():
+            query = query.eq(k, v)
+
+        result = query.execute()
+        return len(result.data) if result.data else 0
+
+
 def select_record_by_id(
     table: str,
     record_id: str,

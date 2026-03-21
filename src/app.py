@@ -4,6 +4,7 @@ This module provides the application factory pattern for creating
 configured FastAPI instances with all middleware and routes.
 """
 
+import hmac
 import threading
 import time
 from collections.abc import Awaitable, Callable
@@ -17,7 +18,7 @@ from fastapi.responses import JSONResponse
 
 from src.config import Settings, get_settings, get_settings_override
 from src.logging_config import configure_logging, get_logger
-from src.routes import health_router, routes_router, upload_router
+from src.routes import analysis_router, health_router, routes_router, upload_router
 
 logger = get_logger(__name__)
 
@@ -207,7 +208,7 @@ def _configure_middleware(app: FastAPI, settings: Settings) -> None:
         is_health = any(path == p or path.startswith(p + "/") for p in _HEALTH_PATHS)
         if settings.api_key and not is_health:
             provided_key = request.headers.get("X-API-Key", "")
-            if provided_key != settings.api_key:
+            if not hmac.compare_digest(provided_key, settings.api_key):
                 return JSONResponse(
                     status_code=401,
                     content={"detail": "Invalid or missing API key"},
@@ -263,6 +264,7 @@ def _register_routes(app: FastAPI) -> None:
     app.include_router(health_router, prefix="/api/v1", tags=["health-v1"])
     app.include_router(upload_router)
     app.include_router(routes_router)
+    app.include_router(analysis_router)
 
 
 # Create default app instance for uvicorn
