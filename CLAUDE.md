@@ -72,13 +72,14 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | 5. Route Graph | **Completed** | PR-5.x | 97% |
 | ├─ Route Graph Builder | ✅ | PR-5.1 | 96% |
 | └─ Route Constraints | ✅ | PR-5.2 | 97% |
-| 6. Feature Extraction | **In Progress** | PR-6.x | - |
+| 6. Feature Extraction | **Completed** | PR-6.x | 97% |
 | ├─ Geometry Features | ✅ | PR-6.1 | 97% |
 | ├─ Hold Features | ✅ | PR-6.2 | 100% |
-| 7. Grade Estimation | **In Progress** | PR-7.x | - |
+| └─ Feature Assembler | ✅ | PR-6.3 | 96% |
+| 7. Grade Estimation | **Completed** | PR-7.x | 97% |
 | ├─ Heuristic Grade Estimator | ✅ | PR-7.1 | - |
 | └─ ML Grade Estimator | ✅ | PR-7.2 | 97% |
-| 8. Explainability | **In Progress** | PR-8.x | 99% |
+| 8. Explainability | **Completed** | PR-8.x | 99% |
 | ├─ Explanation Engine | ✅ | PR-8.1 | 99% |
 | 9. Database Schema | **Completed** | PR-9.x | - |
 | ├─ Routes Table | ✅ | PR-9.1 | - |
