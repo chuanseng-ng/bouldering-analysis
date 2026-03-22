@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, Query, status
 from pydantic import BaseModel, Field, field_validator
 
 from src.config import get_settings
@@ -533,11 +533,11 @@ async def list_routes(
     route_status: RouteStatus | None = None,
     limit: Annotated[
         int,
-        Field(ge=1, le=100, description="Maximum number of routes to return"),
+        Query(ge=1, le=100, description="Maximum number of routes to return"),
     ] = 20,
     offset: Annotated[
         int,
-        Field(ge=0, description="Number of routes to skip"),
+        Query(ge=0, description="Number of routes to skip"),
     ] = 0,
 ) -> RouteListResponse:
     """List routes with optional status filter and pagination.
@@ -575,6 +575,10 @@ async def list_routes(
             timeout=settings.supabase_timeout_seconds,
         )
     except asyncio.TimeoutError:
+        logger.error(
+            "Database operation timed out",
+            extra={"operation": "select_records", "table": _ROUTES_TABLE},
+        )
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Request timed out. Please try again.",

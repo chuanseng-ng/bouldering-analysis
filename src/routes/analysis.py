@@ -1109,5 +1109,5 @@ async def submit_feedback(
     return FeedbackResponse(
         id=str(record["id"]),
         route_id=route_id_str,
-        created_at=str(record.get("created_at", "")),
+        created_at=str(record["created_at"]),
     )
