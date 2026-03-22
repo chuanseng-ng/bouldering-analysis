@@ -850,9 +850,7 @@ class TestLoadRouteOr404:
             patch("src.routes.analysis.select_record_by_id", return_value=record),
             patch("src.routes.analysis.get_settings", return_value=_MOCK_SETTINGS),
         ):
-            result = asyncio.get_event_loop().run_until_complete(
-                _load_route_or_404(_ROUTE_ID)
-            )
+            result = asyncio.run(_load_route_or_404(_ROUTE_ID))
         assert result["id"] == _ROUTE_ID
 
     def test_raises_404_when_not_found(self) -> None:
@@ -863,9 +861,7 @@ class TestLoadRouteOr404:
             patch("src.routes.analysis.get_settings", return_value=_MOCK_SETTINGS),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                asyncio.get_event_loop().run_until_complete(
-                    _load_route_or_404(_ROUTE_ID)
-                )
+                asyncio.run(_load_route_or_404(_ROUTE_ID))
         assert exc_info.value.status_code == 404
 
     def test_raises_500_on_db_error(self) -> None:
@@ -879,9 +875,7 @@ class TestLoadRouteOr404:
             patch("src.routes.analysis.get_settings", return_value=_MOCK_SETTINGS),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                asyncio.get_event_loop().run_until_complete(
-                    _load_route_or_404(_ROUTE_ID)
-                )
+                asyncio.run(_load_route_or_404(_ROUTE_ID))
         assert exc_info.value.status_code == 500
 
 
@@ -1435,20 +1429,16 @@ class TestLoadRouteOr404Timeout:
     """Test the timeout path in _load_route_or_404."""
 
     def test_load_route_timeout_raises_504(self, client: TestClient) -> None:
-        """asyncio.TimeoutError in _load_route_or_404 causes analyze to return 504 via HTTPException."""
-        # Trigger by patching asyncio.wait_for inside the analysis module
+        """asyncio.TimeoutError from wait_for in _load_route_or_404 returns 504."""
         import asyncio as _asyncio
-
-        async def _raise_timeout(*args, **kwargs):  # type: ignore[no-untyped-def]
-            raise _asyncio.TimeoutError()
 
         with (
             patch("src.routes.analysis.get_settings", return_value=_MOCK_SETTINGS),
-            patch("src.routes.analysis.asyncio") as mock_asyncio,
+            patch(
+                "src.routes.analysis.asyncio.wait_for",
+                side_effect=_asyncio.TimeoutError(),
+            ),
         ):
-            mock_asyncio.wait_for = _raise_timeout
-            mock_asyncio.TimeoutError = _asyncio.TimeoutError
-            mock_asyncio.to_thread = _asyncio.to_thread
             resp = client.post(f"/api/v1/routes/{_ROUTE_ID}/analyze")
 
-        assert resp.status_code in (504, 500)
+        assert resp.status_code == 504

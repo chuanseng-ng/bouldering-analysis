@@ -1013,6 +1013,14 @@ class TestListRoutes:
 
         assert response.status_code == status.HTTP_200_OK
         mock_select.assert_called_once()
+        # Second positional arg is the filters dict; verify status filter is forwarded
+        call_args = mock_select.call_args
+        filters_arg = (
+            call_args.args[1]
+            if len(call_args.args) > 1
+            else call_args.kwargs.get("filters")
+        )
+        assert filters_arg == {"status": "done"}
 
     @patch("src.routes.routes.select_records")
     def test_list_routes_pagination_params(
