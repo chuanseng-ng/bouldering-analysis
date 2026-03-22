@@ -137,8 +137,13 @@ class RouteConstraints(BaseModel):
     """Request model for setting route constraints.
 
     Attributes:
-        start_hold_ids: Non-empty list of hold IDs marking the start.
-        finish_hold_ids: Non-empty list of hold IDs marking the finish.
+        start_hold_ids: Non-empty list of hold IDs marking the start position(s).
+            Multiple start holds are supported (e.g. two-handed start).
+        finish_hold_ids: Exactly one hold ID marking the finish position.
+            Limited to a single element (``min_length=1, max_length=1``) because
+            ``apply_route_constraints`` accepts a single ``finish_id: int``.
+            A list is accepted in the request for API consistency, but only
+            the first (and only) element is used when building the route graph.
     """
 
     start_hold_ids: Annotated[list[int], Field(min_length=1)]
@@ -374,11 +379,19 @@ async def _load_route_or_404(route_id: str) -> dict[str, Any]:
             timeout=settings.supabase_timeout_seconds,
         )
     except asyncio.TimeoutError:
+        logger.error(
+            "Route load timed out",
+            extra={"route_id": route_id},
+        )
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Request timed out. Please try again.",
         ) from None
     except SupabaseClientError as e:
+        logger.error(
+            "Failed to load route record",
+            extra={"route_id": route_id, "error": str(e)},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to load route record",
@@ -934,11 +947,11 @@ def _run_grading_pipeline(
             extra={"route_id": route_id, "error": str(e)},
         )
 
-    # Persist features (delete old, insert new)
-    try:
-        delete_records(_FEATURES_TABLE, {"route_id": route_id})
-    except SupabaseClientError:
-        pass  # OK if no prior features row
+    # Persist features (delete old if present, insert new).
+    # delete_records returns 0 when no rows match — no exception is raised for
+    # the "no prior features" case, so any SupabaseClientError here is a real
+    # failure (connection error, permission denied) and must propagate.
+    delete_records(_FEATURES_TABLE, {"route_id": route_id})
     insert_record(
         _FEATURES_TABLE,
         {

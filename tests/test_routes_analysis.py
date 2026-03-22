@@ -1382,8 +1382,8 @@ class TestRunGradingPipeline:
         assert prediction is heuristic
         assert explanation is None
 
-    def test_prior_features_delete_error_suppressed(self) -> None:
-        """SupabaseClientError from delete_records is suppressed (no prior features)."""
+    def test_features_delete_error_propagates(self) -> None:
+        """SupabaseClientError from delete_records propagates (real failure, not suppressed)."""
         from src.routes.analysis import _run_grading_pipeline
 
         heuristic = self._mock_heuristic()
@@ -1399,7 +1399,7 @@ class TestRunGradingPipeline:
             patch("src.routes.analysis.generate_explanation", return_value=MagicMock()),
             patch(
                 "src.routes.analysis.delete_records",
-                side_effect=SupabaseClientError("no rows"),
+                side_effect=SupabaseClientError("connection refused"),
             ),
             patch("src.routes.analysis.insert_record"),
             patch("src.routes.analysis.update_record"),
@@ -1408,16 +1408,15 @@ class TestRunGradingPipeline:
             mock_constrain.return_value = MagicMock()
             mock_features.return_value = MagicMock()
 
-            prediction, _ = _run_grading_pipeline(
-                route_id=_ROUTE_ID,
-                classified_holds=holds,
-                wall_angle=0.0,
-                start_hold_ids=[0],
-                finish_hold_ids=[2],
-                ml_grade_model_path="",
-            )
-
-        assert prediction is heuristic
+            with pytest.raises(SupabaseClientError):
+                _run_grading_pipeline(
+                    route_id=_ROUTE_ID,
+                    classified_holds=holds,
+                    wall_angle=0.0,
+                    start_hold_ids=[0],
+                    finish_hold_ids=[2],
+                    ml_grade_model_path="",
+                )
 
 
 # ---------------------------------------------------------------------------
