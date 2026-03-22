@@ -960,3 +960,103 @@ class TestRouteCreateWallAngleBoundaries:
             assert response.status_code == status.HTTP_201_CREATED
         else:
             assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+class TestListRoutes:
+    """Tests for GET /api/v1/routes (PR-10.5)."""
+
+    @patch("src.routes.routes.select_records")
+    def test_list_routes_returns_all(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+        sample_route_record: dict[str, Any],
+    ) -> None:
+        """Returns list of routes with count, offset, limit."""
+        mock_select.return_value = [sample_route_record, sample_route_record]
+
+        response = client.get("/api/v1/routes")
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["count"] == 2
+        assert body["offset"] == 0
+        assert body["limit"] == 20
+        assert len(body["routes"]) == 2
+
+    @patch("src.routes.routes.select_records")
+    def test_list_routes_empty(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Returns empty list when no routes exist."""
+        mock_select.return_value = []
+
+        response = client.get("/api/v1/routes")
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["count"] == 0
+        assert body["routes"] == []
+
+    @patch("src.routes.routes.select_records")
+    def test_list_routes_status_filter(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Status filter is passed through to select_records."""
+        mock_select.return_value = []
+
+        response = client.get("/api/v1/routes?route_status=done")
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_select.assert_called_once()
+        # Second positional arg is the filters dict; verify status filter is forwarded
+        call_args = mock_select.call_args
+        filters_arg = (
+            call_args.args[1]
+            if len(call_args.args) > 1
+            else call_args.kwargs.get("filters")
+        )
+        assert filters_arg == {"status": "done"}
+
+    @patch("src.routes.routes.select_records")
+    def test_list_routes_pagination_params(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Pagination parameters limit and offset are forwarded."""
+        mock_select.return_value = []
+
+        response = client.get("/api/v1/routes?limit=10&offset=5")
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["limit"] == 10
+        assert body["offset"] == 5
+
+    @patch("src.routes.routes.select_records")
+    def test_list_routes_db_error_returns_500(
+        self,
+        mock_select: MagicMock,
+        client: TestClient,
+    ) -> None:
+        """Returns 500 on database error."""
+        mock_select.side_effect = SupabaseClientError("db error")
+
+        response = client.get("/api/v1/routes")
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+    def test_list_routes_invalid_limit_returns_422(self, client: TestClient) -> None:
+        """Returns 422 when limit is out of range."""
+        response = client.get("/api/v1/routes?limit=0")
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_list_routes_limit_too_large_returns_422(self, client: TestClient) -> None:
+        """Returns 422 when limit exceeds maximum."""
+        response = client.get("/api/v1/routes?limit=101")
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

@@ -40,6 +40,12 @@ class Settings(BaseSettings):
             non-health endpoints. Empty string disables authentication.
         rate_limit_upload: Maximum upload requests per IP per minute on
             ``POST /api/v1/routes/upload``. Set to 0 to disable rate limiting.
+        detection_model_path: Path to trained YOLOv8 detection weights (.pt).
+            Empty string means detection is not configured (analysis returns 503).
+        classification_model_path: Path to trained classification weights (.pt).
+            Empty string means classification is not configured (analysis returns 503).
+        ml_grade_model_path: Path to trained XGBoost grade estimator directory.
+            Empty string means heuristic-only grading is used.
     """
 
     app_name: str = "bouldering-analysis"
@@ -68,6 +74,11 @@ class Settings(BaseSettings):
 
     # Rate limiting: max upload requests per minute per IP (0 = disabled)
     rate_limit_upload: int = 10
+
+    # ML model paths (empty string = model not configured / not used)
+    detection_model_path: str = ""  # BA_DETECTION_MODEL_PATH
+    classification_model_path: str = ""  # BA_CLASSIFICATION_MODEL_PATH
+    ml_grade_model_path: str = ""  # BA_ML_GRADE_MODEL_PATH (empty = heuristic only)
 
     model_config = SettingsConfigDict(
         env_prefix="BA_",

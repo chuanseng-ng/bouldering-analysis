@@ -255,3 +255,37 @@ class TestApiKeySettings:
         """Negative rate_limit_upload should raise ValidationError."""
         with pytest.raises(ValidationError):
             Settings(rate_limit_upload=-1)
+
+
+class TestModelPathConfig:
+    """Tests for model path configuration fields (PR-10.1)."""
+
+    def test_model_paths_default_to_empty(self) -> None:
+        """All three model path fields default to empty string."""
+        settings = get_settings_override({})
+        assert settings.detection_model_path == ""
+        assert settings.classification_model_path == ""
+        assert settings.ml_grade_model_path == ""
+
+    def test_model_paths_can_be_set(self) -> None:
+        """Model path fields can be set via override."""
+        settings = get_settings_override(
+            {
+                "detection_model_path": "/models/detect/best.pt",
+                "classification_model_path": "/models/classify/best.pt",
+                "ml_grade_model_path": "/models/grade/v20260101",
+            }
+        )
+        assert settings.detection_model_path == "/models/detect/best.pt"
+        assert settings.classification_model_path == "/models/classify/best.pt"
+        assert settings.ml_grade_model_path == "/models/grade/v20260101"
+
+    def test_detection_model_path_optional_empty_means_not_configured(self) -> None:
+        """Empty detection_model_path means detection model is not configured."""
+        settings = get_settings_override({"detection_model_path": ""})
+        assert not settings.detection_model_path
+
+    def test_ml_grade_model_path_empty_means_heuristic_only(self) -> None:
+        """Empty ml_grade_model_path means heuristic-only grading."""
+        settings = get_settings_override({"ml_grade_model_path": ""})
+        assert not settings.ml_grade_model_path

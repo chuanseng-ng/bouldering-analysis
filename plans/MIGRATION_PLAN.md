@@ -766,6 +766,41 @@ See [docs/TELEGRAM_BOT.md](../docs/TELEGRAM_BOT.md) for detailed implementation 
 
 ---
 
+#### PR-10.10 — TODO Review (post all PR-10 items)
+
+**Goal**: Review [`TODO.md`](../TODO.md) once all PR-10 sub-items (10.1–10.9)
+are complete and decide which deferred items must be addressed before the
+project is considered production-ready.
+
+- **Function**: N/A (review + decision task)
+- **Tasks**:
+  1. Open `TODO.md` and read every item in full.
+  2. For each item, assess current state: has the trigger condition been met
+     (e.g. production URL known, deployment topology decided, user base exists)?
+  3. Categorise each item as one of:
+     - **Act now** — condition met, implement in this PR or create a follow-up PR immediately.
+     - **Defer again** — condition not yet met; update the entry with the new reason.
+     - **Close** — no longer relevant (e.g. superseded by a different decision).
+  4. For every **Act now** item, either implement the fix inline or create a
+     clearly scoped follow-up PR with a spec in `plans/specs/`.
+  5. Remove closed items from `TODO.md`; update deferred items with new context.
+- **Specific items to evaluate**:
+  - **S1** (rate limiting): Is the deployment topology known? Single-process or
+    multi-worker? Choose `_UploadRateLimiter` vs. `slowapi` + Redis.
+  - **S2** (CORS): Is the Vercel/frontend URL known? Set `BA_CORS_ORIGINS` and
+    remove `allow_credentials=True` if cookies are not used.
+  - **S3** (exception leakage in 422s): Is the API now public-facing? If yes,
+    map exceptions to generic user messages.
+  - **S4** (race condition): Is concurrent analysis traffic expected? If yes,
+    implement `update_record_if_status()` in `supabase_client.py`.
+- **Dependencies**: PR-10.1 through PR-10.9 all complete
+- **Estimated Effort**: Small (review) + variable (any follow-up implementation)
+- **Deliverables**:
+  - Updated `TODO.md` with disposition notes for every item
+  - Zero or more new scoped follow-up PRs or inline fixes
+
+---
+
 ## Implementation Order
 
 ```text
@@ -802,7 +837,16 @@ Phase 4: Polish (M8 + M9 + M10)
 ├── ✅ PR-9.3: Features Table
 ├── ✅ PR-9.4: Predictions Table
 ├── ✅ PR-9.5: Feedback Table
-└── PR-10.x: Frontend Integration
+├── ✅ PR-10.1: Supabase Client Extensions + Config
+├── ✅ PR-10.2: Routes Table Extension
+├── ✅ PR-10.3: Analysis Endpoint
+├── ✅ PR-10.4: Constraints & Prediction Endpoints
+├── ✅ PR-10.5: Feedback + List Routes
+├── PR-10.6: Lovable Prototype
+├── PR-10.7: Next.js Frontend
+├── PR-10.8: Vercel Deployment
+├── PR-10.9: Telegram Bot
+└── PR-10.10: TODO Review (post all PR-10 items)
 ```
 
 ---
@@ -873,6 +917,7 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-03-21**: Marked PR-10.1–10.5 (Frontend Integration API) as completed; added PR-10.10 (TODO Review) as a post-PR-10 gate; created TODO.md with four deferred security items (S1 rate limiting, S2 CORS, S3 exception leakage, S4 race condition)
 - **2026-03-20**: Marked PR-9.5 (Feedback Table) as completed; added feedback schema with nullable user_grade CHECK, public INSERT policy, explicit index, and verifier/test details
 - **2026-03-20**: Marked PR-9.4 (Predictions Table) as completed; updated predictions schema to match implementation (added estimator_type, grade_index, difficulty_score; changed explanation TEXT→JSONB, confidence nullable→NOT NULL, model_version VARCHAR(50)→VARCHAR(20)); added compound index, 6 CHECK constraints, and key deviation notes
 - **2026-03-19**: Marked PR-9.2 (Holds Table) as completed; marked PR-9.3 (Features Table) as completed; added PR-9.3 section with verifier/test details; refined PR-9.4/PR-9.5 schemas to use UUID PKs, NOT NULL, ON DELETE CASCADE; updated Phase 4 implementation order

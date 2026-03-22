@@ -1,8 +1,8 @@
 # CLAUDE.md - AI Assistant Guide for Bouldering Route Analysis
 
-**Version**: 2026.03.20
-**Last Updated**: 2026-03-20
-**Architecture**: FastAPI + Supabase (Migration in Progress)
+**Version**: 2026.03.21
+**Last Updated**: 2026-03-21
+**Architecture**: FastAPI + Supabase
 **Repository**: bouldering-analysis
 
 ---
@@ -38,7 +38,7 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 
 - **Backend**: FastAPI 0.128.6 + Pydantic Settings + uvicorn
 - **ML/CV**: PyTorch 2.9.1 + Ultralytics YOLOv8 8.3.233 + torchvision + XGBoost + scikit-learn
-- **Database**: Supabase (Postgres + Storage) — in progress
+- **Database**: Supabase (Postgres + Storage)
 - **Frontend**: React/Next.js (Lovable → Vercel) + Telegram Bot alternative
 - **Testing**: pytest 8.3.5 | Coverage: ≥85% now → ≥90% final
 - **Quality**: mypy, ruff, pylint | Score: ≥8.5/10 now → ≥9.0/10 final
@@ -48,7 +48,7 @@ A web-based system that estimates bouldering route difficulty (V-scale) from ima
 
 ## Architecture Status
 
-The codebase is being migrated from Flask to FastAPI + Supabase.
+The codebase has been migrated from Flask to FastAPI + Supabase. Backend API layer is complete; frontend UI is pending.
 
 | Milestone | Status | PR | Coverage |
 |-----------|--------|-----|----------|
@@ -87,7 +87,12 @@ The codebase is being migrated from Flask to FastAPI + Supabase.
 | ├─ Features Table | ✅ | PR-9.3 | - |
 | ├─ Predictions Table | ✅ | PR-9.4 | 97% |
 | └─ Feedback Table | ✅ | PR-9.5 | - |
-| 10. Frontend Development | Pending | PR-10.x | - |
+| 10. Frontend Integration API | **Completed** | PR-10.x | 95% |
+| ├─ Supabase Client Extensions | ✅ | PR-10.1 | - |
+| ├─ Routes Table Extension | ✅ | PR-10.2 | - |
+| ├─ Analyze + Holds Endpoints | ✅ | PR-10.3 | - |
+| ├─ Constraints + Prediction Endpoints | ✅ | PR-10.4 | - |
+| └─ Feedback + List Routes Endpoints | ✅ | PR-10.5 | - |
 
 ### Archived Code
 
@@ -95,7 +100,7 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 
 ### Implemented Module Summary
 
-**Supabase Client** (`src/database/supabase_client.py`): `get_supabase_client()`, `upload_to_storage()`, `delete_from_storage()`, `get_storage_url()`, `list_storage_files()`. Storage buckets: `route-images`, `model-outputs`. See `docs/SUPABASE_SETUP.md`.
+**Supabase Client** (`src/database/supabase_client.py`): `get_supabase_client()`, `upload_to_storage()`, `delete_from_storage()`, `get_storage_url()`, `list_storage_files()`, `insert_record()`, `insert_records_bulk()`, `update_record()`, `select_records()`, `delete_records()`, `select_record_by_id()`, `validate_table_name()`. Storage buckets: `route-images`, `model-outputs`. Known tables allowlist: `routes`, `holds`, `features`, `predictions`, `feedback`. `update_record()` validates UUID format and requires non-empty data dict. `select_records()` supports equality filters, column selection, ordering (`"column.direction"` format), limit, and offset (range-based pagination). `delete_records()` requires at least one filter to prevent accidental full-table deletion. See `docs/SUPABASE_SETUP.md`.
 
 **Database Schema — Routes Table** (`migrations/sql/001_create_routes_table.sql`): Created in PR-9.1. UUID primary key (`gen_random_uuid()`), `image_url` (TEXT, max 2048), `wall_angle` (FLOAT, nullable, CHECK -90..90), `status` (VARCHAR(20), CHECK pending/processing/done/failed, DEFAULT 'pending'), `created_at`/`updated_at` (TIMESTAMPTZ NOT NULL DEFAULT NOW()). `moddatetime` trigger auto-updates `updated_at`. Indexes: `idx_routes_created_at` (DESC) for pagination, `idx_routes_status_pending` (partial) for job polling. RLS enabled: public SELECT, service-role INSERT/UPDATE/DELETE. Verifier script: `scripts/migrations/create_routes_table.py` (`verify_routes_table()`, `VerificationResult`, `--dry-run` mode; default = live verify). Keep-alive script: `scripts/ping_supabase.py` (stdlib-only `urllib`, hits `/api/v1/health/db`). All M9 tables (holds, features, predictions, feedback) are now complete.
 
@@ -106,6 +111,12 @@ Legacy Flask code in `src/archive/legacy/` and `tests/archive/legacy/`. **Do not
 **Database Schema -- Predictions Table** (`migrations/sql/004_create_predictions_table.sql`): Created in PR-9.4. UUID PK (`gen_random_uuid()`), `route_id` UUID FK with `ON DELETE CASCADE` (no UNIQUE -- multiple predictions per route allowed), `estimator_type` VARCHAR(20) NOT NULL CHECK IN ('heuristic','ml'), `grade` VARCHAR(10) NOT NULL CHECK IN (V0-V17), `grade_index` INT NOT NULL CHECK BETWEEN 0 AND 17, `confidence` FLOAT NOT NULL CHECK BETWEEN 0 AND 1, `difficulty_score` FLOAT NOT NULL CHECK BETWEEN 0 AND 1, `uncertainty` FLOAT nullable CHECK BETWEEN 0 AND 1 (reserved for future calibrated uncertainty output), `explanation` JSONB nullable (validated at app layer by `ExplanationResult` Pydantic model), `model_version` VARCHAR(20) nullable (NULL for heuristic, `v<YYYYMMDD_HHMMSS>` for ML), `predicted_at` TIMESTAMPTZ NOT NULL DEFAULT NOW(). 6 CHECK constraints total. Compound index: `idx_predictions_route_id_predicted_at` ON (route_id, predicted_at DESC) for sorted per-route listing. No `updated_at`/trigger -- append-only immutable history. Write contract: INSERT only on every analysis run; old rows are never deleted or overwritten. RLS: public SELECT, service-role INSERT/UPDATE/DELETE (4-policy pattern). Verifier: `scripts/migrations/create_predictions_table.py` (`verify_predictions_table()`, `--dry-run` mode; default = live verify). Uses shared `_migration_utils.py` utilities.
 
 **Database Schema -- Feedback Table** (`migrations/sql/005_create_feedback_table.sql`): Created in PR-9.5. UUID PK (`gen_random_uuid()`), `route_id` UUID FK with `ON DELETE CASCADE` (no UNIQUE -- multiple feedback per route allowed), `user_grade` VARCHAR(10) nullable CHECK (`IS NULL OR IN (V0-V17)`) -- user may omit grade, `is_accurate` BOOLEAN nullable (no CHECK), `comments` TEXT nullable (no length limit), `created_at` TIMESTAMPTZ NOT NULL DEFAULT NOW(). 1 CHECK constraint (`feedback_user_grade_check`). Explicit index: `idx_feedback_route_id_created_at` ON (route_id, created_at DESC) -- not UNIQUE. No `updated_at`/trigger -- append-only write-once. Key distinction: INSERT policy is `TO PUBLIC` (anonymous submission from frontend), not `TO service_role`. 4 RLS policies: `feedback_select_public`, `feedback_insert_public`, `feedback_update_service`, `feedback_delete_service`. Verifier: `scripts/migrations/create_feedback_table.py` (`verify_feedback_table()`, `--dry-run` mode; default = live verify). Uses shared `_migration_utils.py` utilities.
+
+**Database Schema -- Routes Table Extension** (`migrations/sql/006_extend_routes_table.sql`): Created in PR-10.2. Adds `start_hold_ids INTEGER[]` and `finish_hold_ids INTEGER[]` nullable columns to the routes table. Both default to NULL (user has not yet set constraints). Partial index `idx_routes_constraints_set` ON (id, updated_at DESC) WHERE both columns are NOT NULL for efficient history/polling queries. All statements use IF NOT EXISTS for re-run safety.
+
+**Analysis Endpoints** (`src/routes/analysis.py`): Created in PR-10.3/10.4/10.5. Router prefix `/api/v1`, tag `analysis`. Five endpoints: `POST /routes/{route_id}/analyze` (run detection + classification pipeline, transitions status pending -> processing -> done/failed), `GET /routes/{route_id}/holds` (list classified holds ordered by hold_id), `PUT /routes/{route_id}/constraints` (set start/finish holds, build graph, extract features, estimate grade, generate explanation, persist all results), `GET /routes/{route_id}/prediction` (retrieve latest prediction), `POST /routes/{route_id}/feedback` (submit anonymous user feedback). Pydantic request/response models: `AnalyzeResponse`, `HoldResponse`, `HoldsListResponse`, `RouteConstraints`, `PredictionResponse`, `FeedbackCreate`, `FeedbackResponse`. Private helpers: `_load_route_or_404()`, `_run_analysis_pipeline()`, `_run_grading_pipeline()`, `_db_row_to_hold_response()`, `_db_rows_to_classified_holds()`, `_build_prediction_row()`. ML pipeline fallback: if ML grading fails, falls back to heuristic estimator. Explanation generation failure is non-fatal (logged as warning).
+
+**Route List Endpoint** (`src/routes/routes.py`): Added in PR-10.5. `GET /api/v1/routes` lists routes with optional `status` filter and pagination (`limit` 1-100 default 20, `offset` default 0). Returns `RouteListResponse` with routes ordered by `created_at` descending. Malformed records are skipped with a warning log. `RouteResponse` extended with `start_hold_ids: list[int] | None` and `finish_hold_ids: list[int] | None` fields (PR-10.2). `RouteStatus` enum (`pending`/`processing`/`done`/`failed`) used by analysis endpoints for status transitions.
 
 **Classification Training** (`src/training/train_classification.py`): Exports `ClassificationMetrics`, `ClassificationTrainingResult`, `train_hold_classifier()`. ResNet-18/MobileNetV3 backbones, weighted cross-entropy, Adam/AdamW/SGD, StepLR/CosineAnnealingLR. Artifacts: `models/classification/v<YYYYMMDD_HHMMSS>/weights/{best,last}.pt` + `metadata.json`.
 
@@ -139,11 +150,14 @@ bouldering-analysis/
 │   ├── constants.py              # Shared domain constants (MAX_HOLD_COUNT)
 │   ├── logging_config.py         # Structured JSON logging
 │   ├── routes/
+│   │   ├── __init__.py           # Re-exports all routers (health, routes, upload, analysis)
+│   │   ├── shared.py             # ErrorResponse model (shared across route modules)
 │   │   ├── health.py             # GET /health, /api/v1/health
-│   │   ├── routes.py             # POST /api/v1/routes, GET /api/v1/routes/{id}[/status]
-│   │   └── upload.py             # POST /api/v1/routes/upload
+│   │   ├── routes.py             # POST /api/v1/routes, GET /api/v1/routes[/{id}[/status]]
+│   │   ├── upload.py             # POST /api/v1/routes/upload
+│   │   └── analysis.py           # POST /analyze, GET /holds, PUT /constraints, GET /prediction, POST /feedback
 │   ├── database/
-│   │   └── supabase_client.py    # Supabase client & storage helpers
+│   │   └── supabase_client.py    # Supabase client, storage & table CRUD helpers
 │   ├── training/
 │   │   ├── classification_dataset.py
 │   │   ├── classification_model.py    # ResNet-18/MobileNetV3, apply_classifier_dropout
@@ -190,6 +204,9 @@ bouldering-analysis/
 │   ├── test_migrations_features.py  # Features table migration tests
 │   ├── test_migrations_predictions.py  # Predictions table migration tests
 │   ├── test_migrations_feedback.py   # Feedback table migration tests
+│   ├── test_supabase_client_extensions.py  # update/select/delete record tests
+│   ├── test_migrations_routes_extension.py # Routes table extension migration tests
+│   ├── test_routes_analysis.py       # Analysis endpoint tests (analyze, holds, constraints, prediction, feedback)
 │   └── archive/legacy/
 ├── migrations/
 │   └── sql/
@@ -197,7 +214,8 @@ bouldering-analysis/
 │       ├── 002_create_holds_table.sql   # Holds table DDL (FK, RLS, unique constraint)
 │       ├── 003_create_features_table.sql # Features table DDL (FK, RLS, JSONB)
 │       ├── 004_create_predictions_table.sql # Predictions table DDL (FK, RLS, CHECKs, compound index)
-│       └── 005_create_feedback_table.sql # Feedback table DDL (FK, RLS, CHECK; feedback_insert_public intentionally TO PUBLIC for anonymous frontend submissions)
+│       ├── 005_create_feedback_table.sql # Feedback table DDL (FK, RLS, CHECK; feedback_insert_public intentionally TO PUBLIC for anonymous frontend submissions)
+│       └── 006_extend_routes_table.sql  # Routes table extension (start_hold_ids, finish_hold_ids INTEGER[])
 ├── scripts/
 │   ├── ping_supabase.py                 # Keep-alive ping (stdlib urllib)
 │   └── migrations/
@@ -314,7 +332,7 @@ def create_app(config_override: dict[str, Any] | None = None) -> FastAPI: ...
 
 ### Test conventions
 
-- Framework: pytest | One test file per source module | Current coverage: 97%+
+- Framework: pytest | One test file per source module | Current coverage: 94.54% (1627 tests)
 - Each test uses a fresh app instance (via `app` fixture in `tests/conftest.py`)
 - Test class per feature group; method names: `test_<scenario>_<expected_outcome>`
 
@@ -345,6 +363,12 @@ def create_app(config_override: dict[str, Any] | None = None) -> FastAPI: ...
 | `BA_MAX_UPLOAD_SIZE_MB` | `10` | Max file upload size in MB |
 | `BA_STORAGE_BUCKET` | `route-images` | Supabase storage bucket |
 | `BA_ALLOWED_IMAGE_TYPES` | `["image/jpeg", "image/png"]` | Allowed MIME types |
+| `BA_INFERENCE_TIMEOUT_SECONDS` | `30` | Timeout for ML inference pipeline (seconds) |
+| `BA_API_KEY` | `""` | API key for X-API-Key header auth (empty = disabled) |
+| `BA_RATE_LIMIT_UPLOAD` | `10` | Max upload requests per IP per minute (0 = disabled) |
+| `BA_DETECTION_MODEL_PATH` | `""` | Path to YOLOv8 detection weights (.pt) |
+| `BA_CLASSIFICATION_MODEL_PATH` | `""` | Path to classification weights (.pt) |
+| `BA_ML_GRADE_MODEL_PATH` | `""` | Path to XGBoost grade model directory (empty = heuristic only) |
 
 All variables prefixed `BA_`. Access via `from src.config import get_settings`. See `docs/SUPABASE_SETUP.md`.
 
@@ -358,8 +382,14 @@ All variables prefixed `BA_`. Access via `from src.config import get_settings`. 
 | GET | `/api/v1/health` | Health check (versioned) | HealthResponse |
 | POST | `/api/v1/routes/upload` | Upload route image | UploadResponse |
 | POST | `/api/v1/routes` | Create route record | RouteResponse |
+| GET | `/api/v1/routes` | List routes (paginated, filterable by status) | RouteListResponse |
 | GET | `/api/v1/routes/{route_id}` | Retrieve route by ID | RouteResponse |
 | GET | `/api/v1/routes/{route_id}/status` | Poll route processing status | RouteStatusResponse |
+| POST | `/api/v1/routes/{route_id}/analyze` | Run hold detection + classification | AnalyzeResponse |
+| GET | `/api/v1/routes/{route_id}/holds` | List classified holds for a route | HoldsListResponse |
+| PUT | `/api/v1/routes/{route_id}/constraints` | Set start/finish holds, run grading pipeline | PredictionResponse |
+| GET | `/api/v1/routes/{route_id}/prediction` | Retrieve latest grade prediction | PredictionResponse |
+| POST | `/api/v1/routes/{route_id}/feedback` | Submit user feedback on prediction | FeedbackResponse |
 | GET | `/docs` | Swagger UI (debug only) | HTML |
 | GET | `/openapi.json` | OpenAPI schema (debug only) | JSON |
 
@@ -367,9 +397,23 @@ All variables prefixed `BA_`. Access via `from src.config import get_settings`. 
 
 **UploadResponse**: `{file_id, public_url, file_size, content_type, uploaded_at}`
 
-**RouteResponse**: `{id, image_url, wall_angle, created_at, updated_at, status}`
+**RouteResponse**: `{id, image_url, wall_angle, created_at, updated_at, status, start_hold_ids, finish_hold_ids}`
 
 **RouteStatusResponse**: `{id, status}`
+
+**RouteListResponse**: `{routes: RouteResponse[], count, offset, limit}`
+
+**AnalyzeResponse**: `{route_id, hold_count, status}`
+
+**HoldsListResponse**: `{route_id, holds: HoldResponse[], count}`
+
+**HoldResponse**: `{hold_id, x_center, y_center, width, height, detection_class, detection_confidence, hold_type, type_confidence, type_probabilities}`
+
+**PredictionResponse**: `{route_id, estimator_type, grade, grade_index, confidence, difficulty_score, explanation, model_version}`
+
+**FeedbackCreate** (request): `{user_grade?, is_accurate?, comments?}` (at least one required)
+
+**FeedbackResponse**: `{id, route_id, created_at}`
 
 ---
 
