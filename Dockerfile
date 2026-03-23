@@ -24,7 +24,11 @@ RUN pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cpu
 
 # --- Application dependencies ---
-# opencv-python-headless replaces opencv-python: same cv2 API, no GUI libs.
+# All versions are pinned here for reproducible builds. Keep these in sync with
+# pyproject.toml when updating dependencies. Intentional deviations:
+#   - torch/torchvision: CPU build from download.pytorch.org/whl/cpu (not CUDA)
+#   - opencv-python-headless: replaces opencv-python (same cv2 API, no GUI libs)
+#   - xgboost/scikit-learn/joblib: range pins (>=x,<y) intentionally match pyproject.toml
 RUN pip install --no-cache-dir \
     "fastapi==0.128.6" \
     "uvicorn[standard]==0.40.0" \
