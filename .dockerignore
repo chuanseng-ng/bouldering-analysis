@@ -1,0 +1,45 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Dev / CI
+tests/
+.github/
+.codacy/
+.pre-commit-config.yaml
+mypy.ini
+.pylintrc
+pyproject.toml
+uv.lock
+
+# Docs & planning
+docs/
+plans/
+scripts/
+migrations/
+*.md
+README*
+
+# Credentials & local config
+.env
+.env.*
+!.env.example
+
+# ML model weights (mounted at runtime, not baked into image)
+models/
+
+# Git
+.git/
+.gitignore
+
+# Misc
+*.log
+dist/
+build/

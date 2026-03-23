@@ -58,54 +58,50 @@ Before starting, ensure you have:
 
 ### Step 3: Configure Build Settings
 
-Vercel will auto-detect your framework. Verify the following settings:
-
-#### For Next.js Projects
+Vercel auto-detects Vite. Verify the following settings match:
 
 | Setting | Value |
 | ------- | ----- |
-| **Framework Preset** | Next.js |
-| **Root Directory** | `.` (or `frontend/` if in subdirectory) |
-| **Build Command** | `npm run build` (or auto-detected) |
-| **Output Directory** | `.next` (auto-detected) |
-| **Install Command** | `npm install` (or auto-detected) |
-
-#### For React Projects (Non-Next.js)
-
-| Setting | Value |
-| ------- | ----- |
-| **Framework Preset** | Create React App (or Vite) |
+| **Framework Preset** | Vite |
 | **Root Directory** | `.` |
-| **Build Command** | `npm run build` |
-| **Output Directory** | `build` (or `dist` for Vite) |
-| **Install Command** | `npm install` |
+| **Build Command** | `npm run build` (auto-detected) |
+| **Output Directory** | `dist` (auto-detected) |
+| **Install Command** | `npm install` (auto-detected) |
 
 **Tip**: Click "Edit" next to any setting to customize it.
 
-### Step 4: Advanced Build Configuration (Optional)
+### Step 4: Vite SPA Build Configuration (Required)
 
-For advanced use cases, you can create a `vercel.json` file:
+The `grade_my_climb` frontend is a Vite SPA with React Router. A `vercel.json` is
+required so that direct navigation and page refreshes work correctly:
 
 ```json
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "regions": ["iad1"],
-  "github": {
-    "silent": true
-  }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options",        "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
 }
 ```
 
+**Why the rewrite**: React Router uses `BrowserRouter`. Without it, navigating directly
+to `/result/<id>` or refreshing any non-root page returns a Vercel 404. The catch-all
+rewrite serves `index.html` for all paths and lets the client router take over.
+
 **Common Options**:
 
-- `regions`: Deploy to specific regions (e.g., `["iad1"]` for US East)
-- `github.silent`: Disable GitHub deployment comments
+- `rewrites`: Map incoming paths to destinations (required for SPAs)
+- `headers`: Set custom HTTP response headers (security hardening)
 - `redirects`: Configure URL redirects
-- `headers`: Set custom HTTP headers
 
 ---
 
@@ -121,16 +117,8 @@ Add these in Vercel Dashboard → Project Settings → Environment Variables:
 
 | Variable Name | Value | Environment |
 |---------------|-------|-------------|
-| `NEXT_PUBLIC_API_URL` | `https://api.yourdomain.com` | Production |
-| `NEXT_PUBLIC_API_URL` | `https://staging-api.yourdomain.com` | Preview (optional) |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Development (optional) |
-
-#### Optional Variables (If Using Supabase Directly)
-
-| Variable Name | Value | Environment |
-|---------------|-------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project.supabase.co` | All |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGc...` (anon key) | All |
+| `VITE_API_URL` | `https://<your-backend-domain>` | Production |
+| `VITE_API_URL` | `http://localhost:8000` | Development |
 
 #### How to Add Variables
 
@@ -138,8 +126,8 @@ Add these in Vercel Dashboard → Project Settings → Environment Variables:
 2. Select your project
 3. Go to "Settings" → "Environment Variables"
 4. Click "Add New"
-5. Enter variable name (e.g., `NEXT_PUBLIC_API_URL`)
-6. Enter value (e.g., `https://api.yourdomain.com`)
+5. Enter variable name (e.g., `VITE_API_URL`)
+6. Enter value (e.g., `https://<your-backend-domain>`)
 7. Select environments:
    - **Production**: Live site
    - **Preview**: Pull request deployments
@@ -147,51 +135,32 @@ Add these in Vercel Dashboard → Project Settings → Environment Variables:
 8. Click "Save"
 
 **Important Notes**:
-- Variables starting with `NEXT_PUBLIC_` are exposed to the browser
-- Never put secrets in `NEXT_PUBLIC_` variables
+- Variables starting with `VITE_` are exposed to the browser at build time
+- Never put secrets in `VITE_` variables
 - Changes require redeployment to take effect
 
 ### Step 6: Update Backend CORS Settings
 
-Your backend needs to allow requests from your Vercel domain:
+The backend CORS is driven by the `BA_CORS_ORIGINS` environment variable. Set it in
+your backend deployment to the exact frontend origin:
 
-```python
-# FastAPI backend (src/app.py)
-from fastapi.middleware.cors import CORSMiddleware
-
-app = create_app()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://yourdomain.vercel.app",           # Production (replace with actual domain)
-        "http://localhost:3000",                   # Local development
-        "http://localhost:8000",                   # Local backend
-    ],
-    allow_origin_regex=r"https://.*\.vercel\.app",  # All Vercel preview deployments
-    allow_credentials=True,
-    allow_methods=[
-        "GET",
-        "POST",
-        "PUT",
-        "PATCH",
-        "DELETE",
-        "OPTIONS",
-    ],
-    allow_headers=[
-        "Content-Type",
-        "Authorization",
-        "Accept",
-        "Origin",
-        "User-Agent",
-        "DNT",
-        "Cache-Control",
-        "X-Requested-With",
-    ],
-)
+```bash
+BA_CORS_ORIGINS=["https://grade-my-climb.vercel.app"]
 ```
 
-**Security Note**: The `allow_origin_regex` pattern matches all Vercel subdomains. Update `allow_origins` with your production domain and any other trusted origins.
+If a custom domain is acquired later, add it to the list:
+
+```bash
+BA_CORS_ORIGINS=["https://grade-my-climb.vercel.app","https://your-custom-domain.com"]
+```
+
+**Notes**:
+- The default `["*"]` wildcard is for local development only. Always set this env var
+  in production.
+- `allow_credentials` is intentionally `False` — the API is stateless (no cookies or
+  sessions). Do not change this.
+- Local development: leave `BA_CORS_ORIGINS` unset (wildcard default) so `http://localhost:5173`
+  is accepted without extra config.
 
 ---
 
@@ -349,25 +318,27 @@ Integrate error tracking services like Sentry:
 1. **Sign up for Sentry** (free tier available)
 
 2. **Install Sentry SDK**:
+
    ```bash
-   npm install @sentry/nextjs
+   npm install @sentry/react
    ```
 
 3. **Configure Sentry**:
+
    ```javascript
-   // sentry.client.config.js
-   import * as Sentry from '@sentry/nextjs';
+   // src/main.tsx (before ReactDOM.createRoot)
+   import * as Sentry from '@sentry/react';
 
    Sentry.init({
-     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-     environment: process.env.VERCEL_ENV,
+     dsn: import.meta.env.VITE_SENTRY_DSN,
+     environment: import.meta.env.MODE,
      tracesSampleRate: 1.0,
    });
    ```
 
 4. **Add Sentry DSN to Vercel**:
    - Go to Environment Variables
-   - Add `NEXT_PUBLIC_SENTRY_DSN` with your Sentry DSN
+   - Add `VITE_SENTRY_DSN` with your Sentry DSN
 
 ### Step 14: Configure Log Drains (Optional)
 
@@ -443,13 +414,13 @@ For advanced logging, set up log drains:
    ```
 
 2. **Verify API URL**:
-   - Check `NEXT_PUBLIC_API_URL` in environment variables
+   - Check `VITE_API_URL` in environment variables
    - Ensure it's the correct backend URL
    - Test API endpoint directly in browser
 
 3. **Check credentials**:
-   - If using cookies/authentication, set `allow_credentials=True`
-   - In frontend, use `credentials: 'include'` in fetch options
+   - This API is stateless (no cookies/sessions); `allow_credentials` is `False`
+   - Do not set `credentials: 'include'` in fetch options
 
 #### Issue 3: Environment Variables Not Working
 
@@ -458,7 +429,7 @@ For advanced logging, set up log drains:
 **Solutions**:
 
 1. **Check variable names**:
-   - Must start with `NEXT_PUBLIC_` to be accessible in browser
+   - Must start with `VITE_` to be accessible in the browser (Vite build-time injection)
    - Check for typos
 
 2. **Redeploy after changes**:
@@ -510,17 +481,10 @@ For advanced logging, set up log drains:
    - Ensure images are in a public bucket
    - Test image URL directly in browser
 
-3. **Use Next.js Image component**:
-   ```typescript
-   import Image from 'next/image';
+3. **Use a plain img tag for external Supabase URLs**:
 
-   <Image
-     src={imageUrl}
-     alt="Route image"
-     width={800}
-     height={600}
-     loader={({ src }) => src} // For external URLs
-   />
+   ```typescript
+   <img src={imageUrl} alt="Route image" style={{ maxWidth: '100%' }} />
    ```
 
 #### Issue 6: Preview Deployments Not Creating
@@ -575,10 +539,9 @@ For advanced logging, set up log drains:
 
 ### Performance
 
-- **Use Next.js Image** component for automatic optimization
 - **Enable compression** (Vercel does this automatically)
 - **Lazy load** heavy components
-- **Monitor bundle size** with `next/bundle-analyzer`
+- **Monitor bundle size** with `rollup-plugin-visualizer` or `vite-bundle-analyzer`
 
 ### Reliability
 
@@ -590,7 +553,7 @@ For advanced logging, set up log drains:
 ### Workflow
 
 - **Use preview deployments** for all changes
-- **Test locally first**: `npm run build && npm start`
+- **Test locally first**: `npm run build && npm run preview`
 - **Review Vercel logs** after each deployment
 - **Keep dependencies updated**: `npm update`
 
@@ -599,7 +562,7 @@ For advanced logging, set up log drains:
 ## Additional Resources
 
 - [Vercel Documentation](https://vercel.com/docs)
-- [Next.js Deployment Guide](https://nextjs.org/docs/deployment)
+- [Vite Deployment Guide](https://vitejs.dev/guide/static-deploy.html)
 - [Vercel CLI](https://vercel.com/docs/cli)
 - [Vercel GitHub Integration](https://vercel.com/docs/git/vercel-for-github)
 - [Vercel Support](https://vercel.com/support)

@@ -842,11 +842,12 @@ Phase 4: Polish (M8 + M9 + M10)
 ├── ✅ PR-10.3: Analysis Endpoint
 ├── ✅ PR-10.4: Constraints & Prediction Endpoints
 ├── ✅ PR-10.5: Feedback + List Routes
-├── PR-10.6: Lovable Prototype
-├── PR-10.7: Next.js Frontend
-├── PR-10.8: Vercel Deployment
+├── ✅ PR-10.6: Lovable Prototype
+├── PR-10.7: Next.js Frontend (deferred — Vite SPA sufficient)
+├── ✅ PR-10.8: Vercel Deployment (frontend) + Render Deployment (backend)
 ├── PR-10.9: Telegram Bot
-└── PR-10.10: TODO Review (post all PR-10 items)
+├── PR-10.10: TODO Review (post all PR-10 items)
+└── PR-10.11: VPS Migration (post initial ML models — Hetzner + Coolify)
 ```
 
 ---
@@ -917,6 +918,7 @@ python-reviewer + code-reviewer + security-reviewer launch simultaneously after 
 
 ## Changelog
 
+- **2026-03-23**: Marked PR-10.6 (Lovable Prototype) and PR-10.8 (Vercel + Render Deployment) as completed; deferred PR-10.7 (Next.js — Vite SPA sufficient); added PR-10.11 (VPS Migration, post ML models); chose Render (free tier) as backend hosting for current stage, Hetzner + Coolify as target after ML models are trained; created docs/RENDER_SETUP.md
 - **2026-03-21**: Marked PR-10.1–10.5 (Frontend Integration API) as completed; added PR-10.10 (TODO Review) as a post-PR-10 gate; created TODO.md with four deferred security items (S1 rate limiting, S2 CORS, S3 exception leakage, S4 race condition)
 - **2026-03-20**: Marked PR-9.5 (Feedback Table) as completed; added feedback schema with nullable user_grade CHECK, public INSERT policy, explicit index, and verifier/test details
 - **2026-03-20**: Marked PR-9.4 (Predictions Table) as completed; updated predictions schema to match implementation (added estimator_type, grade_index, difficulty_score; changed explanation TEXT→JSONB, confidence nullable→NOT NULL, model_version VARCHAR(50)→VARCHAR(20)); added compound index, 6 CHECK constraints, and key deviation notes
