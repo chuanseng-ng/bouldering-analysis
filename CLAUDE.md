@@ -87,12 +87,15 @@ The codebase has been migrated from Flask to FastAPI + Supabase. Backend API lay
 | ├─ Features Table | ✅ | PR-9.3 | - |
 | ├─ Predictions Table | ✅ | PR-9.4 | 97% |
 | └─ Feedback Table | ✅ | PR-9.5 | - |
-| 10. Frontend Integration API | **Completed** | PR-10.x | 95% |
+| 10. Frontend Integration API | **In Progress** | PR-10.x | 95% |
 | ├─ Supabase Client Extensions | ✅ | PR-10.1 | - |
 | ├─ Routes Table Extension | ✅ | PR-10.2 | - |
 | ├─ Analyze + Holds Endpoints | ✅ | PR-10.3 | - |
 | ├─ Constraints + Prediction Endpoints | ✅ | PR-10.4 | - |
-| └─ Feedback + List Routes Endpoints | ✅ | PR-10.5 | - |
+| ├─ Feedback + List Routes Endpoints | ✅ | PR-10.5 | - |
+| ├─ Lovable Prototype | ✅ | PR-10.6 | - |
+| ├─ Vercel Deployment | ✅ | PR-10.8 | - |
+| └─ Telegram Bot | ⬜ | PR-10.9 | - |
 
 ### Archived Code
 
