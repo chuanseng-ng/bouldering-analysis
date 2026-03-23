@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
+# Non-root user for security
+RUN groupadd --system app && useradd --system --gid app app
+
 WORKDIR /app
 
 # --- PyTorch (CPU build, installed before other deps) ---
@@ -41,8 +44,14 @@ RUN pip install --no-cache-dir \
     "joblib>=1.3.0,<2.0.0"
 
 # --- Application source ---
-COPY src/ ./src/
+COPY --chown=app:app src/ ./src/
+
+USER app
 
 # Render injects $PORT at runtime; 8000 is the local default.
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python3 -c "import urllib.request, sys; urllib.request.urlopen('http://localhost:' + __import__('os').environ.get('PORT','8000') + '/health'); sys.exit(0)"
+
 CMD uvicorn src.app:application --host 0.0.0.0 --port ${PORT:-8000}
