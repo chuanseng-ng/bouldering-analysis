@@ -45,7 +45,8 @@ RUN pip install --no-cache-dir \
     "ultralytics==8.3.233" \
     "xgboost>=2.0.0,<3.0.0" \
     "scikit-learn>=1.3.0,<2.0.0" \
-    "joblib>=1.3.0,<2.0.0"
+    "joblib>=1.3.0,<2.0.0" \
+    && (pip uninstall -y opencv-python || true)
 
 # --- Application source ---
 COPY --chown=app:app src/ ./src/
