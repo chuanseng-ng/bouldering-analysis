@@ -151,14 +151,6 @@ def _configure_middleware(app: FastAPI, settings: Settings) -> None:
         app: FastAPI application instance.
         settings: Application settings.
     """
-    # CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-    )
 
     # Request ID middleware
     @app.middleware("http")
@@ -249,6 +241,16 @@ def _configure_middleware(app: FastAPI, settings: Settings) -> None:
                     content={"detail": "Rate limit exceeded. Please try again later."},
                 )
         return await call_next(request)
+
+    # CORS middleware — added last so it is outermost and handles OPTIONS
+    # preflight before any auth or rate-limit middleware can reject it.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 
 def _register_routes(app: FastAPI) -> None:
