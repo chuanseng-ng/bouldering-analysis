@@ -58,27 +58,15 @@ Before starting, ensure you have:
 
 ### Step 3: Configure Build Settings
 
-Vercel will auto-detect your framework. Verify the following settings:
-
-#### For Next.js Projects
+Vercel auto-detects Vite. Verify the following settings match:
 
 | Setting | Value |
 | ------- | ----- |
-| **Framework Preset** | Next.js |
-| **Root Directory** | `.` (or `frontend/` if in subdirectory) |
-| **Build Command** | `npm run build` (or auto-detected) |
-| **Output Directory** | `.next` (auto-detected) |
-| **Install Command** | `npm install` (or auto-detected) |
-
-#### For React Projects (Non-Next.js)
-
-| Setting | Value |
-| ------- | ----- |
-| **Framework Preset** | Create React App (or Vite) |
+| **Framework Preset** | Vite |
 | **Root Directory** | `.` |
-| **Build Command** | `npm run build` |
-| **Output Directory** | `build` (or `dist` for Vite) |
-| **Install Command** | `npm install` |
+| **Build Command** | `npm run build` (auto-detected) |
+| **Output Directory** | `dist` (auto-detected) |
+| **Install Command** | `npm install` (auto-detected) |
 
 **Tip**: Click "Edit" next to any setting to customize it.
 
@@ -156,13 +144,13 @@ Add these in Vercel Dashboard → Project Settings → Environment Variables:
 The backend CORS is driven by the `BA_CORS_ORIGINS` environment variable. Set it in
 your backend deployment to the exact frontend origin:
 
-```
+```bash
 BA_CORS_ORIGINS=["https://grade-my-climb.vercel.app"]
 ```
 
 If a custom domain is acquired later, add it to the list:
 
-```
+```bash
 BA_CORS_ORIGINS=["https://grade-my-climb.vercel.app","https://your-custom-domain.com"]
 ```
 
@@ -331,24 +319,24 @@ Integrate error tracking services like Sentry:
 
 2. **Install Sentry SDK**:
    ```bash
-   npm install @sentry/nextjs
+   npm install @sentry/react
    ```
 
 3. **Configure Sentry**:
    ```javascript
-   // sentry.client.config.js
-   import * as Sentry from '@sentry/nextjs';
+   // src/main.tsx (before ReactDOM.createRoot)
+   import * as Sentry from '@sentry/react';
 
    Sentry.init({
-     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-     environment: process.env.VERCEL_ENV,
+     dsn: import.meta.env.VITE_SENTRY_DSN,
+     environment: import.meta.env.MODE,
      tracesSampleRate: 1.0,
    });
    ```
 
 4. **Add Sentry DSN to Vercel**:
    - Go to Environment Variables
-   - Add `NEXT_PUBLIC_SENTRY_DSN` with your Sentry DSN
+   - Add `VITE_SENTRY_DSN` with your Sentry DSN
 
 ### Step 14: Configure Log Drains (Optional)
 
@@ -424,13 +412,13 @@ For advanced logging, set up log drains:
    ```
 
 2. **Verify API URL**:
-   - Check `NEXT_PUBLIC_API_URL` in environment variables
+   - Check `VITE_API_URL` in environment variables
    - Ensure it's the correct backend URL
    - Test API endpoint directly in browser
 
 3. **Check credentials**:
-   - If using cookies/authentication, set `allow_credentials=True`
-   - In frontend, use `credentials: 'include'` in fetch options
+   - This API is stateless (no cookies/sessions); `allow_credentials` is `False`
+   - Do not set `credentials: 'include'` in fetch options
 
 #### Issue 3: Environment Variables Not Working
 
@@ -439,7 +427,7 @@ For advanced logging, set up log drains:
 **Solutions**:
 
 1. **Check variable names**:
-   - Must start with `NEXT_PUBLIC_` to be accessible in browser
+   - Must start with `VITE_` to be accessible in the browser (Vite build-time injection)
    - Check for typos
 
 2. **Redeploy after changes**:
@@ -491,17 +479,9 @@ For advanced logging, set up log drains:
    - Ensure images are in a public bucket
    - Test image URL directly in browser
 
-3. **Use Next.js Image component**:
+3. **Use a plain img tag for external Supabase URLs**:
    ```typescript
-   import Image from 'next/image';
-
-   <Image
-     src={imageUrl}
-     alt="Route image"
-     width={800}
-     height={600}
-     loader={({ src }) => src} // For external URLs
-   />
+   <img src={imageUrl} alt="Route image" style={{ maxWidth: '100%' }} />
    ```
 
 #### Issue 6: Preview Deployments Not Creating
@@ -571,7 +551,7 @@ For advanced logging, set up log drains:
 ### Workflow
 
 - **Use preview deployments** for all changes
-- **Test locally first**: `npm run build && npm start`
+- **Test locally first**: `npm run build && npm run preview`
 - **Review Vercel logs** after each deployment
 - **Keep dependencies updated**: `npm update`
 

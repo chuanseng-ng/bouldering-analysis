@@ -112,11 +112,13 @@ When ML models are trained and ready:
    - Mount path: `/models`
    - Size: 1–2 GB (sufficient for `.pt` files + XGBoost model)
 3. SSH into the service or use Render Shell to copy model files:
+
    ```bash
    # From your local machine
    scp models/detection/best.pt <render-ssh-address>:/models/detection/
    scp models/classification/best.pt <render-ssh-address>:/models/classification/
    ```
+
 4. Set `BA_DETECTION_MODEL_PATH`, `BA_CLASSIFICATION_MODEL_PATH`,
    `BA_ML_GRADE_MODEL_PATH` env vars in Render Dashboard
 5. Redeploy
@@ -143,9 +145,11 @@ persistent data. Nothing needs to be migrated except the runtime environment.
 3. Connect the same GitHub repo in Coolify — no code changes needed
 4. Copy env vars from Render Dashboard → Coolify
 5. Transfer ML model files to VPS:
+
    ```bash
    scp -r models/ root@<vps-ip>:/opt/models/
    ```
+
 6. Update `VITE_API_URL` in Vercel dashboard (new backend URL)
 7. Update `BA_CORS_ORIGINS` if backend URL changes
 8. Verify health endpoint and smoke test
