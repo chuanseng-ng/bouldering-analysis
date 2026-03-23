@@ -541,7 +541,7 @@ For advanced logging, set up log drains:
 
 - **Enable compression** (Vercel does this automatically)
 - **Lazy load** heavy components
-- **Monitor bundle size** with `vite build --reporter` or `rollup-plugin-visualizer`
+- **Monitor bundle size** with `rollup-plugin-visualizer` or `vite-bundle-analyzer`
 
 ### Reliability
 
