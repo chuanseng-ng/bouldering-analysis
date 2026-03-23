@@ -482,6 +482,7 @@ For advanced logging, set up log drains:
    - Test image URL directly in browser
 
 3. **Use a plain img tag for external Supabase URLs**:
+
    ```typescript
    <img src={imageUrl} alt="Route image" style={{ maxWidth: '100%' }} />
    ```
