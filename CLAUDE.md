@@ -95,7 +95,9 @@ The codebase has been migrated from Flask to FastAPI + Supabase. Backend API lay
 | ├─ Feedback + List Routes Endpoints | ✅ | PR-10.5 | - |
 | ├─ Lovable Prototype | ✅ | PR-10.6 | - |
 | ├─ Vercel Deployment | ✅ | PR-10.8 | - |
-| └─ Telegram Bot | ⬜ | PR-10.9 | - |
+| ├─ Telegram Bot | ⬜ | PR-10.9 | - |
+| ├─ TODO Review | ⬜ | PR-10.10 | - |
+| └─ VPS Migration | ⬜ | PR-10.11 | - |
 
 ### Archived Code
 
