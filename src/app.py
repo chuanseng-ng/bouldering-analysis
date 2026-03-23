@@ -206,7 +206,7 @@ def _configure_middleware(app: FastAPI, settings: Settings) -> None:
         """
         path = request.url.path
         is_health = any(path == p or path.startswith(p + "/") for p in _HEALTH_PATHS)
-        if settings.api_key and not is_health:
+        if settings.api_key and not is_health and request.method != "OPTIONS":
             provided_key = request.headers.get("X-API-Key", "")
             if not hmac.compare_digest(provided_key, settings.api_key):
                 return JSONResponse(
