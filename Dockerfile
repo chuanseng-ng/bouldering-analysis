@@ -49,7 +49,7 @@ RUN pip install --no-cache-dir \
     "scikit-learn>=1.3.0,<2.0.0" \
     "joblib>=1.3.0,<2.0.0" \
     && (pip uninstall -y opencv-python || true) \
-    && pip install --no-cache-dir "opencv-python-headless==${OPENCV_VERSION}"
+    && pip install --no-cache-dir --force-reinstall "opencv-python-headless==${OPENCV_VERSION}"
 
 # --- Application source ---
 COPY --chown=app:app src/ ./src/
