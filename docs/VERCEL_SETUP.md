@@ -318,11 +318,13 @@ Integrate error tracking services like Sentry:
 1. **Sign up for Sentry** (free tier available)
 
 2. **Install Sentry SDK**:
+
    ```bash
    npm install @sentry/react
    ```
 
 3. **Configure Sentry**:
+
    ```javascript
    // src/main.tsx (before ReactDOM.createRoot)
    import * as Sentry from '@sentry/react';
@@ -536,10 +538,9 @@ For advanced logging, set up log drains:
 
 ### Performance
 
-- **Use Next.js Image** component for automatic optimization
 - **Enable compression** (Vercel does this automatically)
 - **Lazy load** heavy components
-- **Monitor bundle size** with `next/bundle-analyzer`
+- **Monitor bundle size** with `vite build --reporter` or `rollup-plugin-visualizer`
 
 ### Reliability
 
@@ -560,7 +561,7 @@ For advanced logging, set up log drains:
 ## Additional Resources
 
 - [Vercel Documentation](https://vercel.com/docs)
-- [Next.js Deployment Guide](https://nextjs.org/docs/deployment)
+- [Vite Deployment Guide](https://vitejs.dev/guide/static-deploy.html)
 - [Vercel CLI](https://vercel.com/docs/cli)
 - [Vercel GitHub Integration](https://vercel.com/docs/git/vercel-for-github)
 - [Vercel Support](https://vercel.com/support)
