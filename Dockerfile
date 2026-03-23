@@ -5,6 +5,8 @@
 
 FROM python:3.11-slim
 
+ARG OPENCV_VERSION=4.12.0.88
+
 # System dependencies required by OpenCV headless
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
@@ -37,7 +39,7 @@ RUN pip install --no-cache-dir \
     "python-multipart==0.0.22" \
     "python-json-logger==3.2.1" \
     "Pillow==12.1.1" \
-    "opencv-python-headless==4.12.0.88" \
+    "opencv-python-headless==${OPENCV_VERSION}" \
     "numpy==2.2.6" \
     "PyYAML==6.0.2" \
     "supabase==2.27.2" \
@@ -46,7 +48,8 @@ RUN pip install --no-cache-dir \
     "xgboost>=2.0.0,<3.0.0" \
     "scikit-learn>=1.3.0,<2.0.0" \
     "joblib>=1.3.0,<2.0.0" \
-    && (pip uninstall -y opencv-python || true)
+    && (pip uninstall -y opencv-python || true) \
+    && pip install --no-cache-dir "opencv-python-headless==${OPENCV_VERSION}"
 
 # --- Application source ---
 COPY --chown=app:app src/ ./src/
