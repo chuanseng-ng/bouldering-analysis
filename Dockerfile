@@ -45,12 +45,8 @@ RUN pip install --no-cache-dir \
     "ultralytics==8.3.233" \
     "xgboost>=2.0.0,<3.0.0" \
     "scikit-learn>=1.3.0,<2.0.0" \
-    "joblib>=1.3.0,<2.0.0"
-
-# ultralytics pulls opencv-python (GUI build) as a transitive dep, which
-# overrides the headless build above and requires libxcb.so.1 (X11 — absent
-# in slim). Uninstall it here so cv2 resolves to opencv-python-headless.
-RUN pip uninstall -y opencv-python
+    "joblib>=1.3.0,<2.0.0" \
+    && pip uninstall -y opencv-python || true
 
 # --- Application source ---
 COPY --chown=app:app src/ ./src/
