@@ -24,7 +24,9 @@ class Settings(BaseSettings):
         app_version: Semantic version string.
         debug: Enable debug mode (disable in production).
         testing: Enable testing mode.
-        cors_origins: List of allowed CORS origins.
+        cors_origins: List of allowed CORS origins. Defaults to ["*"] for local
+            development. MUST be set to the specific frontend URL via BA_CORS_ORIGINS
+            in production (e.g., ["https://grade-my-climb.vercel.app"]).
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
         supabase_url: Supabase project URL (required for database operations).
         supabase_key: Supabase API key (required for database operations).
