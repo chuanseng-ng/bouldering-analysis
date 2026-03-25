@@ -356,6 +356,7 @@ class TestTrainGradeEstimator:
             "edge_count",
         }
         assert "volume_ratio" not in actual
+        assert len(result.feature_names) == 40
 
     def test_metrics_in_range(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path

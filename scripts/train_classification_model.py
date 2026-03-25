@@ -302,6 +302,13 @@ def _validate_dataset_names(source_dataset: Path) -> None:
         )
         sys.exit(1)
 
+    if not isinstance(config, dict):
+        print(
+            f"ERROR: {yaml_path} did not parse to a mapping (got {type(config).__name__}).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     names = config.get("names", [])
     if isinstance(names, dict):
         names = [names[i] for i in range(len(names))]
@@ -313,6 +320,23 @@ def _validate_dataset_names(source_dataset: Path) -> None:
             f"  Got      : {list(names)}\n"
             "  DETECTION_CLASS_MAP is keyed by index and would silently misassign "
             "labels if the order differs.  Fix data.yaml or update DETECTION_CLASS_MAP.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _validate_train_split_classes(class_counts: dict[str, int]) -> None:
+    """Exit with an error if any HOLD_CLASS has zero images in the train split.
+
+    Args:
+        class_counts: Mapping of class name to image count from the train split.
+    """
+    missing = [cls for cls in HOLD_CLASSES if class_counts.get(cls, 0) == 0]
+    if missing:
+        print(
+            f"\nERROR: Train split is missing crops for class(es): {missing}.\n"
+            "  Every class must have at least one training image.\n"
+            "  Add annotated images for the missing classes and re-run.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -358,15 +382,7 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
         # Train split must have at least one crop per class so
         # compute_class_weights() does not fail.  Val/test may be empty.
         if split == "train":
-            missing = [cls for cls in HOLD_CLASSES if counts.get(cls, 0) == 0]
-            if missing:
-                print(
-                    f"\nERROR: Train split is missing crops for class(es): {missing}.\n"
-                    "  Every class must have at least one training image.\n"
-                    "  Add annotated images for the missing classes and re-run.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+            _validate_train_split_classes(counts)
 
     print("\nCrop extraction complete.")
 
@@ -454,6 +470,9 @@ def main() -> int:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning)
         dataset = load_hold_classification_dataset(args.crops_dataset, strict=False)
+
+    # Validate train split even when extraction was skipped.
+    _validate_train_split_classes(dataset["class_counts"])
 
     print(
         f"  Classes : {dataset['names']} ({dataset['nc']} total)\n"

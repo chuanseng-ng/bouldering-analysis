@@ -6,9 +6,19 @@
 -- Changes:
 --   1. Adds prob_pocket, prob_edges, prob_foothold columns (8-class classifier output).
 --   2. Drops legacy prob_volume column (removed from 8-class taxonomy).
---   3. Updates detection_class CHECK to reflect the 8 YOLO class names.
---   4. Updates hold_type CHECK to reflect the 8 normalised hold-type labels.
---   5. Expands detection_class column width to VARCHAR(20) to fit 'Hand-holds'.
+--   3. Normalises legacy taxonomy values in existing rows before adding new CHECKs.
+--   4. Updates detection_class CHECK to reflect the 8 YOLO class names.
+--   5. Updates hold_type CHECK to reflect the 8 normalised hold-type labels.
+--   6. Expands detection_class column width to VARCHAR(20) to fit 'Hand-holds'.
+--
+-- Probability-sum invariant note:
+--   The probability columns (prob_jug, prob_crimp, prob_sloper, prob_pinch,
+--   prob_pocket, prob_edges, prob_foothold, prob_unknown) are intentionally NOT
+--   constrained to sum to 1.0 at the database level.  Floating-point round-trips
+--   through the classifier can produce sums of 0.9999... or 1.0001..., which
+--   would cause spurious CHECK failures.  The sum invariant is enforced in the
+--   application layer by the ClassifiedHold Pydantic validator (src/graph/types.py)
+--   before any row is written.
 
 -- ── Step 1: Add new probability columns ─────────────────────────────────────
 
@@ -28,7 +38,20 @@ ALTER TABLE holds
 
 ALTER TABLE holds DROP COLUMN IF EXISTS prob_volume;
 
--- ── Step 3: Update detection_class column and CHECK constraint ───────────────
+-- ── Step 3: Normalise legacy taxonomy values before adding new CHECKs ────────
+-- Rows written by the old 2-class detection model store detection_class in
+-- ('hold', 'volume') and hold_type may include 'volume'.  Map them to the
+-- closest canonical value so the new CHECK constraints do not reject them.
+
+-- 'hold' was the generic detection class → map to 'Jug' (most common hold type).
+-- 'volume' was the old large-feature class → map to 'Hand-holds' (unknown type).
+UPDATE holds SET detection_class = 'Jug'        WHERE detection_class = 'hold';
+UPDATE holds SET detection_class = 'Hand-holds' WHERE detection_class = 'volume';
+
+-- hold_type 'volume' no longer exists in the 8-class taxonomy → map to 'unknown'.
+UPDATE holds SET hold_type = 'unknown' WHERE hold_type = 'volume';
+
+-- ── Step 4: Update detection_class column and CHECK constraint ───────────────
 -- PostgreSQL auto-names inline CHECK constraints as <table>_<column>_check.
 
 ALTER TABLE holds DROP CONSTRAINT IF EXISTS holds_detection_class_check;
@@ -43,7 +66,7 @@ ALTER TABLE holds
             'Jug', 'Pinch', 'Pocket', 'Sloper'
         ));
 
--- ── Step 4: Update hold_type CHECK constraint ────────────────────────────────
+-- ── Step 5: Update hold_type CHECK constraint ────────────────────────────────
 
 ALTER TABLE holds DROP CONSTRAINT IF EXISTS holds_hold_type_check;
 
@@ -53,3 +76,40 @@ ALTER TABLE holds
             'jug', 'crimp', 'sloper', 'pinch',
             'pocket', 'edges', 'foothold', 'unknown'
         ));
+
+-- ── Step 6: Verification (informational — confirm schema state after migration)
+-- These SELECT statements return one row each; a NULL or false result indicates
+-- the migration did not apply correctly.
+
+-- New probability columns present
+SELECT
+    EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'holds' AND column_name = 'prob_pocket'
+    ) AS prob_pocket_exists,
+    EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'holds' AND column_name = 'prob_edges'
+    ) AS prob_edges_exists,
+    EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'holds' AND column_name = 'prob_foothold'
+    ) AS prob_foothold_exists,
+    NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'holds' AND column_name = 'prob_volume'
+    ) AS prob_volume_removed;
+
+-- Updated CHECK constraints present
+SELECT
+    COUNT(*) = 2 AS both_checks_exist
+FROM pg_constraint
+WHERE conrelid = 'holds'::regclass
+  AND contype = 'c'
+  AND conname IN ('holds_detection_class_check', 'holds_hold_type_check');
+
+-- RLS policies still present
+SELECT
+    COUNT(*) AS rls_policy_count
+FROM pg_policies
+WHERE tablename = 'holds';

@@ -27,16 +27,21 @@ def _make_detection(
     y_center: float = 0.5,
     width: float = 0.1,
     height: float = 0.1,
-    class_name: str = "hold",
+    class_name: str = "Jug",
     confidence: float = 0.9,
 ) -> DetectedHold:
     """Create a DetectedHold with sensible defaults."""
+    if class_name not in CLASS_NAMES:
+        raise ValueError(
+            f"class_name {class_name!r} is not in CLASS_NAMES {CLASS_NAMES}; "
+            "fix the test to use a valid detection class name."
+        )
     return DetectedHold(
         x_center=x_center,
         y_center=y_center,
         width=width,
         height=height,
-        class_id=CLASS_NAMES.index(class_name) if class_name in CLASS_NAMES else 0,
+        class_id=CLASS_NAMES.index(class_name),
         class_name=class_name,
         confidence=confidence,
     )
@@ -378,7 +383,7 @@ class TestMakeClassifiedHoldFromPipelineOutput:
             y_center=0.5,
             width=0.2,
             height=0.2,
-            class_id=7,
+            class_id=CLASS_NAMES.index("Sloper"),
             class_name="Sloper",
             confidence=0.95,
         )
