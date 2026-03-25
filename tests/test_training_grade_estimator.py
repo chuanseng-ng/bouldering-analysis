@@ -226,10 +226,42 @@ class TestGenerateSyntheticTrainingData:
         assert any(ec > 0 for ec in edge_counts)
 
     def test_feature_vector_has_40_keys(self) -> None:
-        """Every sample's feature vector must contain exactly 40 keys."""
+        """Every sample's feature vector must contain exactly the 40 expected keys."""
+        from src.training.classification_dataset import HOLD_CLASSES
+
+        expected_geometry_keys = {
+            "avg_move_distance",
+            "max_move_distance",
+            "min_move_distance",
+            "std_move_distance",
+            "path_length_min_distance",
+            "path_length_max_distance",
+            "path_length_min_hops",
+            "path_length_max_hops",
+            "hold_density",
+            "node_count",
+            "edge_count",
+        }
+        expected_hold_keys = (
+            {f"{cls}_count" for cls in HOLD_CLASSES}
+            | {f"{cls}_ratio" for cls in HOLD_CLASSES}
+            | {f"{cls}_soft_ratio" for cls in HOLD_CLASSES}
+            | {
+                "total_count",
+                "avg_hold_size",
+                "max_hold_size",
+                "min_hold_size",
+                "std_hold_size",
+            }
+        )
+        expected_keys = expected_geometry_keys | expected_hold_keys
+
         samples = generate_synthetic_training_data(n_samples=5, seed=0)
         for features, _ in samples:
-            assert len(features.to_vector()) == 40
+            vec_keys = set(features.to_vector().keys())
+            assert vec_keys == expected_keys
+            assert len(vec_keys) == 40
+            assert "volume_ratio" not in vec_keys
 
 
 # ---------------------------------------------------------------------------

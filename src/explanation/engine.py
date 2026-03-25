@@ -167,14 +167,14 @@ def _compute_hold_contributions(vec: dict[str, float]) -> list[FeatureContributi
         vec: Feature vector from :meth:`~src.features.assembler.RouteFeatures.to_vector`.
 
     Returns:
-        List of 5 :class:`~src.explanation.types.FeatureContribution` instances,
-        one per hold type (crimp, sloper, pinch, jug, volume).
+        List of 6 :class:`~src.explanation.types.FeatureContribution` instances,
+        one per hold type (crimp, sloper, pinch, edges, pocket, jug).
 
     Example::
 
         >>> contribs = _compute_hold_contributions(vec)
         >>> len(contribs)
-        5
+        6
     """
     hold_keys = [
         "crimp_ratio",
@@ -293,7 +293,8 @@ def _build_hold_highlights(vec: dict[str, float], top_n: int = 3) -> list[str]:
         "sloper_ratio": "slopers",
         "pinch_ratio": "pinches",
         "jug_ratio": "jugs",
-        "volume_ratio": "volumes",
+        "edges_ratio": "edges",
+        "pocket_ratio": "pockets",
     }
     ranked = sorted(
         ((k, label) for k, label in hold_keys.items() if vec.get(k, 0.0) > 0.0),

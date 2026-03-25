@@ -40,7 +40,7 @@ EXPECTED_CLASSES = [
     "Pocket",
     "Sloper",
 ]
-EXPECTED_CLASS_COUNT = 8
+EXPECTED_CLASS_COUNT = len(EXPECTED_CLASSES)
 
 # Supported image extensions
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
@@ -237,6 +237,13 @@ def _validate_class_taxonomy(
         raise ClassTaxonomyError(
             f"Expected {EXPECTED_CLASS_COUNT} class names, found {len(names_list)}"
         )
+
+    # Validate each element is a string before lowering (guards non-string YAML entries).
+    for i, n in enumerate(names_list):
+        if not isinstance(n, str):
+            raise ClassTaxonomyError(
+                f"Class name at index {i} is not a string: {n!r} (type {type(n).__name__})"
+            )
 
     # Case-insensitive comparison: Roboflow exports may normalise capitalisation.
     if [n.lower() for n in names_list] != [e.lower() for e in EXPECTED_CLASSES]:

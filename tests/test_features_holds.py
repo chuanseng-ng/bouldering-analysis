@@ -262,6 +262,29 @@ class TestCountByType:
         assert set(result.keys()) == set(HOLD_CLASSES)
         assert len(result) == 8
 
+    @pytest.mark.parametrize("cls", list(HOLD_CLASSES))
+    def test_each_class_produces_nonzero_count_ratio_and_soft_ratio(
+        self, cls: str
+    ) -> None:
+        """Each HOLD_CLASS must produce non-zero count, ratio, and soft_ratio fields."""
+        probs = {c: (1.0 if c == cls else 0.0) for c in HOLD_CLASSES}
+        hold = ClassifiedHold(
+            hold_id=0,
+            x_center=0.5,
+            y_center=0.5,
+            width=0.1,
+            height=0.1,
+            detection_class="Jug",
+            detection_confidence=0.9,
+            hold_type=cls,
+            type_confidence=1.0,
+            type_probabilities=probs,
+        )
+        result = extract_hold_features([hold])
+        assert getattr(result, f"{cls}_count") == 1
+        assert getattr(result, f"{cls}_ratio") == pytest.approx(1.0)
+        assert getattr(result, f"{cls}_soft_ratio") == pytest.approx(1.0)
+
     def test_unexpected_hold_type_raises_via_model_construct(self) -> None:
         """Defensive guard must raise FeatureExtractionError for unknown hold_type.
 

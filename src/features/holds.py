@@ -45,7 +45,9 @@ class HoldFeatures(BaseModel):
         crimp_count: Number of holds classified as crimp.
         sloper_count: Number of holds classified as sloper.
         pinch_count: Number of holds classified as pinch.
-        volume_count: Number of holds classified as volume.
+        pocket_count: Number of holds classified as pocket.
+        edges_count: Number of holds classified as edges.
+        foothold_count: Number of holds classified as foothold.
         unknown_count: Number of holds classified as unknown.
 
         jug_ratio: Fraction of holds classified as jug (count / total_count).
@@ -53,7 +55,9 @@ class HoldFeatures(BaseModel):
         crimp_ratio: Fraction of holds classified as crimp.
         sloper_ratio: Fraction of holds classified as sloper.
         pinch_ratio: Fraction of holds classified as pinch.
-        volume_ratio: Fraction of holds classified as volume.
+        pocket_ratio: Fraction of holds classified as pocket.
+        edges_ratio: Fraction of holds classified as edges.
+        foothold_ratio: Fraction of holds classified as foothold.
         unknown_ratio: Fraction of holds classified as unknown.
 
         avg_hold_size: Mean bounding-box area (width * height) across holds.
@@ -66,7 +70,9 @@ class HoldFeatures(BaseModel):
         crimp_soft_ratio: Mean ``type_probabilities["crimp"]`` across all holds.
         sloper_soft_ratio: Mean ``type_probabilities["sloper"]`` across all holds.
         pinch_soft_ratio: Mean ``type_probabilities["pinch"]`` across all holds.
-        volume_soft_ratio: Mean ``type_probabilities["volume"]`` across all holds.
+        pocket_soft_ratio: Mean ``type_probabilities["pocket"]`` across all holds.
+        edges_soft_ratio: Mean ``type_probabilities["edges"]`` across all holds.
+        foothold_soft_ratio: Mean ``type_probabilities["foothold"]`` across all holds.
         unknown_soft_ratio: Mean ``type_probabilities["unknown"]`` across all holds.
 
     Example::
@@ -154,7 +160,7 @@ def _count_by_type(holds: list[ClassifiedHold]) -> dict[str, int]:
         holds: List of classified holds.  May be empty.
 
     Returns:
-        Dict mapping each hold class to its count.  All 6 HOLD_CLASSES keys
+        Dict mapping each hold class to its count.  All 8 HOLD_CLASSES keys
         are always present.
 
     Raises:

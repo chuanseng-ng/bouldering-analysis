@@ -372,14 +372,14 @@ class TestMakeClassifiedHoldFromPipelineOutput:
         assert isinstance(rg.graph, nx.Graph)
 
     def test_non_hold_detection_class_accepted_end_to_end(self) -> None:
-        """detection_class='Sloper' (arbitrary string) flows through the full pipeline without error."""
+        """detection_class='Sloper' flows through the full pipeline without error."""
         det = DetectedHold(
             x_center=0.5,
             y_center=0.5,
             width=0.2,
             height=0.2,
-            class_id=0,
-            class_name="hold",
+            class_id=7,
+            class_name="Sloper",
             confidence=0.95,
         )
         probs = {
@@ -392,4 +392,4 @@ class TestMakeClassifiedHoldFromPipelineOutput:
         hold = make_classified_hold(0, det, clf)
         rg = build_route_graph([hold])
         assert rg.node_count == 1
-        assert hold.detection_class == "hold"
+        assert hold.detection_class == "Sloper"

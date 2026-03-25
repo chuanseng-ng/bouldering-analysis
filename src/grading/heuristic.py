@@ -106,7 +106,7 @@ def _compute_hold_difficulty(vec: dict[str, float]) -> float:
 
     Linearly combines hold-type ratios with signed weights from
     :data:`~src.grading.constants.FEATURE_WEIGHTS`.  Jugs reduce
-    difficulty (negative weight); crimps, slopers, pinches, and volumes
+    difficulty (negative weight); crimps, slopers, pinches, edges, and pockets
     increase it.  The result is clamped to ``[0, 1]``.
 
     Args:
