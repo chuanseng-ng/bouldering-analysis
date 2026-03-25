@@ -13,7 +13,7 @@ from src.graph.route_graph import build_route_graph
 from src.graph.types import ClassifiedHold, make_classified_hold
 from src.inference.classification import HoldTypeResult
 from src.inference.crop_extractor import HoldCrop
-from src.inference.detection import DetectedHold
+from src.inference.detection import CLASS_NAMES, DetectedHold
 from src.training.classification_dataset import HOLD_CLASSES
 
 
@@ -36,8 +36,8 @@ def _make_detection(
         y_center=y_center,
         width=width,
         height=height,
-        class_id=0 if class_name == "hold" else 1,
-        class_name=class_name,  # type: ignore[arg-type]
+        class_id=CLASS_NAMES.index(class_name) if class_name in CLASS_NAMES else 0,
+        class_name=class_name,
         confidence=confidence,
     )
 
@@ -87,7 +87,7 @@ def _make_classified_hold(
         y_center=y_center,
         width=width,
         height=height,
-        detection_class=detection_class,  # type: ignore[arg-type]
+        detection_class=detection_class,
         detection_confidence=detection_confidence,
         hold_type=hold_type,
         type_confidence=type_confidence,

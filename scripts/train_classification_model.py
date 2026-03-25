@@ -285,14 +285,22 @@ def _validate_dataset_names(source_dataset: Path) -> None:
     yaml_path = source_dataset / "data.yaml"
     if not yaml_path.exists():
         print(
-            f"WARNING: data.yaml not found at {yaml_path}; "
-            "skipping class-name validation.",
+            f"ERROR: data.yaml not found at {yaml_path}.\n"
+            "  DETECTION_CLASS_MAP is keyed by index and requires data.yaml to verify "
+            "class order.  Cannot proceed without it.",
             file=sys.stderr,
         )
-        return
+        sys.exit(1)
 
-    with yaml_path.open() as f:
-        config = yaml.safe_load(f)
+    try:
+        with yaml_path.open() as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        print(
+            f"ERROR: Failed to parse {yaml_path}: {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     names = config.get("names", [])
     if isinstance(names, dict):

@@ -19,12 +19,26 @@ from pydantic import ValidationError
 
 from src.features.assembler import RouteFeatures
 from src.grading.exceptions import GradeEstimationError
+
 from src.training.train_grade_estimator import (
     GradeTrainingMetrics,
     GradeTrainingResult,
     _compute_normalization_stats,
     generate_synthetic_training_data,
     train_grade_estimator,
+)
+
+# Hard-coded 8-class taxonomy contract — intentionally NOT imported from production
+# so that regressions in HOLD_CLASSES are caught rather than silently masked.
+_HOLD_CLASSES = (
+    "jug",
+    "crimp",
+    "sloper",
+    "pinch",
+    "pocket",
+    "edges",
+    "foothold",
+    "unknown",
 )
 
 
@@ -227,8 +241,6 @@ class TestGenerateSyntheticTrainingData:
 
     def test_feature_vector_has_40_keys(self) -> None:
         """Every sample's feature vector must contain exactly the 40 expected keys."""
-        from src.training.classification_dataset import HOLD_CLASSES
-
         expected_geometry_keys = {
             "avg_move_distance",
             "max_move_distance",
@@ -243,9 +255,9 @@ class TestGenerateSyntheticTrainingData:
             "edge_count",
         }
         expected_hold_keys = (
-            {f"{cls}_count" for cls in HOLD_CLASSES}
-            | {f"{cls}_ratio" for cls in HOLD_CLASSES}
-            | {f"{cls}_soft_ratio" for cls in HOLD_CLASSES}
+            {f"{cls}_count" for cls in _HOLD_CLASSES}
+            | {f"{cls}_ratio" for cls in _HOLD_CLASSES}
+            | {f"{cls}_soft_ratio" for cls in _HOLD_CLASSES}
             | {
                 "total_count",
                 "avg_hold_size",
@@ -314,10 +326,36 @@ class TestTrainGradeEstimator:
     def test_feature_names_length(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
     ) -> None:
-        """feature_names must contain exactly 40 entries."""
+        """feature_names must contain exactly the expected 40 keys."""
+        expected_hold_keys = (
+            {f"{cls}_count" for cls in _HOLD_CLASSES}
+            | {f"{cls}_ratio" for cls in _HOLD_CLASSES}
+            | {f"{cls}_soft_ratio" for cls in _HOLD_CLASSES}
+            | {
+                "total_count",
+                "avg_hold_size",
+                "max_hold_size",
+                "min_hold_size",
+                "std_hold_size",
+            }
+        )
         features, labels = small_training_data
         result = train_grade_estimator(features, labels, tmp_path)
-        assert len(result.feature_names) == 40
+        actual = set(result.feature_names)
+        assert actual == expected_hold_keys | {
+            "avg_move_distance",
+            "max_move_distance",
+            "min_move_distance",
+            "std_move_distance",
+            "path_length_min_distance",
+            "path_length_max_distance",
+            "path_length_min_hops",
+            "path_length_max_hops",
+            "hold_density",
+            "node_count",
+            "edge_count",
+        }
+        assert "volume_ratio" not in actual
 
     def test_metrics_in_range(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
@@ -370,13 +408,16 @@ class TestTrainGradeEstimator:
     def test_normalization_stats_in_metadata(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
     ) -> None:
-        """normalization_mean and normalization_std must each have 40 entries."""
+        """normalization_mean and normalization_std must each have 40 entries with keys matching feature_names."""
         features, labels = small_training_data
         result = train_grade_estimator(features, labels, tmp_path)
         with result.metadata_path.open() as fh:
             meta = json.load(fh)
+        expected_keys = set(result.feature_names)
         assert len(meta["normalization_mean"]) == 40
         assert len(meta["normalization_std"]) == 40
+        assert set(meta["normalization_mean"].keys()) == expected_keys
+        assert set(meta["normalization_std"].keys()) == expected_keys
 
     def test_zero_variance_feature_std_zero_in_metadata(self, tmp_path: Path) -> None:
         """If a feature is constant across all samples, std=0.0 must be stored."""

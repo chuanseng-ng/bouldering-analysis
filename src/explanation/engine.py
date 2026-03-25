@@ -295,6 +295,7 @@ def _build_hold_highlights(vec: dict[str, float], top_n: int = 3) -> list[str]:
         "jug_ratio": "jugs",
         "edges_ratio": "edges",
         "pocket_ratio": "pockets",
+        "foothold_ratio": "footholds",
     }
     ranked = sorted(
         ((k, label) for k, label in hold_keys.items() if vec.get(k, 0.0) > 0.0),
