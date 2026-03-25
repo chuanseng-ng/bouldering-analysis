@@ -17,8 +17,6 @@ Example::
     0.42 jug
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, Field, field_validator
 
 from src.inference.classification import HoldTypeResult
@@ -67,7 +65,9 @@ class ClassifiedHold(BaseModel):
     y_center: float = Field(ge=0.0, le=1.0)
     width: float = Field(ge=0.0, le=1.0)
     height: float = Field(ge=0.0, le=1.0)
-    detection_class: Literal["hold", "volume"]
+    detection_class: (
+        str  # one of the detection model's class names (e.g. "Crimp", "Jug")
+    )
     detection_confidence: float = Field(ge=0.0, le=1.0)
     hold_type: str
     type_confidence: float = Field(ge=0.0, le=1.0)

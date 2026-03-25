@@ -109,7 +109,8 @@ def _make_vec(**overrides: float) -> dict[str, float]:
         "sloper_ratio": 0.0,
         "pinch_ratio": 0.0,
         "jug_ratio": 0.0,
-        "volume_ratio": 0.0,
+        "edges_ratio": 0.0,
+        "pocket_ratio": 0.0,
         "avg_move_distance": 0.0,
         "max_move_distance": 0.0,
         "path_length_max_hops": 0.0,
@@ -269,17 +270,19 @@ class TestComputeHoldDifficulty:
             FEATURE_WEIGHTS["pinch_ratio"]
         )
 
-    def test_all_volumes_returns_weight(self) -> None:
-        """All volumes → raw = volume_ratio weight = 0.10."""
-        vec = _make_vec(volume_ratio=1.0)
+    def test_all_edges_returns_weight(self) -> None:
+        """All edges → raw = edges_ratio weight."""
+        vec = _make_vec(edges_ratio=1.0)
         assert _compute_hold_difficulty(vec) == pytest.approx(
-            FEATURE_WEIGHTS["volume_ratio"]
+            FEATURE_WEIGHTS["edges_ratio"]
         )
 
     def test_mixed_hold_types_correct_combination(self) -> None:
         """Mixed holds must compute weighted sum correctly."""
         vec = _make_vec(crimp_ratio=0.5, jug_ratio=0.5)
-        expected = 0.35 * 0.5 + (-0.30) * 0.5
+        expected = (
+            FEATURE_WEIGHTS["crimp_ratio"] * 0.5 + FEATURE_WEIGHTS["jug_ratio"] * 0.5
+        )
         assert _compute_hold_difficulty(vec) == pytest.approx(max(0.0, expected))
 
     def test_result_clamped_to_one(self) -> None:
@@ -288,7 +291,8 @@ class TestComputeHoldDifficulty:
             crimp_ratio=1.0,
             sloper_ratio=1.0,
             pinch_ratio=1.0,
-            volume_ratio=1.0,
+            edges_ratio=1.0,
+            pocket_ratio=1.0,
         )
         assert _compute_hold_difficulty(vec) <= 1.0
 
@@ -596,7 +600,7 @@ class TestEstimateGradeHeuristic:
                 hold_id=3, x_center=0.7, y_center=0.7, hold_type="pinch"
             ),
             _make_classified_hold(
-                hold_id=4, x_center=0.9, y_center=0.9, hold_type="volume"
+                hold_id=4, x_center=0.9, y_center=0.9, hold_type="pocket"
             ),
         ]
         rf = _make_route_features(holds=holds, start_ids=[0], finish_id=4)

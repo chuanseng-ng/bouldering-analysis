@@ -94,7 +94,7 @@ class TestGradeTrainingResult:
                 train_accuracy=0.9, val_accuracy=0.8, mean_absolute_error=0.5
             ),
             "n_samples": 100,
-            "feature_names": [f"f{i}" for i in range(34)],
+            "feature_names": [f"f{i}" for i in range(40)],
             "data_source": "synthetic",
             "git_commit": "abc1234",
             "trained_at": "2026-03-10T12:00:00+00:00",
@@ -225,11 +225,11 @@ class TestGenerateSyntheticTrainingData:
         edge_counts = [f.geometry.edge_count for f, _ in samples]
         assert any(ec > 0 for ec in edge_counts)
 
-    def test_feature_vector_has_34_keys(self) -> None:
-        """Every sample's feature vector must contain exactly 34 keys."""
+    def test_feature_vector_has_40_keys(self) -> None:
+        """Every sample's feature vector must contain exactly 40 keys."""
         samples = generate_synthetic_training_data(n_samples=5, seed=0)
         for features, _ in samples:
-            assert len(features.to_vector()) == 34
+            assert len(features.to_vector()) == 40
 
 
 # ---------------------------------------------------------------------------
@@ -282,10 +282,10 @@ class TestTrainGradeEstimator:
     def test_feature_names_length(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
     ) -> None:
-        """feature_names must contain exactly 34 entries."""
+        """feature_names must contain exactly 40 entries."""
         features, labels = small_training_data
         result = train_grade_estimator(features, labels, tmp_path)
-        assert len(result.feature_names) == 34
+        assert len(result.feature_names) == 40
 
     def test_metrics_in_range(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
@@ -338,13 +338,13 @@ class TestTrainGradeEstimator:
     def test_normalization_stats_in_metadata(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
     ) -> None:
-        """normalization_mean and normalization_std must each have 34 entries."""
+        """normalization_mean and normalization_std must each have 40 entries."""
         features, labels = small_training_data
         result = train_grade_estimator(features, labels, tmp_path)
         with result.metadata_path.open() as fh:
             meta = json.load(fh)
-        assert len(meta["normalization_mean"]) == 34
-        assert len(meta["normalization_std"]) == 34
+        assert len(meta["normalization_mean"]) == 40
+        assert len(meta["normalization_std"]) == 40
 
     def test_zero_variance_feature_std_zero_in_metadata(self, tmp_path: Path) -> None:
         """If a feature is constant across all samples, std=0.0 must be stored."""

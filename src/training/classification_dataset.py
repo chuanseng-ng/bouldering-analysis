@@ -28,8 +28,21 @@ from src.training.exceptions import (
 
 logger = get_logger(__name__)
 
-# Expected 6-class hold taxonomy (immutable tuple)
-HOLD_CLASSES: tuple[str, ...] = ("jug", "crimp", "sloper", "pinch", "volume", "unknown")
+# 8-class hold taxonomy derived from the Roboflow detection dataset.
+# Mapping from dataset labels (capitalised) to normalised lowercase names:
+#   Crimp      → crimp   |  Edges    → edges   |  Foothold → foothold
+#   Hand-holds → unknown |  Jug      → jug     |  Pinch    → pinch
+#   Pocket     → pocket  |  Sloper   → sloper
+HOLD_CLASSES: tuple[str, ...] = (
+    "jug",
+    "crimp",
+    "sloper",
+    "pinch",
+    "pocket",
+    "edges",
+    "foothold",
+    "unknown",
+)
 HOLD_CLASS_COUNT: int = len(HOLD_CLASSES)
 
 # Supported image extensions (immutable)
@@ -63,7 +76,7 @@ class ClassificationDatasetConfig(TypedDict):
     val_image_count: int
     test_image_count: int
     class_counts: dict[str, int]
-    class_weights: list[float]
+    class_weights: list[float]  # length == HOLD_CLASS_COUNT, HOLD_CLASSES order
     version: None
     metadata: dict[str, Any]
 

@@ -91,7 +91,7 @@ def fake_metadata(fake_weights: Path) -> dict[str, Any]:
         "hyperparameters": {
             "architecture": "resnet18",
             "pretrained": False,
-            "num_classes": 6,
+            "num_classes": 8,
             "input_size": 224,
             "epochs": 1,
             "batch_size": 32,
@@ -152,7 +152,7 @@ def mock_model() -> MagicMock:
 
     def _forward(batch: torch.Tensor) -> torch.Tensor:
         n = batch.shape[0]
-        base = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1])
+        base = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         return base.unsqueeze(0).expand(n, -1).clone()
 
     model.side_effect = _forward
@@ -205,10 +205,12 @@ class TestHoldTypeResult:
             confidence=0.92,
             probabilities={
                 "jug": 0.92,
-                "crimp": 0.05,
-                "sloper": 0.01,
+                "crimp": 0.02,
+                "sloper": 0.02,
                 "pinch": 0.01,
-                "volume": 0.005,
+                "pocket": 0.01,
+                "edges": 0.01,
+                "foothold": 0.005,
                 "unknown": 0.005,
             },
         )
@@ -450,21 +452,21 @@ class TestLogitsToResult:
 
     def test_correct_argmax_prediction(self) -> None:
         """The class with the highest logit should be predicted."""
-        # HOLD_CLASSES = ("jug", "crimp", "sloper", "pinch", "volume", "unknown")
-        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1])
+        # HOLD_CLASSES = ("jug", "crimp", "sloper", "pinch", "pocket", "edges", "foothold", "unknown")
+        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         result = _logits_to_result(logits, None)
         assert result.predicted_class == "jug"  # index 0
 
     def test_probabilities_sum_to_one(self) -> None:
         """All probabilities should sum to approximately 1.0."""
-        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1])
+        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         result = _logits_to_result(logits, None)
         total = sum(result.probabilities.values())
         assert total == pytest.approx(1.0, abs=1e-5)
 
-    def test_all_six_classes_in_probabilities(self) -> None:
-        """probabilities dict should have exactly 6 entries."""
-        logits = torch.tensor([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    def test_all_eight_classes_in_probabilities(self) -> None:
+        """probabilities dict should have exactly 8 entries."""
+        logits = torch.tensor([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
         result = _logits_to_result(logits, None)
         from src.training.classification_dataset import HOLD_CLASSES  # pylint: disable=import-outside-toplevel
 
@@ -472,7 +474,7 @@ class TestLogitsToResult:
 
     def test_confidence_matches_predicted_class_probability(self) -> None:
         """confidence should equal probabilities[predicted_class]."""
-        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1])
+        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         result = _logits_to_result(logits, None)
         assert result.confidence == pytest.approx(
             result.probabilities[result.predicted_class], abs=1e-6
@@ -480,32 +482,32 @@ class TestLogitsToResult:
 
     def test_source_crop_propagated_for_hold_crop(self, hold_crop: HoldCrop) -> None:
         """source_crop should be stored when input is a HoldCrop."""
-        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1])
+        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         result = _logits_to_result(logits, hold_crop)
         assert result.source_crop is hold_crop
 
     def test_source_crop_none_for_pil_input(self, rgb_crop: PILImage.Image) -> None:
         """source_crop should be None when input is a raw PIL image."""
-        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1])
+        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         result = _logits_to_result(logits, rgb_crop)
         assert result.source_crop is None
 
     def test_source_crop_none_when_none_passed(self) -> None:
         """source_crop should be None when None is passed explicitly."""
-        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1])
+        logits = torch.tensor([2.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         result = _logits_to_result(logits, None)
         assert result.source_crop is None
 
     def test_second_class_predicted_correctly(self) -> None:
         """The second class (crimp) should be predicted when its logit is highest."""
         # Crimp is index 1
-        logits = torch.tensor([0.1, 5.0, 0.5, 0.3, 0.2, 0.1])
+        logits = torch.tensor([0.1, 5.0, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02])
         result = _logits_to_result(logits, None)
         assert result.predicted_class == "crimp"
 
     def test_last_class_predicted_correctly(self) -> None:
         """The last class (unknown) should be predicted when its logit is highest."""
-        logits = torch.tensor([0.1, 0.2, 0.3, 0.4, 0.5, 10.0])
+        logits = torch.tensor([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 10.0])
         result = _logits_to_result(logits, None)
         assert result.predicted_class == "unknown"
 
@@ -831,14 +833,14 @@ class TestClassifyHold:
             classify_hold(hold_crop, missing)
 
     @patch("src.inference.classification._load_model_cached")
-    def test_probabilities_have_all_six_classes(
+    def test_probabilities_have_all_eight_classes(
         self,
         mock_load: MagicMock,
         mock_model: MagicMock,
         hold_crop: HoldCrop,
         fake_weights: Path,
     ) -> None:
-        """probabilities should contain all 6 hold class keys."""
+        """probabilities should contain all 8 hold class keys."""
         from src.training.classification_dataset import HOLD_CLASSES  # pylint: disable=import-outside-toplevel
 
         mock_load.return_value = (mock_model, INPUT_SIZE)
@@ -945,10 +947,10 @@ class TestClassifyHolds:
         def _order_sensitive(batch: torch.Tensor) -> torch.Tensor:
             n = batch.shape[0]
             # Each position gets a unique argmax: 0,1,2,...
-            out = torch.zeros(n, 6)
+            out = torch.zeros(n, 8)
             for i in range(n):
                 # Set class i as the highest for sample i
-                out[i, i % 6] = 10.0
+                out[i, i % 8] = 10.0
             return out
 
         model.side_effect = _order_sensitive
@@ -957,11 +959,11 @@ class TestClassifyHolds:
         from src.training.classification_dataset import HOLD_CLASSES  # pylint: disable=import-outside-toplevel
 
         crops: list[HoldCrop | PILImage.Image] = [
-            PILImage.new("RGB", (224, 224)) for _ in range(6)
+            PILImage.new("RGB", (224, 224)) for _ in range(8)
         ]
         results = classify_holds(crops, fake_weights)
 
-        assert len(results) == 6
+        assert len(results) == 8
         for i, result in enumerate(results):
             assert result.predicted_class == HOLD_CLASSES[i]
 

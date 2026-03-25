@@ -5,7 +5,7 @@ FastAPI application and graph modules.
 """
 
 from collections.abc import Generator
-from typing import Any, Literal
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -31,7 +31,7 @@ def make_classified_hold_for_tests(
     width: float = 0.1,
     height: float = 0.1,
     hold_type: str = "jug",
-    detection_class: Literal["hold", "volume"] = "hold",
+    detection_class: str = "Jug",
     detection_confidence: float = 0.9,
     type_confidence: float = 0.8,
 ) -> ClassifiedHold:
@@ -47,8 +47,8 @@ def make_classified_hold_for_tests(
         y_center: Vertical centre, normalised [0, 1].
         width: Bounding box width, normalised [0, 1].
         height: Bounding box height, normalised [0, 1].
-        hold_type: One of the 6 canonical hold classes.
-        detection_class: YOLO class — ``"hold"`` or ``"volume"``.
+        hold_type: One of the 8 canonical hold classes.
+        detection_class: YOLO detection class name (e.g. ``"Jug"``, ``"Crimp"``).
         detection_confidence: YOLO detection confidence [0, 1].
         type_confidence: Classifier confidence for ``hold_type`` [0, 1].
 

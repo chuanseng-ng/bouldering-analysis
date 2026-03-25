@@ -29,9 +29,18 @@ from src.training.exceptions import (
 
 logger = get_logger(__name__)
 
-# Expected class configuration for hold detection
-EXPECTED_CLASSES = ["hold", "volume"]
-EXPECTED_CLASS_COUNT = 2
+# Expected class configuration for hold detection (8-class fine-grained taxonomy)
+EXPECTED_CLASSES = [
+    "Crimp",
+    "Edges",
+    "Foothold",
+    "Hand-holds",
+    "Jug",
+    "Pinch",
+    "Pocket",
+    "Sloper",
+]
+EXPECTED_CLASS_COUNT = 8
 
 # Supported image extensions
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
@@ -229,7 +238,8 @@ def _validate_class_taxonomy(
             f"Expected {EXPECTED_CLASS_COUNT} class names, found {len(names_list)}"
         )
 
-    if names_list != EXPECTED_CLASSES:
+    # Case-insensitive comparison: Roboflow exports may normalise capitalisation.
+    if [n.lower() for n in names_list] != [e.lower() for e in EXPECTED_CLASSES]:
         raise ClassTaxonomyError(
             f"Expected classes {EXPECTED_CLASSES}, got {names_list}"
         )

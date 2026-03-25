@@ -294,7 +294,7 @@ class TestBuildRouteGraphNodeAttributes:
         assert attrs["x_center"] == pytest.approx(0.4)
         assert attrs["y_center"] == pytest.approx(0.6)
         assert attrs["hold_type"] == "crimp"
-        assert attrs["detection_class"] == "hold"
+        assert attrs["detection_class"] == "Jug"
         assert "detection_confidence" in attrs
         assert "type_confidence" in attrs
         assert "type_probabilities" in attrs

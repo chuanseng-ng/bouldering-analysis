@@ -43,13 +43,17 @@ class TestHoldFeatures:
             crimp_count=1,
             sloper_count=0,
             pinch_count=0,
-            volume_count=0,
+            pocket_count=0,
+            edges_count=0,
+            foothold_count=0,
             unknown_count=0,
             jug_ratio=2 / 3,
             crimp_ratio=1 / 3,
             sloper_ratio=0.0,
             pinch_ratio=0.0,
-            volume_ratio=0.0,
+            pocket_ratio=0.0,
+            edges_ratio=0.0,
+            foothold_ratio=0.0,
             unknown_ratio=0.0,
             avg_hold_size=0.01,
             max_hold_size=0.02,
@@ -59,25 +63,31 @@ class TestHoldFeatures:
             crimp_soft_ratio=0.1,
             sloper_soft_ratio=0.1,
             pinch_soft_ratio=0.1,
-            volume_soft_ratio=0.05,
-            unknown_soft_ratio=0.05,
+            pocket_soft_ratio=0.02,
+            edges_soft_ratio=0.02,
+            foothold_soft_ratio=0.01,
+            unknown_soft_ratio=0.04,
         )
 
-    def test_all_23_fields_exist(self) -> None:
-        """HoldFeatures must expose exactly 23 fields."""
+    def test_all_29_fields_exist(self) -> None:
+        """HoldFeatures must expose exactly 29 fields."""
         expected_fields = {
             "total_count",
             "jug_count",
             "crimp_count",
             "sloper_count",
             "pinch_count",
-            "volume_count",
+            "pocket_count",
+            "edges_count",
+            "foothold_count",
             "unknown_count",
             "jug_ratio",
             "crimp_ratio",
             "sloper_ratio",
             "pinch_ratio",
-            "volume_ratio",
+            "pocket_ratio",
+            "edges_ratio",
+            "foothold_ratio",
             "unknown_ratio",
             "avg_hold_size",
             "max_hold_size",
@@ -87,11 +97,13 @@ class TestHoldFeatures:
             "crimp_soft_ratio",
             "sloper_soft_ratio",
             "pinch_soft_ratio",
-            "volume_soft_ratio",
+            "pocket_soft_ratio",
+            "edges_soft_ratio",
+            "foothold_soft_ratio",
             "unknown_soft_ratio",
         }
         assert set(HoldFeatures.model_fields.keys()) == expected_fields
-        assert len(HoldFeatures.model_fields) == 23
+        assert len(HoldFeatures.model_fields) == 29
 
     def test_count_fields_are_int(self) -> None:
         """All count fields must be int instances."""
@@ -102,7 +114,9 @@ class TestHoldFeatures:
             "crimp_count",
             "sloper_count",
             "pinch_count",
-            "volume_count",
+            "pocket_count",
+            "edges_count",
+            "foothold_count",
             "unknown_count",
         ]
         for field in int_fields:
@@ -115,13 +129,17 @@ class TestHoldFeatures:
             "crimp_ratio",
             "sloper_ratio",
             "pinch_ratio",
-            "volume_ratio",
+            "pocket_ratio",
+            "edges_ratio",
+            "foothold_ratio",
             "unknown_ratio",
             "jug_soft_ratio",
             "crimp_soft_ratio",
             "sloper_soft_ratio",
             "pinch_soft_ratio",
-            "volume_soft_ratio",
+            "pocket_soft_ratio",
+            "edges_soft_ratio",
+            "foothold_soft_ratio",
             "unknown_soft_ratio",
         ]
         for field in ratio_fields:
@@ -136,13 +154,17 @@ class TestHoldFeatures:
             crimp_count=0,
             sloper_count=0,
             pinch_count=0,
-            volume_count=0,
+            pocket_count=0,
+            edges_count=0,
+            foothold_count=0,
             unknown_count=0,
             jug_ratio=0.0,
             crimp_ratio=0.0,
             sloper_ratio=0.0,
             pinch_ratio=0.0,
-            volume_ratio=0.0,
+            pocket_ratio=0.0,
+            edges_ratio=0.0,
+            foothold_ratio=0.0,
             unknown_ratio=0.0,
             avg_hold_size=0.0,
             max_hold_size=0.0,
@@ -152,7 +174,9 @@ class TestHoldFeatures:
             crimp_soft_ratio=0.0,
             sloper_soft_ratio=0.0,
             pinch_soft_ratio=0.0,
-            volume_soft_ratio=0.0,
+            pocket_soft_ratio=0.0,
+            edges_soft_ratio=0.0,
+            foothold_soft_ratio=0.0,
             unknown_soft_ratio=0.0,
         )
         assert features.total_count == 0
@@ -194,7 +218,9 @@ class TestCountByType:
         assert result["crimp"] == 0
         assert result["sloper"] == 0
         assert result["pinch"] == 0
-        assert result["volume"] == 0
+        assert result["pocket"] == 0
+        assert result["edges"] == 0
+        assert result["foothold"] == 0
         assert result["unknown"] == 0
 
     def test_all_same_type_counted(self) -> None:
@@ -217,7 +243,9 @@ class TestCountByType:
         assert result["crimp"] == 1
         assert result["sloper"] == 1
         assert result["pinch"] == 0
-        assert result["volume"] == 0
+        assert result["pocket"] == 0
+        assert result["edges"] == 0
+        assert result["foothold"] == 0
         assert result["unknown"] == 0
 
     def test_unknown_type_counted(self) -> None:
@@ -227,12 +255,12 @@ class TestCountByType:
         assert result["unknown"] == 1
         assert result["jug"] == 0
 
-    def test_all_six_types_present_in_result(self) -> None:
-        """Result dict must always contain exactly the 6 HOLD_CLASSES keys."""
-        holds = [_make_classified_hold(hold_id=0, hold_type="volume")]
+    def test_all_eight_types_present_in_result(self) -> None:
+        """Result dict must always contain exactly the 8 HOLD_CLASSES keys."""
+        holds = [_make_classified_hold(hold_id=0, hold_type="pocket")]
         result = _count_by_type(holds)
         assert set(result.keys()) == set(HOLD_CLASSES)
-        assert len(result) == 6
+        assert len(result) == 8
 
     def test_unexpected_hold_type_raises_via_model_construct(self) -> None:
         """Defensive guard must raise FeatureExtractionError for unknown hold_type.
@@ -240,7 +268,7 @@ class TestCountByType:
         Uses model_construct() to bypass ClassifiedHold.validate_hold_type,
         simulating a hold that somehow bypasses normal construction.
         """
-        bad_hold = ClassifiedHold.model_construct(hold_type="pocket")
+        bad_hold = ClassifiedHold.model_construct(hold_type="volume")
         with pytest.raises(FeatureExtractionError, match="Unexpected hold_type"):
             _count_by_type([bad_hold])
 
@@ -469,7 +497,9 @@ class TestExtractHoldFeatures:
             + result.crimp_ratio
             + result.sloper_ratio
             + result.pinch_ratio
-            + result.volume_ratio
+            + result.pocket_ratio
+            + result.edges_ratio
+            + result.foothold_ratio
             + result.unknown_ratio
         )
         assert ratio_sum == pytest.approx(1.0, abs=1e-9)
@@ -486,7 +516,9 @@ class TestExtractHoldFeatures:
             + result.crimp_soft_ratio
             + result.sloper_soft_ratio
             + result.pinch_soft_ratio
-            + result.volume_soft_ratio
+            + result.pocket_soft_ratio
+            + result.edges_soft_ratio
+            + result.foothold_soft_ratio
             + result.unknown_soft_ratio
         )
         assert soft_sum == pytest.approx(1.0, abs=1e-6)
@@ -535,7 +567,9 @@ class TestExtractHoldFeatures:
         assert result.crimp_soft_ratio == pytest.approx(0.0)
         assert result.sloper_soft_ratio == pytest.approx(0.0)
         assert result.pinch_soft_ratio == pytest.approx(0.0)
-        assert result.volume_soft_ratio == pytest.approx(0.0)
+        assert result.pocket_soft_ratio == pytest.approx(0.0)
+        assert result.edges_soft_ratio == pytest.approx(0.0)
+        assert result.foothold_soft_ratio == pytest.approx(0.0)
         assert result.unknown_soft_ratio == pytest.approx(0.0)
 
     def test_confidence_weighted_distribution_is_averaged(self) -> None:

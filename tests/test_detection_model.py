@@ -328,8 +328,17 @@ class TestBuildHoldDetector:
         mock_yolo_class.assert_called_once_with("yolov8m.yaml")
 
         # Verify model config was updated
-        assert mock_model.model.yaml["nc"] == 2
-        assert mock_model.model.yaml["names"] == ["hold", "volume"]
+        assert mock_model.model.yaml["nc"] == 8
+        assert mock_model.model.yaml["names"] == [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ]
 
     @patch("src.training.detection_model.YOLO")
     def test_build_detector_invalid_model_size(
@@ -350,7 +359,7 @@ class TestBuildHoldDetector:
         with pytest.raises(ValueError) as exc_info:
             build_hold_detector(num_classes=5)
 
-        assert "num_classes must be 2" in str(exc_info.value)
+        assert "num_classes must be 8" in str(exc_info.value)
         mock_yolo_class.assert_not_called()
 
     @patch("src.training.detection_model.YOLO")

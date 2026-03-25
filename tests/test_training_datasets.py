@@ -48,8 +48,17 @@ def valid_dataset(tmp_path: Path) -> Path:
     data_yaml = {
         "train": "train",
         "val": "val",
-        "nc": 2,
-        "names": ["hold", "volume"],
+        "nc": 8,
+        "names": [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ],
     }
     with open(tmp_path / "data.yaml", "w", encoding="utf-8") as f:
         yaml.dump(data_yaml, f)
@@ -85,8 +94,17 @@ def valid_dataset_with_test(valid_dataset: Path) -> Path:
         "train": "train",
         "val": "val",
         "test": "test",
-        "nc": 2,
-        "names": ["hold", "volume"],
+        "nc": 8,
+        "names": [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ],
     }
     with open(valid_dataset / "data.yaml", "w", encoding="utf-8") as f:
         yaml.dump(data_yaml, f)
@@ -107,8 +125,17 @@ def valid_dataset_with_metadata(valid_dataset: Path) -> Path:
     data_yaml = {
         "train": "train",
         "val": "val",
-        "nc": 2,
-        "names": ["hold", "volume"],
+        "nc": 8,
+        "names": [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ],
         "dataset_version": "rf-climbing-holds-v1",
         "export_format": "yolov8",
         "export_date": "2026-01-28",
@@ -133,8 +160,17 @@ def dataset_with_dict_names(valid_dataset: Path) -> Path:
     data_yaml = {
         "train": "train",
         "val": "val",
-        "nc": 2,
-        "names": {0: "hold", 1: "volume"},
+        "nc": 8,
+        "names": {
+            0: "Crimp",
+            1: "Edges",
+            2: "Foothold",
+            3: "Hand-holds",
+            4: "Jug",
+            5: "Pinch",
+            6: "Pocket",
+            7: "Sloper",
+        },
     }
     with open(valid_dataset / "data.yaml", "w", encoding="utf-8") as f:
         yaml.dump(data_yaml, f)
@@ -157,8 +193,17 @@ class TestLoadHoldDetectionDataset:
         assert result["train"] == valid_dataset / "train"
         assert result["val"] == valid_dataset / "val"
         assert result["test"] is None
-        assert result["nc"] == 2
-        assert result["names"] == ["hold", "volume"]
+        assert result["nc"] == 8
+        assert result["names"] == [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ]
         assert result["train_image_count"] == 5
         assert result["val_image_count"] == 5
         assert result["test_image_count"] == 0
@@ -170,8 +215,17 @@ class TestLoadHoldDetectionDataset:
         assert result["train"] == valid_dataset_with_test / "train"
         assert result["val"] == valid_dataset_with_test / "val"
         assert result["test"] == valid_dataset_with_test / "test"
-        assert result["nc"] == 2
-        assert result["names"] == ["hold", "volume"]
+        assert result["nc"] == 8
+        assert result["names"] == [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ]
         assert result["train_image_count"] == 5
         assert result["val_image_count"] == 5
         assert result["test_image_count"] == 3
@@ -191,8 +245,17 @@ class TestLoadHoldDetectionDataset:
         """Load dataset with names in dict format."""
         result = load_hold_detection_dataset(dataset_with_dict_names)
 
-        assert result["names"] == ["hold", "volume"]
-        assert result["nc"] == 2
+        assert result["names"] == [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ]
+        assert result["nc"] == 8
 
     def test_load_dataset_returns_absolute_paths(self, valid_dataset: Path) -> None:
         """Loaded paths should be absolute Path objects."""
@@ -208,7 +271,7 @@ class TestLoadHoldDetectionDataset:
         result = load_hold_detection_dataset(str(valid_dataset))
 
         assert result["train"] == valid_dataset / "train"
-        assert result["nc"] == 2
+        assert result["nc"] == 8
 
     def test_load_nonexistent_dataset(self, tmp_path: Path) -> None:
         """Raise DatasetNotFoundError for non-existent path."""
@@ -284,7 +347,7 @@ class TestValidateDataYaml:
 
         assert result["train"] == "train"
         assert result["val"] == "val"
-        assert result["nc"] == 2
+        assert result["nc"] == 8
 
     def test_validate_missing_yaml(self, tmp_path: Path) -> None:
         """Raise DatasetNotFoundError for missing data.yaml."""
@@ -328,7 +391,20 @@ class TestValidateDataYaml:
     def test_validate_missing_train_key(self, tmp_path: Path) -> None:
         """Raise DatasetValidationError when 'train' key is missing."""
         yaml_path = tmp_path / "data.yaml"
-        data = {"val": "val", "nc": 2, "names": ["hold", "volume"]}
+        data = {
+            "val": "val",
+            "nc": 8,
+            "names": [
+                "Crimp",
+                "Edges",
+                "Foothold",
+                "Hand-holds",
+                "Jug",
+                "Pinch",
+                "Pocket",
+                "Sloper",
+            ],
+        }
         with open(yaml_path, "w", encoding="utf-8") as f:
             yaml.dump(data, f)
 
@@ -341,7 +417,20 @@ class TestValidateDataYaml:
     def test_validate_missing_val_key(self, tmp_path: Path) -> None:
         """Raise DatasetValidationError when 'val' key is missing."""
         yaml_path = tmp_path / "data.yaml"
-        data = {"train": "train", "nc": 2, "names": ["hold", "volume"]}
+        data = {
+            "train": "train",
+            "nc": 8,
+            "names": [
+                "Crimp",
+                "Edges",
+                "Foothold",
+                "Hand-holds",
+                "Jug",
+                "Pinch",
+                "Pocket",
+                "Sloper",
+            ],
+        }
         with open(yaml_path, "w", encoding="utf-8") as f:
             yaml.dump(data, f)
 
@@ -354,7 +443,20 @@ class TestValidateDataYaml:
     def test_validate_missing_nc_key(self, tmp_path: Path) -> None:
         """Raise DatasetValidationError when 'nc' key is missing."""
         yaml_path = tmp_path / "data.yaml"
-        data = {"train": "train", "val": "val", "names": ["hold", "volume"]}
+        data = {
+            "train": "train",
+            "val": "val",
+            "names": [
+                "Crimp",
+                "Edges",
+                "Foothold",
+                "Hand-holds",
+                "Jug",
+                "Pinch",
+                "Pocket",
+                "Sloper",
+            ],
+        }
         with open(yaml_path, "w", encoding="utf-8") as f:
             yaml.dump(data, f)
 
@@ -387,7 +489,7 @@ class TestClassTaxonomy:
     """Tests for class taxonomy validation."""
 
     def test_valid_class_count(self, valid_dataset: Path) -> None:
-        """Valid dataset has exactly 2 classes."""
+        """Valid dataset has exactly 8 classes."""
         result = load_hold_detection_dataset(valid_dataset)
 
         assert result["nc"] == EXPECTED_CLASS_COUNT
@@ -400,7 +502,7 @@ class TestClassTaxonomy:
         assert result["names"] == EXPECTED_CLASSES
 
     def test_wrong_class_count(self, tmp_path: Path) -> None:
-        """Raise ClassTaxonomyError when nc != 2."""
+        """Raise ClassTaxonomyError when nc != 8."""
         # Create directories
         (tmp_path / "train" / "images").mkdir(parents=True)
         (tmp_path / "val" / "images").mkdir(parents=True)
@@ -409,8 +511,8 @@ class TestClassTaxonomy:
         data_yaml = {
             "train": "train",
             "val": "val",
-            "nc": 5,
-            "names": ["crimp", "jug", "sloper", "pinch", "pocket"],
+            "nc": 2,
+            "names": ["hold", "volume"],
         }
         with open(tmp_path / "data.yaml", "w", encoding="utf-8") as f:
             yaml.dump(data_yaml, f)
@@ -418,7 +520,7 @@ class TestClassTaxonomy:
         with pytest.raises(ClassTaxonomyError) as exc_info:
             load_hold_detection_dataset(tmp_path)
 
-        assert "Expected 2 classes, found 5" in str(exc_info.value)
+        assert "Expected 8 classes, found 2" in str(exc_info.value)
 
     def test_wrong_class_names(self, tmp_path: Path) -> None:
         """Raise ClassTaxonomyError when class names don't match."""
@@ -426,12 +528,12 @@ class TestClassTaxonomy:
         (tmp_path / "train" / "images").mkdir(parents=True)
         (tmp_path / "val" / "images").mkdir(parents=True)
 
-        # Create data.yaml with wrong class names
+        # Create data.yaml with wrong class names (right count, wrong names)
         data_yaml = {
             "train": "train",
             "val": "val",
-            "nc": 2,
-            "names": ["crimp", "jug"],
+            "nc": 8,
+            "names": ["a", "b", "c", "d", "e", "f", "g", "h"],
         }
         with open(tmp_path / "data.yaml", "w", encoding="utf-8") as f:
             yaml.dump(data_yaml, f)
@@ -440,7 +542,6 @@ class TestClassTaxonomy:
             load_hold_detection_dataset(tmp_path)
 
         assert "Expected classes" in str(exc_info.value)
-        assert "['hold', 'volume']" in str(exc_info.value)
 
     def test_class_names_wrong_order(self, tmp_path: Path) -> None:
         """Raise ClassTaxonomyError when class order is wrong."""
@@ -452,8 +553,17 @@ class TestClassTaxonomy:
         data_yaml = {
             "train": "train",
             "val": "val",
-            "nc": 2,
-            "names": ["volume", "hold"],  # Wrong order
+            "nc": 8,
+            "names": [
+                "Sloper",
+                "Pocket",
+                "Pinch",
+                "Jug",
+                "Hand-holds",
+                "Foothold",
+                "Edges",
+                "Crimp",
+            ],  # Wrong order
         }
         with open(tmp_path / "data.yaml", "w", encoding="utf-8") as f:
             yaml.dump(data_yaml, f)
@@ -467,7 +577,16 @@ class TestClassTaxonomy:
         """Accept names in dict format with correct mapping."""
         result = load_hold_detection_dataset(dataset_with_dict_names)
 
-        assert result["names"] == ["hold", "volume"]
+        assert result["names"] == [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ]
 
     def test_dict_names_missing_key(self, tmp_path: Path) -> None:
         """Raise ClassTaxonomyError for dict names with missing keys."""
@@ -479,8 +598,17 @@ class TestClassTaxonomy:
         data_yaml = {
             "train": "train",
             "val": "val",
-            "nc": 2,
-            "names": {1: "hold", 2: "volume"},  # Missing key 0
+            "nc": 8,
+            "names": {
+                1: "Crimp",
+                2: "Edges",
+                3: "Foothold",
+                4: "Hand-holds",
+                5: "Jug",
+                6: "Pinch",
+                7: "Pocket",
+                8: "Sloper",
+            },  # Missing key 0
         }
         with open(tmp_path / "data.yaml", "w", encoding="utf-8") as f:
             yaml.dump(data_yaml, f)
@@ -500,8 +628,8 @@ class TestClassTaxonomy:
         data_yaml = {
             "train": "train",
             "val": "val",
-            "nc": 2,
-            "names": "hold, volume",
+            "nc": 8,
+            "names": "Crimp, Edges, Foothold, Hand-holds, Jug, Pinch, Pocket, Sloper",
         }
         with open(tmp_path / "data.yaml", "w", encoding="utf-8") as f:
             yaml.dump(data_yaml, f)
@@ -720,12 +848,21 @@ class TestConstants:
     """Tests for module constants."""
 
     def test_expected_classes_value(self) -> None:
-        """EXPECTED_CLASSES should be ['hold', 'volume']."""
-        assert EXPECTED_CLASSES == ["hold", "volume"]
+        """EXPECTED_CLASSES should be the 8-class hold taxonomy list."""
+        assert EXPECTED_CLASSES == [
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        ]
 
     def test_expected_class_count_value(self) -> None:
-        """EXPECTED_CLASS_COUNT should be 2."""
-        assert EXPECTED_CLASS_COUNT == 2
+        """EXPECTED_CLASS_COUNT should be 8."""
+        assert EXPECTED_CLASS_COUNT == 8
 
     def test_expected_classes_is_list(self) -> None:
         """EXPECTED_CLASSES should be a list."""

@@ -40,8 +40,9 @@ _FEATURE_DISPLAY_NAMES: dict[str, str] = {
     "crimp_ratio": "Crimp ratio",
     "sloper_ratio": "Sloper ratio",
     "pinch_ratio": "Pinch ratio",
+    "edges_ratio": "Edges ratio",
+    "pocket_ratio": "Pocket ratio",
     "jug_ratio": "Jug ratio",
-    "volume_ratio": "Volume ratio",
     "avg_move_distance": "Average move distance",
     "max_move_distance": "Maximum move distance",
     "path_length_max_hops": "Path length (hops)",
@@ -114,8 +115,9 @@ def _generate_hold_description(name: str, value: float, impact: float) -> str:
         "Crimp ratio": "crimps",
         "Sloper ratio": "slopers",
         "Pinch ratio": "pinches",
+        "Edges ratio": "edges",
+        "Pocket ratio": "pockets",
         "Jug ratio": "jugs",
-        "Volume ratio": "volumes",
     }
     pct = round(value * 100)
     hold_type = _hold_plurals.get(name, name.split()[0].lower() + "s")
@@ -178,8 +180,9 @@ def _compute_hold_contributions(vec: dict[str, float]) -> list[FeatureContributi
         "crimp_ratio",
         "sloper_ratio",
         "pinch_ratio",
+        "edges_ratio",
+        "pocket_ratio",
         "jug_ratio",
-        "volume_ratio",
     ]
     contributions: list[FeatureContribution] = []
     for key in hold_keys:

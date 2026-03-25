@@ -221,15 +221,10 @@ class TestClassifiedHold:
                 type_probabilities=bad_probs,
             )
 
-    def test_detection_class_volume_accepted(self) -> None:
-        """detection_class='volume' is a valid value."""
-        hold = _make_classified_hold(detection_class="volume", hold_type="volume")
-        assert hold.detection_class == "volume"
-
-    def test_invalid_detection_class_raises_validation_error(self) -> None:
-        """detection_class='wall' (invalid) raises ValidationError."""
-        with pytest.raises(ValidationError):
-            _make_classified_hold(detection_class="wall")  # type: ignore[arg-type]
+    def test_detection_class_any_string_accepted(self) -> None:
+        """detection_class is a plain str, so any string value is valid."""
+        hold = _make_classified_hold(detection_class="Sloper")
+        assert hold.detection_class == "Sloper"
 
 
 # ---------------------------------------------------------------------------
@@ -290,10 +285,10 @@ class TestMakeClassifiedHold:
 
     def test_detection_class_name_copied(self) -> None:
         """detection_class comes from detection.class_name."""
-        det = _make_detection(class_name="volume")
-        clf = _make_classification(predicted_class="volume")
+        det = _make_detection(class_name="Crimp")
+        clf = _make_classification(predicted_class="crimp")
         hold = make_classified_hold(0, det, clf)
-        assert hold.detection_class == "volume"
+        assert hold.detection_class == "Crimp"
 
     def test_width_and_height_from_detection(self) -> None:
         """width and height come from DetectedHold, not from any crop size."""
@@ -376,25 +371,25 @@ class TestMakeClassifiedHoldFromPipelineOutput:
         assert rg.node_count == 3
         assert isinstance(rg.graph, nx.Graph)
 
-    def test_volume_detection_class_accepted_end_to_end(self) -> None:
-        """detection_class='volume' flows through the full pipeline without error."""
+    def test_non_hold_detection_class_accepted_end_to_end(self) -> None:
+        """detection_class='Sloper' (arbitrary string) flows through the full pipeline without error."""
         det = DetectedHold(
             x_center=0.5,
             y_center=0.5,
             width=0.2,
             height=0.2,
-            class_id=1,
-            class_name="volume",
+            class_id=0,
+            class_name="hold",
             confidence=0.95,
         )
         probs = {
-            c: (0.8 if c == "volume" else (1.0 - 0.8) / max(len(HOLD_CLASSES) - 1, 1))
+            c: (0.8 if c == "sloper" else (1.0 - 0.8) / max(len(HOLD_CLASSES) - 1, 1))
             for c in HOLD_CLASSES
         }
         clf = HoldTypeResult(
-            predicted_class="volume", confidence=0.8, probabilities=probs
+            predicted_class="sloper", confidence=0.8, probabilities=probs
         )
         hold = make_classified_hold(0, det, clf)
         rg = build_route_graph([hold])
         assert rg.node_count == 1
-        assert hold.detection_class == "volume"
+        assert hold.detection_class == "hold"

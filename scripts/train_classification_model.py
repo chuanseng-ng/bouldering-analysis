@@ -62,7 +62,18 @@ ECE_THRESHOLD: float = 0.10
 
 # ── crop extraction constants ────────────────────────────────────────────────
 CROP_SIZE: tuple[int, int] = (224, 224)
-DETECTION_CLASS_MAP: dict[int, str] = {0: "unknown", 1: "volume"}
+# Maps YOLO class index (from data.yaml order) to normalised HOLD_CLASSES name.
+# Dataset order: 0=Crimp, 1=Edges, 2=Foothold, 3=Hand-holds, 4=Jug, 5=Pinch, 6=Pocket, 7=Sloper
+DETECTION_CLASS_MAP: dict[int, str] = {
+    0: "crimp",
+    1: "edges",
+    2: "foothold",
+    3: "unknown",  # Hand-holds → generic unknown
+    4: "jug",
+    5: "pinch",
+    6: "pocket",
+    7: "sloper",
+}
 IMAGE_EXTENSIONS: frozenset[str] = frozenset({".jpg", ".jpeg", ".png"})
 
 
@@ -264,11 +275,10 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
     print(f"\nPhase 1 — Extracting crops from: {source_dataset}")
     print(f"           Output directory      : {crops_dataset}")
     print(
-        "\n  [!]  Dataset limitation: the detection dataset has 2 classes (hold, volume)."
-        "\n     Crops will be labelled 'unknown' (hold) and 'volume' only."
-        "\n     Classes jug / crimp / sloper / pinch will receive 1 placeholder image"
-        "\n     so the training pipeline runs end-to-end.  For a proper 6-class"
-        "\n     classifier, supply a labelled hold-type dataset from Roboflow."
+        "\n  [i]  Dataset has 8 fine-grained classes."
+        "\n     Crops are labelled directly from detection annotations:"
+        "\n     crimp / edges / foothold / unknown / jug / pinch / pocket / sloper."
+        "\n     Any class absent from the dataset receives 1 placeholder image."
     )
 
     for split in ("train", "val", "test"):
@@ -343,8 +353,7 @@ def _print_result(result: ClassificationTrainingResult) -> None:
     if not acc_ok:
         print(
             f"\n[!]  Accuracy {m.top1_accuracy:.4f} is below the target {ACCURACY_THRESHOLD}."
-            "\n   This is expected when using a 2-class crop dataset — supply a proper"
-            "\n   6-class Roboflow hold-type dataset for production accuracy targets."
+            "\n   Consider: more epochs, larger architecture, or additional annotated data."
         )
     elif not ece_ok:
         print(
