@@ -264,7 +264,16 @@ def _db_row_to_hold_response(row: dict[str, Any]) -> HoldResponse:
         HoldResponse model instance.
     """
     probs: dict[str, float] = {}
-    for key in ("jug", "crimp", "sloper", "pinch", "volume", "unknown"):
+    for key in (
+        "jug",
+        "crimp",
+        "sloper",
+        "pinch",
+        "pocket",
+        "edges",
+        "foothold",
+        "unknown",
+    ):
         probs[key] = float(row.get(f"prob_{key}", 0.0))
 
     return HoldResponse(
@@ -293,7 +302,16 @@ def _db_rows_to_classified_holds(rows: list[dict[str, Any]]) -> list[ClassifiedH
     holds: list[ClassifiedHold] = []
     for row in rows:
         probs: dict[str, float] = {}
-        for key in ("jug", "crimp", "sloper", "pinch", "volume", "unknown"):
+        for key in (
+            "jug",
+            "crimp",
+            "sloper",
+            "pinch",
+            "pocket",
+            "edges",
+            "foothold",
+            "unknown",
+        ):
             probs[key] = float(row.get(f"prob_{key}", 0.0))
 
         # Normalise probs to sum to 1.0 (guards against floating-point DB round-trips)
@@ -654,7 +672,9 @@ async def _run_analysis_pipeline(
                     "prob_crimp": probs.get("crimp", 0.0),
                     "prob_sloper": probs.get("sloper", 0.0),
                     "prob_pinch": probs.get("pinch", 0.0),
-                    "prob_volume": probs.get("volume", 0.0),
+                    "prob_pocket": probs.get("pocket", 0.0),
+                    "prob_edges": probs.get("edges", 0.0),
+                    "prob_foothold": probs.get("foothold", 0.0),
                     "prob_unknown": probs.get("unknown", 0.0),
                 }
             )
