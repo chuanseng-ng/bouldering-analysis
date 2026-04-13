@@ -208,5 +208,6 @@ runs/
 models/
 
 # Claude AI
+.claude/
 tmpclaude*
 settings.local.json
