@@ -96,16 +96,18 @@ def _make_hold_rows(n: int = 3) -> list[dict[str, Any]]:
                 "y_center": 0.5,
                 "width": 0.05,
                 "height": 0.05,
-                "detection_class": "hold",
+                "detection_class": "Jug",
                 "detection_confidence": 0.9,
                 "hold_type": "jug",
                 "type_confidence": 0.85,
                 "prob_jug": 0.85,
                 "prob_crimp": 0.03,
-                "prob_sloper": 0.03,
-                "prob_pinch": 0.03,
-                "prob_volume": 0.03,
-                "prob_unknown": 0.03,
+                "prob_sloper": 0.02,
+                "prob_pinch": 0.02,
+                "prob_pocket": 0.02,
+                "prob_edges": 0.02,
+                "prob_foothold": 0.02,
+                "prob_unknown": 0.02,
             }
         )
     return rows
@@ -711,16 +713,18 @@ class TestDbRowToHoldResponse:
             "y_center": 0.4,
             "width": 0.06,
             "height": 0.07,
-            "detection_class": "hold",
+            "detection_class": "Crimp",
             "detection_confidence": 0.92,
             "hold_type": "crimp",
             "type_confidence": 0.80,
             "prob_jug": 0.05,
             "prob_crimp": 0.80,
-            "prob_sloper": 0.05,
-            "prob_pinch": 0.05,
-            "prob_volume": 0.03,
-            "prob_unknown": 0.02,
+            "prob_sloper": 0.03,
+            "prob_pinch": 0.03,
+            "prob_pocket": 0.03,
+            "prob_edges": 0.03,
+            "prob_foothold": 0.03,
+            "prob_unknown": 0.03,
         }
 
     def test_maps_all_fields_correctly(self) -> None:
@@ -732,14 +736,16 @@ class TestDbRowToHoldResponse:
         assert result.type_confidence == 0.80
         assert result.type_probabilities["crimp"] == 0.80
 
-    def test_probabilities_dict_has_six_keys(self) -> None:
+    def test_probabilities_dict_has_eight_keys(self) -> None:
         result = _db_row_to_hold_response(self._make_row())
         assert set(result.type_probabilities.keys()) == {
             "jug",
             "crimp",
             "sloper",
             "pinch",
-            "volume",
+            "pocket",
+            "edges",
+            "foothold",
             "unknown",
         }
 
@@ -754,15 +760,17 @@ class TestDbRowsToClassifiedHolds:
             "y_center": 0.5,
             "width": 0.05,
             "height": 0.05,
-            "detection_class": "hold",
+            "detection_class": "Jug",
             "detection_confidence": 0.9,
             "hold_type": "jug",
             "type_confidence": 0.85,
             "prob_jug": 0.85 * scale,
-            "prob_crimp": 0.03 * scale,
-            "prob_sloper": 0.03 * scale,
-            "prob_pinch": 0.03 * scale,
-            "prob_volume": 0.03 * scale,
+            "prob_crimp": 0.02 * scale,
+            "prob_sloper": 0.02 * scale,
+            "prob_pinch": 0.02 * scale,
+            "prob_pocket": 0.02 * scale,
+            "prob_edges": 0.02 * scale,
+            "prob_foothold": 0.02 * scale,
             "prob_unknown": 0.03 * scale,
         }
 

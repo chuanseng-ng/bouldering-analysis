@@ -100,7 +100,7 @@ def mock_classifier_model() -> MagicMock:
 
     def _predict(batch: torch.Tensor) -> torch.Tensor:
         n = batch.shape[0]
-        logits = torch.zeros(n, 6)
+        logits = torch.zeros(n, 8)
         logits[:, 0] = 10.0  # jug wins for all
         return logits
 
@@ -245,7 +245,7 @@ class TestCropToClassify:
         detection_weights: Path,
         classification_weights: Path,
     ) -> None:
-        """Each result should have probabilities summing to ~1.0 over 6 classes."""
+        """Each result should have probabilities summing to ~1.0 over 8 classes."""
         mock_det_load.return_value = mock_yolo_model
         mock_cls_load.return_value = (mock_classifier_model, INPUT_SIZE)
 
@@ -254,6 +254,6 @@ class TestCropToClassify:
         results = classify_holds(crops, classification_weights)
 
         for result in results:
-            assert len(result.probabilities) == 6
+            assert len(result.probabilities) == 8
             total = sum(result.probabilities.values())
             assert total == pytest.approx(1.0, abs=1e-4)

@@ -162,29 +162,30 @@ class TestDetectedHold:
                 confidence=1.1,
             )
 
-    def test_rejects_invalid_class_name(self) -> None:
-        """DetectedHold rejects class_name not in ('hold', 'volume')."""
-        with pytest.raises(ValidationError):
-            DetectedHold(
+    def test_accepts_any_class_name_string(self) -> None:
+        """DetectedHold accepts any non-empty string as class_name (8-class taxonomy)."""
+        for name in CLASS_NAMES:
+            hold = DetectedHold(
                 x_center=0.5,
                 y_center=0.5,
                 width=0.2,
                 height=0.3,
                 class_id=0,
-                class_name="crimp",  # type: ignore[arg-type]
+                class_name=name,
                 confidence=0.5,
             )
+            assert hold.class_name == name
 
-    def test_rejects_invalid_class_id(self) -> None:
-        """DetectedHold rejects class_id outside [0, 1]."""
+    def test_rejects_negative_class_id(self) -> None:
+        """DetectedHold rejects class_id < 0."""
         with pytest.raises(ValidationError):
             DetectedHold(
                 x_center=0.5,
                 y_center=0.5,
                 width=0.2,
                 height=0.3,
-                class_id=5,
-                class_name="hold",
+                class_id=-1,
+                class_name="Jug",
                 confidence=0.5,
             )
 
@@ -322,7 +323,7 @@ class TestParseYoloResults:
         holds = _parse_yolo_results([results], conf_threshold=0.25)
         assert len(holds) == 1
         assert holds[0].x_center == pytest.approx(0.5)
-        assert holds[0].class_name == "hold"
+        assert holds[0].class_name == CLASS_NAMES[0]
         assert holds[0].confidence == pytest.approx(0.87)
 
     def test_filters_below_confidence_threshold(self) -> None:
@@ -363,24 +364,24 @@ class TestParseYoloResults:
         assert holds == []
 
     def test_maps_class_id_to_class_name(self) -> None:
-        """_parse_yolo_results correctly maps class_id 1 to 'volume'."""
+        """_parse_yolo_results correctly maps class_id to the corresponding CLASS_NAMES entry."""
         results = MagicMock()
         boxes = MagicMock()
         boxes.xywhn = torch.tensor([[0.5, 0.5, 0.2, 0.3]])
-        boxes.cls = torch.tensor([1.0])
+        boxes.cls = torch.tensor([4.0])  # index 4 = "Jug"
         boxes.conf = torch.tensor([0.75])
         results.boxes = boxes
 
         holds = _parse_yolo_results([results], conf_threshold=0.25)
-        assert holds[0].class_name == "volume"
-        assert holds[0].class_id == 1
+        assert holds[0].class_name == CLASS_NAMES[4]
+        assert holds[0].class_id == 4
 
     def test_skips_unknown_class_id(self) -> None:
         """_parse_yolo_results excludes detections whose class_id is out of range."""
         results = MagicMock()
         boxes = MagicMock()
         boxes.xywhn = torch.tensor([[0.5, 0.5, 0.2, 0.3]])
-        boxes.cls = torch.tensor([5.0])
+        boxes.cls = torch.tensor([8.0])  # index 8 is out of range for 8-class taxonomy
         boxes.conf = torch.tensor([0.90])
         results.boxes = boxes
 
@@ -590,8 +591,17 @@ class TestConstants:
     """Tests for module-level constants."""
 
     def test_class_names(self) -> None:
-        """CLASS_NAMES contains exactly ('hold', 'volume')."""
-        assert CLASS_NAMES == ("hold", "volume")
+        """CLASS_NAMES contains exactly the 8-class hold taxonomy tuple."""
+        assert CLASS_NAMES == (
+            "Crimp",
+            "Edges",
+            "Foothold",
+            "Hand-holds",
+            "Jug",
+            "Pinch",
+            "Pocket",
+            "Sloper",
+        )
 
     def test_default_conf_threshold(self) -> None:
         """DEFAULT_CONF_THRESHOLD is between 0.0 and 1.0."""

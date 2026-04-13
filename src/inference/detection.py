@@ -11,11 +11,11 @@ Example:
     >>> from src.inference.detection import detect_holds
     >>> holds = detect_holds("route.jpg", "models/detection/v1/weights/best.pt")
     >>> print(holds[0].class_name, holds[0].confidence)
-    hold 0.87
+    Jug 0.87
 """
 
 from pathlib import Path
-from typing import Any, Final, Literal, Union, cast
+from typing import Any, Final, Union
 
 import numpy as np
 import PIL.Image as PILImage
@@ -60,7 +60,16 @@ class InferenceError(InferencePipelineError):
 # Constants
 # ---------------------------------------------------------------------------
 
-CLASS_NAMES: Final[tuple[str, ...]] = ("hold", "volume")
+CLASS_NAMES: Final[tuple[str, ...]] = (
+    "Crimp",
+    "Edges",
+    "Foothold",
+    "Hand-holds",
+    "Jug",
+    "Pinch",
+    "Pocket",
+    "Sloper",
+)
 DEFAULT_CONF_THRESHOLD: Final[float] = 0.25
 DEFAULT_IOU_THRESHOLD: Final[float] = 0.45
 
@@ -87,8 +96,8 @@ class DetectedHold(BaseModel):
         y_center: Vertical centre of the bounding box (0–1).
         width: Bounding box width as a fraction of image width (0–1).
         height: Bounding box height as a fraction of image height (0–1).
-        class_id: Class index (0 = hold, 1 = volume).
-        class_name: Human-readable class label ('hold' or 'volume').
+        class_id: Class index (0-based, matching CLASS_NAMES).
+        class_name: Human-readable class label from CLASS_NAMES.
         confidence: Detection confidence score (0–1).
     """
 
@@ -96,8 +105,8 @@ class DetectedHold(BaseModel):
     y_center: float = Field(ge=0.0, le=1.0)
     width: float = Field(ge=0.0, le=1.0)
     height: float = Field(ge=0.0, le=1.0)
-    class_id: int = Field(ge=0, le=1)
-    class_name: Literal["hold", "volume"]
+    class_id: int = Field(ge=0)
+    class_name: str
     confidence: float = Field(ge=0.0, le=1.0)
 
 
@@ -213,7 +222,7 @@ def _parse_yolo_results(
                     width=float(xywhn[j][2]),
                     height=float(xywhn[j][3]),
                     class_id=class_id,
-                    class_name=cast(Literal["hold", "volume"], CLASS_NAMES[class_id]),
+                    class_name=CLASS_NAMES[class_id],
                     confidence=float(conf),
                 )
             )

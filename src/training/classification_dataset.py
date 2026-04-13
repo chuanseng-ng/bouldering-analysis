@@ -28,8 +28,21 @@ from src.training.exceptions import (
 
 logger = get_logger(__name__)
 
-# Expected 6-class hold taxonomy (immutable tuple)
-HOLD_CLASSES: tuple[str, ...] = ("jug", "crimp", "sloper", "pinch", "volume", "unknown")
+# 8-class hold taxonomy derived from the Roboflow detection dataset.
+# Mapping from dataset labels (capitalised) to normalised lowercase names:
+#   Crimp      → crimp   |  Edges    → edges   |  Foothold → foothold
+#   Hand-holds → unknown |  Jug      → jug     |  Pinch    → pinch
+#   Pocket     → pocket  |  Sloper   → sloper
+HOLD_CLASSES: tuple[str, ...] = (
+    "jug",
+    "crimp",
+    "sloper",
+    "pinch",
+    "pocket",
+    "edges",
+    "foothold",
+    "unknown",
+)
 HOLD_CLASS_COUNT: int = len(HOLD_CLASSES)
 
 # Supported image extensions (immutable)
@@ -43,13 +56,13 @@ class ClassificationDatasetConfig(TypedDict):
         train: Absolute path to the training split directory.
         val: Absolute path to the validation split directory.
         test: Absolute path to the test split directory, or None.
-        nc: Number of classes (always 6).
+        nc: Number of classes (always 8).
         names: List of class name strings in ``HOLD_CLASSES`` order.
         train_image_count: Total number of training images.
         val_image_count: Total number of validation images.
         test_image_count: Total number of test images (0 if no test split).
         class_counts: Per-class image counts from the training split.
-        class_weights: Inverse-frequency weights (length 6, HOLD_CLASSES order).
+        class_weights: Inverse-frequency weights (length HOLD_CLASS_COUNT, HOLD_CLASSES order).
         version: Always ``None`` (no version source in folder-per-class format).
         metadata: Extensible metadata dict (empty by default).
     """
@@ -63,7 +76,7 @@ class ClassificationDatasetConfig(TypedDict):
     val_image_count: int
     test_image_count: int
     class_counts: dict[str, int]
-    class_weights: list[float]
+    class_weights: list[float]  # length == HOLD_CLASS_COUNT, HOLD_CLASSES order
     version: None
     metadata: dict[str, Any]
 
@@ -288,13 +301,13 @@ def load_hold_classification_dataset(
             - train: Absolute path to training split
             - val: Absolute path to validation split
             - test: Absolute path to test split (or None)
-            - nc: Number of classes (always 6)
+            - nc: Number of classes (always 8)
             - names: List of class names
             - train_image_count: Total training images
             - val_image_count: Total validation images
             - test_image_count: Total test images (0 if no test split)
             - class_counts: Per-class image counts from train split
-            - class_weights: Inverse-frequency weights (len=6)
+            - class_weights: Inverse-frequency weights (len=HOLD_CLASS_COUNT)
             - version: Always None (no version source in this format)
             - metadata: Empty dict (extensible for future use)
 
@@ -307,9 +320,9 @@ def load_hold_classification_dataset(
     Example:
         >>> config = load_hold_classification_dataset("data/hold_classification")
         >>> print(config["nc"])
-        6
+        8
         >>> print(config["names"])
-        ['jug', 'crimp', 'sloper', 'pinch', 'volume', 'unknown']
+        ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'edges', 'foothold', 'unknown']
     """
     root = Path(dataset_root).resolve()
 

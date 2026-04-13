@@ -61,7 +61,16 @@ def valid_classification_dataset(tmp_path: Path) -> Path:
     Returns:
         Path to the dataset root directory.
     """
-    classes = ["jug", "crimp", "sloper", "pinch", "volume", "unknown"]
+    classes = [
+        "jug",
+        "crimp",
+        "sloper",
+        "pinch",
+        "pocket",
+        "edges",
+        "foothold",
+        "unknown",
+    ]
     _create_class_folders(tmp_path / "train", classes, image_count=5)
     _create_class_folders(tmp_path / "val", classes, image_count=3)
     return tmp_path
@@ -79,14 +88,23 @@ def valid_classification_dataset_with_test(
     Returns:
         Path to the dataset with test split.
     """
-    classes = ["jug", "crimp", "sloper", "pinch", "volume", "unknown"]
+    classes = [
+        "jug",
+        "crimp",
+        "sloper",
+        "pinch",
+        "pocket",
+        "edges",
+        "foothold",
+        "unknown",
+    ]
     _create_class_folders(valid_classification_dataset / "test", classes, image_count=2)
     return valid_classification_dataset
 
 
 @pytest.fixture
 def dataset_with_extra_class(tmp_path: Path) -> Path:
-    """Create a dataset with an extra class folder (pocket) in train split.
+    """Create a dataset with an extra class folder (volume) in train split.
 
     Args:
         tmp_path: Pytest temporary path fixture.
@@ -94,9 +112,28 @@ def dataset_with_extra_class(tmp_path: Path) -> Path:
     Returns:
         Path to the dataset root directory.
     """
-    classes = ["jug", "crimp", "sloper", "pinch", "volume", "unknown", "pocket"]
+    classes = [
+        "jug",
+        "crimp",
+        "sloper",
+        "pinch",
+        "pocket",
+        "edges",
+        "foothold",
+        "unknown",
+        "volume",
+    ]
     _create_class_folders(tmp_path / "train", classes, image_count=2)
-    classes_val = ["jug", "crimp", "sloper", "pinch", "volume", "unknown"]
+    classes_val = [
+        "jug",
+        "crimp",
+        "sloper",
+        "pinch",
+        "pocket",
+        "edges",
+        "foothold",
+        "unknown",
+    ]
     _create_class_folders(tmp_path / "val", classes_val, image_count=2)
     return tmp_path
 
@@ -111,9 +148,26 @@ def dataset_with_missing_class(tmp_path: Path) -> Path:
     Returns:
         Path to the dataset root directory.
     """
-    classes = ["jug", "crimp", "sloper", "pinch", "volume"]  # missing "unknown"
+    classes = [
+        "jug",
+        "crimp",
+        "sloper",
+        "pinch",
+        "pocket",
+        "edges",
+        "foothold",
+    ]  # missing "unknown"
     _create_class_folders(tmp_path / "train", classes, image_count=2)
-    all_classes = ["jug", "crimp", "sloper", "pinch", "volume", "unknown"]
+    all_classes = [
+        "jug",
+        "crimp",
+        "sloper",
+        "pinch",
+        "pocket",
+        "edges",
+        "foothold",
+        "unknown",
+    ]
     _create_class_folders(tmp_path / "val", all_classes, image_count=2)
     return tmp_path
 
@@ -127,16 +181,25 @@ class TestConstants:
     """Tests for module-level constants."""
 
     def test_hold_classes_value(self) -> None:
-        """HOLD_CLASSES should contain the 6 hold types in expected order."""
-        assert HOLD_CLASSES == ("jug", "crimp", "sloper", "pinch", "volume", "unknown")
+        """HOLD_CLASSES should contain the 8 hold types in expected order."""
+        assert HOLD_CLASSES == (
+            "jug",
+            "crimp",
+            "sloper",
+            "pinch",
+            "pocket",
+            "edges",
+            "foothold",
+            "unknown",
+        )
 
     def test_hold_classes_is_tuple(self) -> None:
         """HOLD_CLASSES should be a tuple (immutable constant)."""
         assert isinstance(HOLD_CLASSES, tuple)
 
     def test_hold_class_count_value(self) -> None:
-        """HOLD_CLASS_COUNT should be 6."""
-        assert HOLD_CLASS_COUNT == 6
+        """HOLD_CLASS_COUNT should be 8."""
+        assert HOLD_CLASS_COUNT == 8
 
     def test_hold_class_count_matches_classes(self) -> None:
         """HOLD_CLASS_COUNT should match length of HOLD_CLASSES."""
@@ -166,7 +229,9 @@ class TestComputeClassWeights:
             "crimp": 10,
             "sloper": 10,
             "pinch": 10,
-            "volume": 10,
+            "pocket": 10,
+            "edges": 10,
+            "foothold": 10,
             "unknown": 10,
         }
         weights = compute_class_weights(counts)
@@ -182,17 +247,19 @@ class TestComputeClassWeights:
             "crimp": 30,
             "sloper": 20,
             "pinch": 10,
-            "volume": 5,
+            "pocket": 5,
+            "edges": 5,
+            "foothold": 5,
             "unknown": 5,
         }
-        total = 130
-        n_classes = 6
+        total = 140
+        n_classes = 8
         weights = compute_class_weights(counts)
 
-        # Weight for jug: 130 / (6 * 60) = 0.3611...
+        # Weight for jug: 140 / (8 * 60) = 0.2916...
         assert weights[0] == pytest.approx(total / (n_classes * 60))
-        # Weight for unknown: 130 / (6 * 5) = 4.3333...
-        assert weights[5] == pytest.approx(total / (n_classes * 5))
+        # Weight for unknown: 140 / (8 * 5) = 3.5
+        assert weights[7] == pytest.approx(total / (n_classes * 5))
 
     def test_weights_order_matches_hold_classes(self) -> None:
         """Weights should be in HOLD_CLASSES order."""
@@ -201,14 +268,23 @@ class TestComputeClassWeights:
             "crimp": 20,
             "sloper": 30,
             "pinch": 40,
-            "volume": 50,
-            "unknown": 60,
+            "pocket": 50,
+            "edges": 60,
+            "foothold": 70,
+            "unknown": 80,
         }
         weights = compute_class_weights(counts)
 
         # jug has smallest count → largest weight
         assert (
-            weights[0] > weights[1] > weights[2] > weights[3] > weights[4] > weights[5]
+            weights[0]
+            > weights[1]
+            > weights[2]
+            > weights[3]
+            > weights[4]
+            > weights[5]
+            > weights[6]
+            > weights[7]
         )
 
     def test_returns_list_of_floats(self) -> None:
@@ -218,7 +294,9 @@ class TestComputeClassWeights:
             "crimp": 5,
             "sloper": 5,
             "pinch": 5,
-            "volume": 5,
+            "pocket": 5,
+            "edges": 5,
+            "foothold": 5,
             "unknown": 5,
         }
         weights = compute_class_weights(counts)
@@ -234,7 +312,9 @@ class TestComputeClassWeights:
             "crimp": 0,
             "sloper": 10,
             "pinch": 10,
-            "volume": 10,
+            "pocket": 10,
+            "edges": 10,
+            "foothold": 10,
             "unknown": 10,
         }
 
@@ -248,7 +328,9 @@ class TestComputeClassWeights:
             "crimp": -1,
             "sloper": 10,
             "pinch": 10,
-            "volume": 10,
+            "pocket": 10,
+            "edges": 10,
+            "foothold": 10,
             "unknown": 10,
         }
 
@@ -261,7 +343,7 @@ class TestComputeClassWeights:
             "jug": 10,
             "crimp": 10,
             "sloper": 10,
-        }  # missing pinch, volume, unknown
+        }  # missing pinch, pocket, edges, foothold, unknown
 
         with pytest.raises(DatasetValidationError, match="Missing class"):
             compute_class_weights(counts)
@@ -273,9 +355,11 @@ class TestComputeClassWeights:
             "crimp": 10,
             "sloper": 10,
             "pinch": 10,
-            "volume": 10,
+            "pocket": 10,
+            "edges": 10,
+            "foothold": 10,
             "unknown": 10,
-            "pocket": 5,  # unexpected
+            "volume": 5,  # unexpected
         }
 
         with pytest.raises(DatasetValidationError, match="Unexpected class"):
@@ -359,13 +443,13 @@ class TestCountImagesPerClass:
         split_path = tmp_path / "train"
         for cls in HOLD_CLASSES:
             (split_path / cls).mkdir(parents=True)
-        extra = split_path / "pocket"
+        extra = split_path / "volume"
         extra.mkdir()
         (extra / "img.jpg").touch()
 
         counts = count_images_per_class(split_path)
 
-        assert "pocket" not in counts
+        assert "volume" not in counts
 
     def test_file_path_raises(self, tmp_path: Path) -> None:
         """File path (not a directory) should raise DatasetNotFoundError."""
@@ -448,10 +532,10 @@ class TestLoadHoldClassificationDataset:
         assert result["train"] == (valid_classification_dataset / "train").resolve()
         assert result["val"] == (valid_classification_dataset / "val").resolve()
         assert result["test"] is None
-        assert result["nc"] == 6
+        assert result["nc"] == 8
         assert result["names"] == list(HOLD_CLASSES)
-        assert result["train_image_count"] == 30  # 6 classes * 5 images
-        assert result["val_image_count"] == 18  # 6 classes * 3 images
+        assert result["train_image_count"] == 40  # 8 classes * 5 images
+        assert result["val_image_count"] == 24  # 8 classes * 3 images
         assert result["test_image_count"] == 0
 
     def test_load_with_test_split(
@@ -463,13 +547,13 @@ class TestLoadHoldClassificationDataset:
         )
 
         assert result["test"] is not None
-        assert result["test_image_count"] == 12  # 6 classes * 2 images
+        assert result["test_image_count"] == 16  # 8 classes * 2 images
 
     def test_string_path_accepted(self, valid_classification_dataset: Path) -> None:
         """String path should be accepted and converted."""
         result = load_hold_classification_dataset(str(valid_classification_dataset))
 
-        assert result["nc"] == 6
+        assert result["nc"] == 8
         assert isinstance(result["train"], Path)
 
     def test_nonexistent_root_raises(self, tmp_path: Path) -> None:
@@ -555,7 +639,7 @@ class TestLoadHoldClassificationDataset:
                 dataset_with_extra_class, strict=False
             )
 
-        assert result["nc"] == 6
+        assert result["nc"] == 8
         assert result["names"] == list(HOLD_CLASSES)
 
     def test_non_strict_missing_class_raises_at_weights(

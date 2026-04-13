@@ -88,7 +88,8 @@ def _make_vec(**overrides: float) -> dict[str, float]:
         "sloper_ratio": 0.0,
         "pinch_ratio": 0.0,
         "jug_ratio": 0.0,
-        "volume_ratio": 0.0,
+        "edges_ratio": 0.0,
+        "pocket_ratio": 0.0,
         "avg_move_distance": 0.0,
         "max_move_distance": 0.0,
         "path_length_max_hops": 0.0,
@@ -327,11 +328,11 @@ class TestGetConfidenceQualifier:
 class TestComputeHoldContributions:
     """Tests for _compute_hold_contributions() private helper."""
 
-    def test_returns_five_contributions(self) -> None:
-        """Must return exactly 5 FeatureContribution instances."""
+    def test_returns_six_contributions(self) -> None:
+        """Must return exactly 6 FeatureContribution instances."""
         vec = _make_vec()
         contribs = _compute_hold_contributions(vec)
-        assert len(contribs) == 5
+        assert len(contribs) == 6
 
     def test_all_zeros_impact_is_zero(self) -> None:
         """All-zero hold ratios → all impacts must be 0.0."""
@@ -557,7 +558,7 @@ class TestGenerateHoldDescription:
 
     def test_zero_impact_mentions_neutral(self) -> None:
         """Zero impact must mention 'neutral'."""
-        desc = _generate_hold_description("Volume ratio", 0.0, 0.0)
+        desc = _generate_hold_description("Edges ratio", 0.0, 0.0)
         assert "neutral" in desc
 
     def test_percentage_formatted_correctly(self) -> None:
@@ -686,8 +687,8 @@ class TestGenerateExplanation:
         rf = _make_route_features(holds=holds)
         pred = _make_heuristic_result()
         result = generate_explanation(rf, pred)
-        # Zero-ratio types (jugs, slopers, pinches, volumes) must not appear
-        zero_types = ["jugs", "slopers", "pinches", "volumes"]
+        # Zero-ratio types (jugs, slopers, pinches, pockets, edges, footholds) must not appear
+        zero_types = ["jugs", "slopers", "pinches", "pockets", "edges", "footholds"]
         for highlight in result.hold_highlights:
             for zero_type in zero_types:
                 assert zero_type not in highlight
@@ -760,7 +761,7 @@ class TestGenerateExplanation:
                 hold_id=3, x_center=0.7, y_center=0.7, hold_type="pinch"
             ),
             _make_classified_hold(
-                hold_id=4, x_center=0.9, y_center=0.9, hold_type="volume"
+                hold_id=4, x_center=0.9, y_center=0.9, hold_type="pocket"
             ),
         ]
         rf = _make_route_features(holds=holds, start_ids=[0], finish_id=4)

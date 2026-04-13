@@ -7,16 +7,19 @@ Phase 1 — Crop extraction:
     extracts bounding-box crops for each annotated hold, and writes them into
     a folder-per-class layout required by the classification trainer.
 
-    Class mapping from detection labels:
-        class 0 (hold)   → ``unknown/``   (type not known from detection)
-        class 1 (volume) → ``volume/``
+    Class mapping from detection labels (DETECTION_CLASS_MAP):
+        0 (Crimp)      → ``crimp/``
+        1 (Edges)      → ``edges/``
+        2 (Foothold)   → ``foothold/``
+        3 (Hand-holds) → ``unknown/``
+        4 (Jug)        → ``jug/``
+        5 (Pinch)      → ``pinch/``
+        6 (Pocket)     → ``pocket/``
+        7 (Sloper)     → ``sloper/``
 
-    The four remaining classes in the 6-class taxonomy (jug, crimp, sloper,
-    pinch) are populated with one placeholder image each so that the
-    classification loader's class-weight computation does not fail.  This is
-    an intentional limitation of the current dataset — a proper 6-class
-    taxonomy requires a separately labelled hold-type dataset from Roboflow
-    or manual annotation.
+    The train split must contain at least one crop for every class; the
+    script exits with an error if any class is missing.  Val/test splits
+    may be empty (no placeholder images are copied).
 
 Phase 2 — Classification training:
     Calls :func:`src.training.train_classification.train_hold_classifier` on
@@ -38,6 +41,8 @@ import sys
 import warnings
 from pathlib import Path
 
+import yaml
+
 from PIL import Image  # type: ignore[import-untyped]
 import torch
 
@@ -50,6 +55,7 @@ from src.training.classification_dataset import (
     HOLD_CLASSES,
     load_hold_classification_dataset,
 )
+from src.training.datasets import EXPECTED_CLASSES
 from src.training.classification_model import ClassifierHyperparameters
 from src.training.train_classification import (
     ClassificationTrainingResult,
@@ -62,7 +68,18 @@ ECE_THRESHOLD: float = 0.10
 
 # ── crop extraction constants ────────────────────────────────────────────────
 CROP_SIZE: tuple[int, int] = (224, 224)
-DETECTION_CLASS_MAP: dict[int, str] = {0: "unknown", 1: "volume"}
+# Maps YOLO class index (from data.yaml order) to normalised HOLD_CLASSES name.
+# Dataset order: 0=Crimp, 1=Edges, 2=Foothold, 3=Hand-holds, 4=Jug, 5=Pinch, 6=Pocket, 7=Sloper
+DETECTION_CLASS_MAP: dict[int, str] = {
+    0: "crimp",
+    1: "edges",
+    2: "foothold",
+    3: "unknown",  # Hand-holds → generic unknown
+    4: "jug",
+    5: "pinch",
+    6: "pocket",
+    7: "sloper",
+}
 IMAGE_EXTENSIONS: frozenset[str] = frozenset({".jpg", ".jpeg", ".png"})
 
 
@@ -152,7 +169,7 @@ def _extract_crops_for_split(  # pylint: disable=too-many-locals
     """
     counts: dict[str, int] = {cls: 0 for cls in HOLD_CLASSES}
 
-    # Create all 6 class directories up front.
+    # Create all 8 class directories up front.
     for cls in HOLD_CLASSES:
         (output_split_dir / cls).mkdir(parents=True, exist_ok=True)
 
@@ -210,48 +227,75 @@ def _extract_crops_for_split(  # pylint: disable=too-many-locals
     return counts
 
 
-def _add_placeholder_images(split_dir: Path, source_class: str) -> list[str]:
-    """Copy one image from ``source_class`` into each empty class folder.
+def _validate_dataset_names(source_dataset: Path) -> None:
+    """Assert that data.yaml class names match the expected 8-class order.
 
-    The classifier's weight computation requires every class to have ≥1 image.
-    Classes not present in the detection dataset (jug, crimp, sloper, pinch)
-    receive one placeholder copy so the pipeline can run end-to-end.
+    Loads ``data.yaml`` from ``source_dataset`` and verifies (case-insensitively)
+    that the ``names`` list equals :data:`EXPECTED_CLASSES`.  Exits with code 1 if
+    the file is missing or the names do not match, so DETECTION_CLASS_MAP cannot
+    silently misassign labels.
 
     Args:
-        split_dir: Split root (e.g. ``crops/train/``).
-        source_class: Class folder to copy from (must be non-empty).
-
-    Returns:
-        List of class names that received a placeholder.
+        source_dataset: Root of the YOLO-format detection dataset.
     """
-    source_dir = split_dir / source_class
-    source_images = [
-        p
-        for p in source_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
-    ]
-    if not source_images:
-        return []
-
-    donor = source_images[0]
-    patched: list[str] = []
-
-    for cls in HOLD_CLASSES:
-        cls_dir = split_dir / cls
-        if not cls_dir.is_dir():
-            cls_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(donor, cls_dir / f"_placeholder_{cls}.jpg")
-            patched.append(cls)
-            continue
-        has_images = any(
-            p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
-            for p in cls_dir.iterdir()
+    yaml_path = source_dataset / "data.yaml"
+    if not yaml_path.exists():
+        print(
+            f"ERROR: data.yaml not found at {yaml_path}.\n"
+            "  DETECTION_CLASS_MAP is keyed by index and requires data.yaml to verify "
+            "class order.  Cannot proceed without it.",
+            file=sys.stderr,
         )
-        if not has_images:
-            shutil.copy2(donor, cls_dir / f"_placeholder_{cls}.jpg")
-            patched.append(cls)
+        sys.exit(1)
 
-    return patched
+    try:
+        with yaml_path.open() as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        print(
+            f"ERROR: Failed to parse {yaml_path}: {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not isinstance(config, dict):
+        print(
+            f"ERROR: {yaml_path} did not parse to a mapping (got {type(config).__name__}).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    names = config.get("names", [])
+    if isinstance(names, dict):
+        names = [names[k] for k in sorted(names.keys())]
+
+    if [str(n).lower() for n in names] != [e.lower() for e in EXPECTED_CLASSES]:
+        print(
+            f"ERROR: data.yaml class names do not match the expected order.\n"
+            f"  Expected : {EXPECTED_CLASSES}\n"
+            f"  Got      : {list(names)}\n"
+            "  DETECTION_CLASS_MAP is keyed by index and would silently misassign "
+            "labels if the order differs.  Fix data.yaml or update DETECTION_CLASS_MAP.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _validate_train_split_classes(class_counts: dict[str, int]) -> None:
+    """Exit with an error if any HOLD_CLASS has zero images in the train split.
+
+    Args:
+        class_counts: Mapping of class name to image count from the train split.
+    """
+    missing = [cls for cls in HOLD_CLASSES if class_counts.get(cls, 0) == 0]
+    if missing:
+        print(
+            f"\nERROR: Train split is missing crops for class(es): {missing}.\n"
+            "  Every class must have at least one training image.\n"
+            "  Add annotated images for the missing classes and re-run.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
@@ -264,12 +308,12 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
     print(f"\nPhase 1 — Extracting crops from: {source_dataset}")
     print(f"           Output directory      : {crops_dataset}")
     print(
-        "\n  [!]  Dataset limitation: the detection dataset has 2 classes (hold, volume)."
-        "\n     Crops will be labelled 'unknown' (hold) and 'volume' only."
-        "\n     Classes jug / crimp / sloper / pinch will receive 1 placeholder image"
-        "\n     so the training pipeline runs end-to-end.  For a proper 6-class"
-        "\n     classifier, supply a labelled hold-type dataset from Roboflow."
+        "\n  [i]  Dataset has 8 fine-grained classes."
+        "\n     Crops are labelled directly from detection annotations:"
+        "\n     crimp / edges / foothold / unknown / jug / pinch / pocket / sloper."
     )
+
+    _validate_dataset_names(source_dataset)
 
     for split in ("train", "val", "test"):
         images_dir = source_dataset / split / "images"
@@ -286,21 +330,15 @@ def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
         output_split_dir.mkdir(parents=True, exist_ok=True)
         counts = _extract_crops_for_split(images_dir, labels_dir, output_split_dir)
 
-        # Ensure every class has ≥1 image so compute_class_weights() succeeds.
-        source_cls = "unknown" if counts.get("unknown", 0) > 0 else "volume"
-        if counts.get(source_cls, 0) == 0:
-            warnings.warn(
-                f"Split '{split}' has no crops in either 'unknown' or 'volume'. "
-                "Cannot create placeholders for empty classes.",
-                stacklevel=2,
-            )
-        patched = _add_placeholder_images(output_split_dir, source_cls)
-
         total = sum(counts.values())
         print(f"\n  Split '{split}': {total} crops extracted.")
         for cls in HOLD_CLASSES:
-            tag = " (placeholder)" if cls in patched else ""
-            print(f"    {cls:<10}: {counts.get(cls, 0)}{tag}")
+            print(f"    {cls:<10}: {counts.get(cls, 0)}")
+
+        # Train split must have at least one crop per class so
+        # compute_class_weights() does not fail.  Val/test may be empty.
+        if split == "train":
+            _validate_train_split_classes(counts)
 
     print("\nCrop extraction complete.")
 
@@ -343,8 +381,7 @@ def _print_result(result: ClassificationTrainingResult) -> None:
     if not acc_ok:
         print(
             f"\n[!]  Accuracy {m.top1_accuracy:.4f} is below the target {ACCURACY_THRESHOLD}."
-            "\n   This is expected when using a 2-class crop dataset — supply a proper"
-            "\n   6-class Roboflow hold-type dataset for production accuracy targets."
+            "\n   Consider: more epochs, larger architecture, or additional annotated data."
         )
     elif not ece_ok:
         print(
@@ -389,6 +426,9 @@ def main() -> int:
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning)
         dataset = load_hold_classification_dataset(args.crops_dataset, strict=False)
+
+    # Validate train split even when extraction was skipped.
+    _validate_train_split_classes(dataset["class_counts"])
 
     print(
         f"  Classes : {dataset['names']} ({dataset['nc']} total)\n"

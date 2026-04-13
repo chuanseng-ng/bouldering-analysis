@@ -142,7 +142,7 @@ class DetectionHyperparameters(BaseModel):
 def build_hold_detector(
     model_size: str = DEFAULT_MODEL_SIZE,
     pretrained: bool = True,
-    num_classes: int = 2,
+    num_classes: int = 8,
 ) -> YOLO:
     """Build a YOLOv8 detection model for hold/volume detection.
 
