@@ -227,50 +227,6 @@ def _extract_crops_for_split(  # pylint: disable=too-many-locals
     return counts
 
 
-def _add_placeholder_images(split_dir: Path, source_class: str) -> list[str]:
-    """Copy one image from ``source_class`` into each empty class folder.
-
-    The classifier's weight computation requires every class to have ≥1 image.
-    Classes not present in the detection dataset (jug, crimp, sloper, pinch)
-    receive one placeholder copy so the pipeline can run end-to-end.
-
-    Args:
-        split_dir: Split root (e.g. ``crops/train/``).
-        source_class: Class folder to copy from (must be non-empty).
-
-    Returns:
-        List of class names that received a placeholder.
-    """
-    source_dir = split_dir / source_class
-    source_images = [
-        p
-        for p in source_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
-    ]
-    if not source_images:
-        return []
-
-    donor = source_images[0]
-    patched: list[str] = []
-
-    for cls in HOLD_CLASSES:
-        cls_dir = split_dir / cls
-        if not cls_dir.is_dir():
-            cls_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(donor, cls_dir / f"_placeholder_{cls}.jpg")
-            patched.append(cls)
-            continue
-        has_images = any(
-            p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS
-            for p in cls_dir.iterdir()
-        )
-        if not has_images:
-            shutil.copy2(donor, cls_dir / f"_placeholder_{cls}.jpg")
-            patched.append(cls)
-
-    return patched
-
-
 def _validate_dataset_names(source_dataset: Path) -> None:
     """Assert that data.yaml class names match the expected 8-class order.
 
@@ -311,7 +267,7 @@ def _validate_dataset_names(source_dataset: Path) -> None:
 
     names = config.get("names", [])
     if isinstance(names, dict):
-        names = [names[i] for i in range(len(names))]
+        names = [names[k] for k in sorted(names.keys())]
 
     if [str(n).lower() for n in names] != [e.lower() for e in EXPECTED_CLASSES]:
         print(

@@ -34,7 +34,14 @@ ALTER TABLE holds
     ADD COLUMN IF NOT EXISTS prob_foothold FLOAT NOT NULL DEFAULT 0.0
         CHECK (prob_foothold BETWEEN 0 AND 1);
 
--- ── Step 2: Drop legacy prob_volume column ───────────────────────────────────
+-- ── Step 2: Preserve prob_volume mass then drop the column ──────────────────
+-- Before removing prob_volume, roll its probability mass into prob_unknown so
+-- that the per-row probability sum is preserved.  COALESCE guards against NULL
+-- (newly added columns default to 0.0 so this is defensive).
+
+UPDATE holds
+    SET prob_unknown = COALESCE(prob_unknown, 0.0) + COALESCE(prob_volume, 0.0)
+    WHERE prob_volume IS NOT NULL AND prob_volume > 0;
 
 ALTER TABLE holds DROP COLUMN IF EXISTS prob_volume;
 
@@ -43,9 +50,9 @@ ALTER TABLE holds DROP COLUMN IF EXISTS prob_volume;
 -- ('hold', 'volume') and hold_type may include 'volume'.  Map them to the
 -- closest canonical value so the new CHECK constraints do not reject them.
 
--- 'hold' was the generic detection class → map to 'Jug' (most common hold type).
+-- 'hold' was the old generic detection class → map to 'Hand-holds' (unknown type).
 -- 'volume' was the old large-feature class → map to 'Hand-holds' (unknown type).
-UPDATE holds SET detection_class = 'Jug'        WHERE detection_class = 'hold';
+UPDATE holds SET detection_class = 'Hand-holds' WHERE detection_class = 'hold';
 UPDATE holds SET detection_class = 'Hand-holds' WHERE detection_class = 'volume';
 
 -- hold_type 'volume' no longer exists in the 8-class taxonomy → map to 'unknown'.
@@ -101,15 +108,15 @@ SELECT
     ) AS prob_volume_removed;
 
 -- Updated CHECK constraints present
-SELECT
-    COUNT(*) = 2 AS both_checks_exist
+SELECT conname, pg_get_constraintdef(oid) AS definition
 FROM pg_constraint
 WHERE conrelid = 'holds'::regclass
   AND contype = 'c'
-  AND conname IN ('holds_detection_class_check', 'holds_hold_type_check');
+  AND conname IN ('holds_detection_class_check', 'holds_hold_type_check')
+ORDER BY conname;
 
 -- RLS policies still present
-SELECT
-    COUNT(*) AS rls_policy_count
+SELECT policyname, roles, cmd
 FROM pg_policies
-WHERE tablename = 'holds';
+WHERE tablename = 'holds'
+ORDER BY policyname;

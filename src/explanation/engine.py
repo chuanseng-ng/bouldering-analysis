@@ -169,6 +169,11 @@ def _compute_hold_contributions(vec: dict[str, float]) -> list[FeatureContributi
     Returns:
         List of 6 :class:`~src.explanation.types.FeatureContribution` instances,
         one per hold type (crimp, sloper, pinch, edges, pocket, jug).
+        ``foothold_ratio`` and ``unknown_ratio`` are intentionally excluded:
+        foot placements and unclassified holds do not appear in
+        :data:`~src.grading.constants.FEATURE_WEIGHTS` because they do not
+        influence hand-move difficulty.  All 8 types are still shown in
+        :func:`_build_hold_highlights` for route composition reporting.
 
     Example::
 

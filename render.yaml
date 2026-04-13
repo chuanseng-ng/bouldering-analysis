@@ -1,0 +1,35 @@
+services:
+  # FastAPI backend — web service (already deployed separately via Render dashboard)
+  # This entry documents the expected configuration for reference.
+  - type: web
+    name: bouldering-analysis-api
+    env: python
+    buildCommand: uv sync --no-install-project --all-extras
+    startCommand: uv run uvicorn src.app:application --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: BA_SUPABASE_URL
+        sync: false
+      - key: BA_SUPABASE_KEY
+        sync: false
+      - key: BA_API_KEY
+        sync: false
+      - key: BA_CORS_ORIGINS
+        sync: false
+
+  # Telegram bot — background worker (polling mode, no public port needed)
+  - type: worker
+    name: bouldering-telegram-bot
+    env: python
+    buildCommand: uv sync --no-install-project --all-extras
+    startCommand: uv run python -m src.telegram_bot.bot
+    envVars:
+      - key: BA_TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BA_TELEGRAM_API_URL
+        sync: false
+      - key: BA_TELEGRAM_LOG_PII
+        value: "false"
+      - key: BA_SUPABASE_URL
+        sync: false
+      - key: BA_SUPABASE_KEY
+        sync: false
