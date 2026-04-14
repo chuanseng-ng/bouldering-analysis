@@ -28,7 +28,7 @@ from src.training.train_grade_estimator import (
     train_grade_estimator,
 )
 
-# Hard-coded 8-class taxonomy contract — intentionally NOT imported from production
+# Hard-coded 7-class taxonomy contract — intentionally NOT imported from production
 # so that regressions in HOLD_CLASSES are caught rather than silently masked.
 _HOLD_CLASSES = (
     "jug",
@@ -36,7 +36,6 @@ _HOLD_CLASSES = (
     "sloper",
     "pinch",
     "pocket",
-    "edges",
     "foothold",
     "unknown",
 )
@@ -239,8 +238,8 @@ class TestGenerateSyntheticTrainingData:
         edge_counts = [f.geometry.edge_count for f, _ in samples]
         assert any(ec > 0 for ec in edge_counts)
 
-    def test_feature_vector_has_40_keys(self) -> None:
-        """Every sample's feature vector must contain exactly the 40 expected keys."""
+    def test_feature_vector_has_37_keys(self) -> None:
+        """Every sample's feature vector must contain exactly the 37 expected keys."""
         expected_geometry_keys = {
             "avg_move_distance",
             "max_move_distance",
@@ -272,8 +271,9 @@ class TestGenerateSyntheticTrainingData:
         for features, _ in samples:
             vec_keys = set(features.to_vector().keys())
             assert vec_keys == expected_keys
-            assert len(vec_keys) == 40
+            assert len(vec_keys) == 37
             assert "volume_ratio" not in vec_keys
+            assert "edges_ratio" not in vec_keys
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +326,7 @@ class TestTrainGradeEstimator:
     def test_feature_names_length(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
     ) -> None:
-        """feature_names must contain exactly the expected 40 keys."""
+        """feature_names must contain exactly the expected 37 keys."""
         expected_hold_keys = (
             {f"{cls}_count" for cls in _HOLD_CLASSES}
             | {f"{cls}_ratio" for cls in _HOLD_CLASSES}
@@ -356,7 +356,8 @@ class TestTrainGradeEstimator:
             "edge_count",
         }
         assert "volume_ratio" not in actual
-        assert len(result.feature_names) == 40
+        assert "edges_ratio" not in actual
+        assert len(result.feature_names) == 37
 
     def test_metrics_in_range(
         self, small_training_data: tuple[list[Any], list[int]], tmp_path: Path
@@ -415,14 +416,14 @@ class TestTrainGradeEstimator:
         with result.metadata_path.open() as fh:
             meta = json.load(fh)
         expected_keys = set(result.feature_names)
-        assert len(meta["normalization_mean"]) == 40
-        assert len(meta["normalization_std"]) == 40
+        assert len(meta["normalization_mean"]) == 37
+        assert len(meta["normalization_std"]) == 37
         assert set(meta["normalization_mean"].keys()) == expected_keys
         assert set(meta["normalization_std"].keys()) == expected_keys
 
     def test_zero_variance_feature_std_zero_in_metadata(self, tmp_path: Path) -> None:
         """If a feature is constant across all samples, std=0.0 must be stored."""
-        samples = generate_synthetic_training_data(n_samples=20, seed=0)
+        samples = generate_synthetic_training_data(n_samples=50, seed=42)
         features, labels = zip(*samples)
 
         # Identify features that are constant across all samples (e.g. node_count,

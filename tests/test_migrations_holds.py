@@ -73,7 +73,8 @@ def _make_mock_client(
             "prob_crimp",
             "prob_sloper",
             "prob_pinch",
-            "prob_volume",
+            "prob_pocket",
+            "prob_foothold",
             "prob_unknown",
             "created_at",
         ]
@@ -92,7 +93,8 @@ def _make_mock_client(
             "holds_prob_crimp_check",
             "holds_prob_sloper_check",
             "holds_prob_pinch_check",
-            "holds_prob_volume_check",
+            "holds_prob_pocket_check",
+            "holds_prob_foothold_check",
             "holds_prob_unknown_check",
         ]
     if policies is None:
@@ -213,9 +215,13 @@ class TestHoldsMigrationSQL:
         """prob_pinch column must be present."""
         assert "prob_pinch" in sql_content
 
-    def test_column_prob_volume(self, sql_content: str) -> None:
-        """prob_volume column must be present."""
-        assert "prob_volume" in sql_content
+    def test_column_prob_pocket(self, sql_content: str) -> None:
+        """prob_pocket column must be present."""
+        assert "prob_pocket" in sql_content
+
+    def test_column_prob_foothold(self, sql_content: str) -> None:
+        """prob_foothold column must be present."""
+        assert "prob_foothold" in sql_content
 
     def test_column_prob_unknown(self, sql_content: str) -> None:
         """prob_unknown column must be present."""
@@ -300,9 +306,13 @@ class TestHoldsMigrationSQL:
         """prob_pinch must have a BETWEEN 0 AND 1 CHECK constraint."""
         assert re.search(r"prob_pinch\s+BETWEEN\s+0\s+AND\s+1", sql_content)
 
-    def test_check_prob_volume_between(self, sql_content: str) -> None:
-        """prob_volume must have a BETWEEN 0 AND 1 CHECK constraint."""
-        assert re.search(r"prob_volume\s+BETWEEN\s+0\s+AND\s+1", sql_content)
+    def test_check_prob_pocket_between(self, sql_content: str) -> None:
+        """prob_pocket must have a BETWEEN 0 AND 1 CHECK constraint."""
+        assert re.search(r"prob_pocket\s+BETWEEN\s+0\s+AND\s+1", sql_content)
+
+    def test_check_prob_foothold_between(self, sql_content: str) -> None:
+        """prob_foothold must have a BETWEEN 0 AND 1 CHECK constraint."""
+        assert re.search(r"prob_foothold\s+BETWEEN\s+0\s+AND\s+1", sql_content)
 
     def test_check_prob_unknown_between(self, sql_content: str) -> None:
         """prob_unknown must have a BETWEEN 0 AND 1 CHECK constraint."""
@@ -427,7 +437,7 @@ class TestCreateHoldsTableVerifier:
                 "prob_crimp",
                 "prob_sloper",
                 "prob_pinch",
-                "prob_volume",
+                "prob_pocket",
                 "created_at",
             ]
         ]
@@ -515,17 +525,17 @@ class TestCreateHoldsTableVerifier:
 
         assert _CONFIG.trigger_name is None
 
-    def test_config_has_all_18_columns(self) -> None:
-        """_CONFIG must list all 18 expected columns."""
+    def test_config_has_all_19_columns(self) -> None:
+        """_CONFIG must list all 19 expected columns."""
         from scripts.migrations.create_holds_table import _CONFIG
 
-        assert len(_CONFIG.expected_columns) == 18
+        assert len(_CONFIG.expected_columns) == 19
 
-    def test_config_has_all_15_check_constraints(self) -> None:
-        """_CONFIG must list all 15 expected CHECK constraints."""
+    def test_config_has_all_16_check_constraints(self) -> None:
+        """_CONFIG must list all 16 expected CHECK constraints."""
         from scripts.migrations.create_holds_table import _CONFIG
 
-        assert len(_CONFIG.expected_check_constraints) == 15
+        assert len(_CONFIG.expected_check_constraints) == 16
 
     def test_config_has_all_4_rls_policies(self) -> None:
         """_CONFIG must list all 4 expected RLS policies."""

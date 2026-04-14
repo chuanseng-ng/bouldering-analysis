@@ -270,7 +270,6 @@ def _db_row_to_hold_response(row: dict[str, Any]) -> HoldResponse:
         "sloper",
         "pinch",
         "pocket",
-        "edges",
         "foothold",
         "unknown",
     ):
@@ -308,7 +307,6 @@ def _db_rows_to_classified_holds(rows: list[dict[str, Any]]) -> list[ClassifiedH
             "sloper",
             "pinch",
             "pocket",
-            "edges",
             "foothold",
             "unknown",
         ):
@@ -673,7 +671,6 @@ async def _run_analysis_pipeline(
                     "prob_sloper": probs.get("sloper", 0.0),
                     "prob_pinch": probs.get("pinch", 0.0),
                     "prob_pocket": probs.get("pocket", 0.0),
-                    "prob_edges": probs.get("edges", 0.0),
                     "prob_foothold": probs.get("foothold", 0.0),
                     "prob_unknown": probs.get("unknown", 0.0),
                 }

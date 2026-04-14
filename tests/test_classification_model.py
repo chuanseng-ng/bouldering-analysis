@@ -397,7 +397,7 @@ class TestBuildHoldClassifier:
         mock_model.fc = MagicMock()
         mock_resnet18.return_value = mock_model
         config = build_hold_classifier()
-        assert config["num_classes"] == HOLD_CLASS_COUNT == 8
+        assert config["num_classes"] == HOLD_CLASS_COUNT == 7
 
     @patch("src.training.classification_model.models.resnet18")
     def test_input_size_equals_input_size_constant(
@@ -552,7 +552,7 @@ class TestClassifierConfigStructure:
 
     def test_hold_classes_accessible_via_training_init(self) -> None:
         """HOLD_CLASSES and HOLD_CLASS_COUNT must be importable via src.training."""
-        assert len(HOLD_CLASSES) == HOLD_CLASS_COUNT == 8
+        assert len(HOLD_CLASSES) == HOLD_CLASS_COUNT == 7
 
 
 # ---------------------------------------------------------------------------
@@ -572,32 +572,32 @@ class TestRealBackboneIntegration:
     """
 
     def test_resnet18_final_layer_replaced_correctly(self) -> None:
-        """Real ResNet-18 backbone must have fc replaced with out_features=8."""
+        """Real ResNet-18 backbone must have fc replaced with out_features=7."""
         hp = ClassifierHyperparameters(architecture="resnet18", pretrained=False)
         config = build_hold_classifier(hp)
         fc = config["model"].fc  # type: ignore[union-attr]
         assert isinstance(fc, nn.Linear)
-        assert fc.out_features == 8
+        assert fc.out_features == 7
 
     def test_mobilenet_v3_small_final_layer_replaced_correctly(self) -> None:
-        """Real MobileNetV3-Small backbone must have classifier[-1] replaced with out_features=8."""
+        """Real MobileNetV3-Small backbone must have classifier[-1] replaced with out_features=7."""
         hp = ClassifierHyperparameters(
             architecture="mobilenet_v3_small", pretrained=False
         )
         config = build_hold_classifier(hp)
         last_layer = config["model"].classifier[-1]  # type: ignore[index]
         assert isinstance(last_layer, nn.Linear)
-        assert last_layer.out_features == 8
+        assert last_layer.out_features == 7
 
     def test_mobilenet_v3_large_final_layer_replaced_correctly(self) -> None:
-        """Real MobileNetV3-Large backbone must have classifier[-1] replaced with out_features=8."""
+        """Real MobileNetV3-Large backbone must have classifier[-1] replaced with out_features=7."""
         hp = ClassifierHyperparameters(
             architecture="mobilenet_v3_large", pretrained=False
         )
         config = build_hold_classifier(hp)
         last_layer = config["model"].classifier[-1]  # type: ignore[index]
         assert isinstance(last_layer, nn.Linear)
-        assert last_layer.out_features == 8
+        assert last_layer.out_features == 7
 
 
 # ---------------------------------------------------------------------------

@@ -80,7 +80,8 @@ _CONFIG = TableVerificationConfig(
         "prob_crimp",
         "prob_sloper",
         "prob_pinch",
-        "prob_volume",
+        "prob_pocket",
+        "prob_foothold",
         "prob_unknown",
         "created_at",
     ),
@@ -101,7 +102,8 @@ _CONFIG = TableVerificationConfig(
             "holds_prob_crimp_check",
             "holds_prob_sloper_check",
             "holds_prob_pinch_check",
-            "holds_prob_volume_check",
+            "holds_prob_pocket_check",
+            "holds_prob_foothold_check",
             "holds_prob_unknown_check",
         }
     ),
@@ -126,8 +128,8 @@ def verify_holds_table(client: SupabaseClientLike) -> VerificationResult:
 
     Checks performed:
     1. Table ``holds`` exists.
-    2. All 18 expected columns are present.
-    3. All 15 expected CHECK constraints are present.
+    2. All 19 expected columns are present.
+    3. All 16 expected CHECK constraints are present.
     4. All 4 expected RLS policies are present.
 
     (No trigger check: holds are write-once, so no ``updated_at`` trigger
