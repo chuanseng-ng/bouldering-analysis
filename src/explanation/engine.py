@@ -40,7 +40,6 @@ _FEATURE_DISPLAY_NAMES: dict[str, str] = {
     "crimp_ratio": "Crimp ratio",
     "sloper_ratio": "Sloper ratio",
     "pinch_ratio": "Pinch ratio",
-    "edges_ratio": "Edges ratio",
     "pocket_ratio": "Pocket ratio",
     "jug_ratio": "Jug ratio",
     "avg_move_distance": "Average move distance",
@@ -115,7 +114,6 @@ def _generate_hold_description(name: str, value: float, impact: float) -> str:
         "Crimp ratio": "crimps",
         "Sloper ratio": "slopers",
         "Pinch ratio": "pinches",
-        "Edges ratio": "edges",
         "Pocket ratio": "pockets",
         "Jug ratio": "jugs",
     }
@@ -167,25 +165,24 @@ def _compute_hold_contributions(vec: dict[str, float]) -> list[FeatureContributi
         vec: Feature vector from :meth:`~src.features.assembler.RouteFeatures.to_vector`.
 
     Returns:
-        List of 6 :class:`~src.explanation.types.FeatureContribution` instances,
-        one per hold type (crimp, sloper, pinch, edges, pocket, jug).
+        List of 5 :class:`~src.explanation.types.FeatureContribution` instances,
+        one per hold type (crimp, sloper, pinch, pocket, jug).
         ``foothold_ratio`` and ``unknown_ratio`` are intentionally excluded:
         foot placements and unclassified holds do not appear in
         :data:`~src.grading.constants.FEATURE_WEIGHTS` because they do not
-        influence hand-move difficulty.  All 8 types are still shown in
+        influence hand-move difficulty.  All 7 types are still shown in
         :func:`_build_hold_highlights` for route composition reporting.
 
     Example::
 
         >>> contribs = _compute_hold_contributions(vec)
         >>> len(contribs)
-        6
+        5
     """
     hold_keys = [
         "crimp_ratio",
         "sloper_ratio",
         "pinch_ratio",
-        "edges_ratio",
         "pocket_ratio",
         "jug_ratio",
     ]
@@ -298,7 +295,6 @@ def _build_hold_highlights(vec: dict[str, float], top_n: int = 3) -> list[str]:
         "sloper_ratio": "slopers",
         "pinch_ratio": "pinches",
         "jug_ratio": "jugs",
-        "edges_ratio": "edges",
         "pocket_ratio": "pockets",
         "foothold_ratio": "footholds",
         "unknown_ratio": "unknowns",

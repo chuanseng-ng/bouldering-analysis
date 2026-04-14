@@ -42,12 +42,12 @@ MAX_MOVE_DISTANCE: Final[float] = math.sqrt(2.0)
 
 FEATURE_WEIGHTS: Final[dict[str, float]] = {
     # Hold difficulty sub-score (positive = harder, negative = easier)
-    # Weights calibrated for 8-class taxonomy; foothold/unknown intentionally absent
+    # Weights calibrated for 7-class taxonomy; foothold/unknown intentionally absent
     # (foot holds and generic holds do not directly influence hand-move difficulty).
-    "crimp_ratio": 0.30,
+    # crimp_ratio absorbs the former edges_ratio weight (edges aliased → crimp).
+    "crimp_ratio": 0.40,
     "sloper_ratio": 0.25,
     "pinch_ratio": 0.20,
-    "edges_ratio": 0.25,  # edge holds: similar difficulty profile to crimps
     "pocket_ratio": 0.15,  # pockets: moderate difficulty
     "jug_ratio": -0.30,  # jugs make a route easier
     # Geometry difficulty sub-score (all in [0,1] after normalization)

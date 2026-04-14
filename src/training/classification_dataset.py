@@ -3,7 +3,7 @@
 This module provides functions to load and validate folder-per-class
 classification datasets for training hold type classification models.
 It supports Roboflow classification exports and torchvision ImageFolder
-format with the 6-class hold taxonomy.
+format with the 7-class hold taxonomy.
 
 The main function ``load_hold_classification_dataset()`` validates the
 dataset structure and returns a configuration dictionary ready for training.
@@ -17,7 +17,7 @@ Example:
 
 import warnings
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, Final, TypedDict
 
 from src.logging_config import get_logger
 from src.training.exceptions import (
@@ -28,10 +28,11 @@ from src.training.exceptions import (
 
 logger = get_logger(__name__)
 
-# 8-class hold taxonomy derived from the Roboflow detection dataset.
+# 7-class canonical hold taxonomy.
+# Edges have been aliased to crimp (identical difficulty profile).
 # Mapping from dataset labels (capitalised) to normalised lowercase names:
-#   Crimp      → crimp   |  Edges    → edges   |  Foothold → foothold
-#   Hand-holds → unknown |  Jug      → jug     |  Pinch    → pinch
+#   Crimp      → crimp   |  Edges    → crimp    |  Foothold → foothold
+#   Hand-holds → unknown |  Jug      → jug      |  Pinch    → pinch
 #   Pocket     → pocket  |  Sloper   → sloper
 HOLD_CLASSES: tuple[str, ...] = (
     "jug",
@@ -39,11 +40,26 @@ HOLD_CLASSES: tuple[str, ...] = (
     "sloper",
     "pinch",
     "pocket",
-    "edges",
     "foothold",
     "unknown",
 )
 HOLD_CLASS_COUNT: int = len(HOLD_CLASSES)
+
+# Alias map: Roboflow folder names (lowercased) → canonical HOLD_CLASSES entry.
+# Keys cover all known Roboflow export folder names; any unrecognised folder
+# triggers a UserWarning in count_images_per_class and
+# _validate_class_taxonomy_structure.
+LABEL_ALIASES: Final[dict[str, str]] = {
+    "crimp": "crimp",
+    "edges": "crimp",  # edge holds share the crimp difficulty profile
+    "foothold": "foothold",
+    "hand-holds": "unknown",
+    "jug": "jug",
+    "pinch": "pinch",
+    "pocket": "pocket",
+    "sloper": "sloper",
+    "unknown": "unknown",
+}
 
 # Supported image extensions (immutable)
 IMAGE_EXTENSIONS: frozenset[str] = frozenset({".jpg", ".jpeg", ".png"})
@@ -56,7 +72,7 @@ class ClassificationDatasetConfig(TypedDict):
         train: Absolute path to the training split directory.
         val: Absolute path to the validation split directory.
         test: Absolute path to the test split directory, or None.
-        nc: Number of classes (always 8).
+        nc: Number of classes (always 7).
         names: List of class name strings in ``HOLD_CLASSES`` order.
         train_image_count: Total number of training images.
         val_image_count: Total number of validation images.
@@ -107,9 +123,9 @@ def compute_class_weights(class_counts: dict[str, int]) -> list[float]:
 
     Example:
         >>> counts = {"jug": 10, "crimp": 10, "sloper": 10,
-        ...           "pinch": 10, "volume": 10, "unknown": 10}
+        ...           "pinch": 10, "pocket": 10, "foothold": 10, "unknown": 10}
         >>> compute_class_weights(counts)
-        [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     """
     hold_classes_set = set(HOLD_CLASSES)
     missing = [cls for cls in HOLD_CLASSES if cls not in class_counts]
@@ -137,14 +153,16 @@ def count_images_per_class(split_path: Path | str) -> dict[str, int]:
 
     Only files with extensions in ``IMAGE_EXTENSIONS`` (case-insensitive)
     are counted. Subdirectories inside class folders are ignored.
-    Only folders matching ``HOLD_CLASSES`` names are counted.
+    Folder names are lowercased and resolved through ``LABEL_ALIASES``
+    before accumulating counts, so aliased folders (e.g. ``Edges/``)
+    are merged into their canonical target class (e.g. ``crimp``).
 
     Args:
         split_path: Path to a split directory (e.g., ``train/``).
 
     Returns:
-        Dictionary mapping class name to image count for each class
-        found in ``HOLD_CLASSES``.
+        Dictionary mapping canonical class name to image count for each
+        class in ``HOLD_CLASSES``.  All keys are always present.
 
     Raises:
         DatasetNotFoundError: If ``split_path`` does not exist.
@@ -159,18 +177,24 @@ def count_images_per_class(split_path: Path | str) -> dict[str, int]:
     if not split_path.is_dir():
         raise DatasetNotFoundError(f"Split directory not found: {split_path}")
 
-    counts: dict[str, int] = {}
-    for cls in HOLD_CLASSES:
-        cls_dir = split_path / cls
-        if not cls_dir.is_dir():
-            counts[cls] = 0
+    counts: dict[str, int] = {cls: 0 for cls in HOLD_CLASSES}
+    for item in split_path.iterdir():
+        if not item.is_dir():
             continue
-        count = sum(
+        normalized = item.name.lower()
+        target = LABEL_ALIASES.get(normalized)
+        if target is None:
+            warnings.warn(
+                f"Unknown class folder {item.name!r} in {split_path} — skipping",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        counts[target] += sum(
             1
-            for f in cls_dir.iterdir()
+            for f in item.iterdir()
             if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
         )
-        counts[cls] = count
 
     return counts
 
@@ -191,11 +215,21 @@ def _validate_class_taxonomy_structure(
         ClassTaxonomyError: If class folders are missing or unexpected
             (strict mode only).
     """
-    existing = {d.name for d in split_path.iterdir() if d.is_dir()}
-    expected = set(HOLD_CLASSES)
+    # Resolve each existing folder via LABEL_ALIASES (case-insensitive).
+    # Multiple source folders may map to the same target (e.g. Crimp + Edges → crimp).
+    existing_dirs = [d for d in split_path.iterdir() if d.is_dir()]
+    resolved: set[str] = set()
+    unrecognised: list[str] = []
+    for d in existing_dirs:
+        target = LABEL_ALIASES.get(d.name.lower())
+        if target is None:
+            unrecognised.append(d.name)
+        else:
+            resolved.add(target)
 
-    missing = expected - existing
-    extra = existing - expected
+    expected = set(HOLD_CLASSES)
+    missing = expected - resolved
+    extra = unrecognised  # folders with no alias are the only "unexpected" ones
 
     if missing:
         msg = f"Missing class folders in {split_name}: {sorted(missing)}"
@@ -217,8 +251,9 @@ def validate_classification_structure(
     """Validate that a classification dataset has the expected structure.
 
     Checks that ``train/`` and ``val/`` split directories exist and each
-    contains the 6 expected class subfolders. The ``test/`` split is
-    optional and validated only if present.
+    contains folders that resolve to all 7 expected canonical classes via
+    ``LABEL_ALIASES``. The ``test/`` split is optional and validated only if
+    present.
 
     Args:
         dataset_root: Path to the dataset root directory.
@@ -301,7 +336,7 @@ def load_hold_classification_dataset(
             - train: Absolute path to training split
             - val: Absolute path to validation split
             - test: Absolute path to test split (or None)
-            - nc: Number of classes (always 8)
+            - nc: Number of classes (always 7)
             - names: List of class names
             - train_image_count: Total training images
             - val_image_count: Total validation images
@@ -320,9 +355,9 @@ def load_hold_classification_dataset(
     Example:
         >>> config = load_hold_classification_dataset("data/hold_classification")
         >>> print(config["nc"])
-        8
+        7
         >>> print(config["names"])
-        ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'edges', 'foothold', 'unknown']
+        ['jug', 'crimp', 'sloper', 'pinch', 'pocket', 'foothold', 'unknown']
     """
     root = Path(dataset_root).resolve()
 

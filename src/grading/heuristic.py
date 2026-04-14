@@ -124,7 +124,6 @@ def _compute_hold_difficulty(vec: dict[str, float]) -> float:
         FEATURE_WEIGHTS["crimp_ratio"] * vec["crimp_ratio"]
         + FEATURE_WEIGHTS["sloper_ratio"] * vec["sloper_ratio"]
         + FEATURE_WEIGHTS["pinch_ratio"] * vec["pinch_ratio"]
-        + FEATURE_WEIGHTS["edges_ratio"] * vec["edges_ratio"]
         + FEATURE_WEIGHTS["pocket_ratio"] * vec["pocket_ratio"]
         + FEATURE_WEIGHTS["jug_ratio"] * vec["jug_ratio"]
     )

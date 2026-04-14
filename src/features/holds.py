@@ -46,7 +46,6 @@ class HoldFeatures(BaseModel):
         sloper_count: Number of holds classified as sloper.
         pinch_count: Number of holds classified as pinch.
         pocket_count: Number of holds classified as pocket.
-        edges_count: Number of holds classified as edges.
         foothold_count: Number of holds classified as foothold.
         unknown_count: Number of holds classified as unknown.
 
@@ -56,7 +55,6 @@ class HoldFeatures(BaseModel):
         sloper_ratio: Fraction of holds classified as sloper.
         pinch_ratio: Fraction of holds classified as pinch.
         pocket_ratio: Fraction of holds classified as pocket.
-        edges_ratio: Fraction of holds classified as edges.
         foothold_ratio: Fraction of holds classified as foothold.
         unknown_ratio: Fraction of holds classified as unknown.
 
@@ -71,7 +69,6 @@ class HoldFeatures(BaseModel):
         sloper_soft_ratio: Mean ``type_probabilities["sloper"]`` across all holds.
         pinch_soft_ratio: Mean ``type_probabilities["pinch"]`` across all holds.
         pocket_soft_ratio: Mean ``type_probabilities["pocket"]`` across all holds.
-        edges_soft_ratio: Mean ``type_probabilities["edges"]`` across all holds.
         foothold_soft_ratio: Mean ``type_probabilities["foothold"]`` across all holds.
         unknown_soft_ratio: Mean ``type_probabilities["unknown"]`` across all holds.
 
@@ -91,7 +88,6 @@ class HoldFeatures(BaseModel):
     sloper_count: int = Field(ge=0)
     pinch_count: int = Field(ge=0)
     pocket_count: int = Field(ge=0)
-    edges_count: int = Field(ge=0)
     foothold_count: int = Field(ge=0)
     unknown_count: int = Field(ge=0)
 
@@ -101,7 +97,6 @@ class HoldFeatures(BaseModel):
     sloper_ratio: float = Field(ge=0.0, le=1.0)
     pinch_ratio: float = Field(ge=0.0, le=1.0)
     pocket_ratio: float = Field(ge=0.0, le=1.0)
-    edges_ratio: float = Field(ge=0.0, le=1.0)
     foothold_ratio: float = Field(ge=0.0, le=1.0)
     unknown_ratio: float = Field(ge=0.0, le=1.0)
 
@@ -117,7 +112,6 @@ class HoldFeatures(BaseModel):
     sloper_soft_ratio: float = Field(ge=0.0, le=1.0)
     pinch_soft_ratio: float = Field(ge=0.0, le=1.0)
     pocket_soft_ratio: float = Field(ge=0.0, le=1.0)
-    edges_soft_ratio: float = Field(ge=0.0, le=1.0)
     foothold_soft_ratio: float = Field(ge=0.0, le=1.0)
     unknown_soft_ratio: float = Field(ge=0.0, le=1.0)
 
@@ -160,7 +154,7 @@ def _count_by_type(holds: list[ClassifiedHold]) -> dict[str, int]:
         holds: List of classified holds.  May be empty.
 
     Returns:
-        Dict mapping each hold class to its count.  All 8 HOLD_CLASSES keys
+        Dict mapping each hold class to its count.  All 7 HOLD_CLASSES keys
         are always present.
 
     Raises:
@@ -267,7 +261,7 @@ def extract_hold_features(holds: list[ClassifiedHold]) -> HoldFeatures:
             instances, typically the full hold list for a single route.
 
     Returns:
-        A :class:`HoldFeatures` instance with all 23 fields populated.
+        A :class:`HoldFeatures` instance with all 26 fields populated.
 
     Raises:
         FeatureExtractionError: If ``holds`` is empty, or if
@@ -302,7 +296,6 @@ def extract_hold_features(holds: list[ClassifiedHold]) -> HoldFeatures:
         sloper_count=counts["sloper"],
         pinch_count=counts["pinch"],
         pocket_count=counts["pocket"],
-        edges_count=counts["edges"],
         foothold_count=counts["foothold"],
         unknown_count=counts["unknown"],
         jug_ratio=counts["jug"] / total_count,
@@ -310,7 +303,6 @@ def extract_hold_features(holds: list[ClassifiedHold]) -> HoldFeatures:
         sloper_ratio=counts["sloper"] / total_count,
         pinch_ratio=counts["pinch"] / total_count,
         pocket_ratio=counts["pocket"] / total_count,
-        edges_ratio=counts["edges"] / total_count,
         foothold_ratio=counts["foothold"] / total_count,
         unknown_ratio=counts["unknown"] / total_count,
         avg_hold_size=avg_size,
@@ -322,7 +314,6 @@ def extract_hold_features(holds: list[ClassifiedHold]) -> HoldFeatures:
         sloper_soft_ratio=soft["sloper"],
         pinch_soft_ratio=soft["pinch"],
         pocket_soft_ratio=soft["pocket"],
-        edges_soft_ratio=soft["edges"],
         foothold_soft_ratio=soft["foothold"],
         unknown_soft_ratio=soft["unknown"],
     )
