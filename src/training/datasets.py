@@ -14,6 +14,7 @@ Example:
     500
 """
 
+import random
 import warnings
 from pathlib import Path
 from typing import Any
@@ -49,9 +50,42 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 REQUIRED_YAML_KEYS = ["train", "val", "nc", "names"]
 
 
+def _sample_dataset_images(
+    images_path: Path,
+    max_images: int,
+    seed: int = 42,
+) -> list[Path]:
+    """Sample up to ``max_images`` image file paths from an images directory.
+
+    Args:
+        images_path: Path to the ``images/`` subdirectory of a split.
+        max_images: Maximum number of images to return.  Must be ≥ 1.
+        seed: Random seed for reproducibility (default: 42).
+
+    Returns:
+        List of sampled :class:`~pathlib.Path` objects.  If the directory
+        contains fewer than ``max_images`` files, all files are returned.
+
+    Example:
+        >>> paths = _sample_dataset_images(Path("data/train/images"), 100)
+        >>> len(paths) <= 100
+        True
+    """
+    all_files = [
+        f
+        for f in images_path.iterdir()
+        if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
+    ]
+    if len(all_files) <= max_images:
+        return all_files
+    rng = random.Random(seed)
+    return rng.sample(all_files, max_images)
+
+
 def load_hold_detection_dataset(
     dataset_root: Path | str,
     strict: bool = True,
+    max_images: int | None = None,
 ) -> dict[str, Any]:
     """Load and validate a hold detection dataset in YOLOv8 format.
 
@@ -63,31 +97,35 @@ def load_hold_detection_dataset(
         dataset_root: Path to the dataset directory containing data.yaml.
         strict: If True, raise errors for validation failures.
             If False, log warnings and continue where possible.
+        max_images: When set, at most this many training images are used.
+            Sampling is random but reproducible (seed 42).  The returned
+            ``metadata["sampled_train_files"]`` contains the sampled file
+            paths.  Val and test splits are not affected.
 
     Returns:
         Dictionary containing:
             - train: Absolute path to training directory
             - val: Absolute path to validation directory
             - test: Absolute path to test directory (or None)
-            - nc: Number of classes (always 2)
-            - names: List of class names ["hold", "volume"]
-            - train_image_count: Number of training images
+            - nc: Number of classes
+            - names: List of class names
+            - train_image_count: Number of training images (after any sampling)
             - val_image_count: Number of validation images
             - test_image_count: Number of test images (or 0)
             - version: Dataset version string (if available)
-            - metadata: Additional metadata from data.yaml
+            - metadata: Additional metadata from data.yaml; includes
+              ``sampled_train_files`` key (list of Path) when ``max_images``
+              is set.
 
     Raises:
         DatasetNotFoundError: If dataset_root or data.yaml doesn't exist.
         DatasetValidationError: If dataset structure or config is invalid.
-        ClassTaxonomyError: If classes don't match expected [hold, volume].
+        ClassTaxonomyError: If classes don't match expected taxonomy.
 
     Example:
         >>> config = load_hold_detection_dataset("data/climbing_holds")
         >>> print(config["train_image_count"])
         500
-        >>> print(config["names"])
-        ['hold', 'volume']
     """
     # Convert to Path if string
     root = Path(dataset_root).resolve()
@@ -113,8 +151,18 @@ def load_hold_detection_dataset(
     val_path = root / config["val"]
     test_path = root / config["test"] if config.get("test") else None
 
-    # Count images in each split
-    train_count = count_dataset_images(train_path)
+    # Volume control: sample training images when a cap is requested
+    sampled_train_files: list[Path] | None = None
+    if max_images is not None:
+        images_path = train_path / "images"
+        if images_path.is_dir():
+            sampled_train_files = _sample_dataset_images(images_path, max_images)
+            train_count = len(sampled_train_files)
+        else:
+            train_count = 0
+    else:
+        train_count = count_dataset_images(train_path)
+
     val_count = count_dataset_images(val_path)
     test_count = count_dataset_images(test_path) if test_path else 0
 
@@ -126,18 +174,27 @@ def load_hold_detection_dataset(
     )
 
     # Extract metadata (optional fields from data.yaml)
-    metadata = {
+    metadata: dict[str, Any] = {
         k: v
         for k, v in config.items()
         if k not in REQUIRED_YAML_KEYS and k not in ["test"]
     }
+    if sampled_train_files is not None:
+        metadata["sampled_train_files"] = sampled_train_files
+
+    nc = config.get("nc", EXPECTED_CLASS_COUNT)
+    names_raw = config.get("names", EXPECTED_CLASSES.copy())
+    if isinstance(names_raw, dict):
+        names = [names_raw[i] for i in range(len(names_raw))]
+    else:
+        names = list(names_raw)
 
     return {
         "train": train_path,
         "val": val_path,
         "test": test_path,
-        "nc": EXPECTED_CLASS_COUNT,
-        "names": EXPECTED_CLASSES.copy(),
+        "nc": nc,
+        "names": names,
         "train_image_count": train_count,
         "val_image_count": val_count,
         "test_image_count": test_count,
@@ -146,12 +203,20 @@ def load_hold_detection_dataset(
     }
 
 
-def validate_data_yaml(yaml_path: Path, strict: bool = True) -> dict[str, Any]:
+def validate_data_yaml(
+    yaml_path: Path,
+    strict: bool = True,
+    flexible_nc: bool = False,
+) -> dict[str, Any]:
     """Validate and parse data.yaml configuration file.
 
     Args:
         yaml_path: Path to data.yaml file.
         strict: If True, raise errors for validation failures.
+        flexible_nc: If True, skip the ``nc == EXPECTED_CLASS_COUNT`` check
+            and instead accept any ``nc >= 1``.  Use this for detection
+            datasets with a different class count (e.g. 2-class hold/volume
+            datasets) without disabling all validation via ``strict=False``.
 
     Returns:
         Parsed YAML content as dictionary.
@@ -185,7 +250,7 @@ def validate_data_yaml(yaml_path: Path, strict: bool = True) -> dict[str, Any]:
             raise DatasetValidationError(f"Missing required key in data.yaml: '{key}'")
 
     # Validate class configuration
-    _validate_class_taxonomy(config, _strict=strict)
+    _validate_class_taxonomy(config, _strict=strict, flexible_nc=flexible_nc)
 
     logger.debug("data.yaml validation passed")
     return config
@@ -194,12 +259,16 @@ def validate_data_yaml(yaml_path: Path, strict: bool = True) -> dict[str, Any]:
 def _validate_class_taxonomy(
     config: dict[str, Any],
     _strict: bool = True,  # noqa: ARG001 - Reserved for future non-strict mode
+    flexible_nc: bool = False,
 ) -> None:
     """Validate that class configuration matches expected taxonomy.
 
     Args:
         config: Parsed data.yaml configuration.
         _strict: Reserved for future use. Currently always raises on mismatch.
+        flexible_nc: If True, skip the exact class-count check and accept any
+            ``nc >= 1``.  When True, class-name validation is also skipped so
+            datasets with an arbitrary taxonomy are accepted.
 
     Raises:
         ClassTaxonomyError: If class configuration is incorrect.
@@ -211,6 +280,31 @@ def _validate_class_taxonomy(
     """
     nc = config.get("nc")
     names = config.get("names")
+
+    if flexible_nc:
+        # Accept any positive class count; only validate that names is a
+        # non-empty list (or dict) of strings.
+        if not isinstance(nc, int) or nc < 1:
+            raise ClassTaxonomyError(
+                f"nc must be a positive integer when flexible_nc=True, got {nc!r}"
+            )
+        if isinstance(names, dict):
+            names_list: list = list(names.values())
+        elif isinstance(names, list):
+            names_list = names
+        else:
+            raise ClassTaxonomyError(
+                f"'names' must be a list or dict, got {type(names).__name__}"
+            )
+        if not names_list:
+            raise ClassTaxonomyError("'names' must not be empty")
+        for i, n in enumerate(names_list):
+            if not isinstance(n, str):
+                raise ClassTaxonomyError(
+                    f"Class name at index {i} is not a string: {n!r}"
+                )
+        logger.debug("Class taxonomy validation passed (flexible_nc): %d classes", nc)
+        return
 
     # Validate number of classes
     if nc != EXPECTED_CLASS_COUNT:

@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ultralytics import YOLO  # type: ignore[import-untyped]
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.logging_config import get_logger
@@ -82,6 +84,8 @@ class TrainingResult(BaseModel):
         git_commit: Short git commit hash at training time, or None.
         trained_at: ISO-8601 UTC timestamp when training completed.
         hyperparameters: Dictionary of hyperparameter values used.
+        finetune_from: Version string of the base model used for warm-start,
+            or None when training from scratch.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -96,6 +100,7 @@ class TrainingResult(BaseModel):
     git_commit: str | None
     trained_at: str
     hyperparameters: dict[str, Any]
+    finetune_from: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +232,7 @@ def _build_metadata(  # pylint: disable=too-many-arguments,too-many-positional-a
     dataset_val_image_count: int,
     hyperparameters: DetectionHyperparameters,
     metrics: TrainingMetrics,
+    finetune_from: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the metadata dictionary to be saved as metadata.json.
 
@@ -240,6 +246,7 @@ def _build_metadata(  # pylint: disable=too-many-arguments,too-many-positional-a
         dataset_val_image_count: Number of validation images.
         hyperparameters: Hyperparameters used for training.
         metrics: Final training metrics.
+        finetune_from: Version string of the base model, or None.
 
     Returns:
         JSON-serializable dictionary with all required metadata fields.
@@ -254,6 +261,7 @@ def _build_metadata(  # pylint: disable=too-many-arguments,too-many-positional-a
         "dataset_val_image_count": dataset_val_image_count,
         "hyperparameters": hyperparameters.to_dict(),
         "metrics": metrics.model_dump(),
+        "finetune_from": finetune_from,
     }
 
 
@@ -316,18 +324,20 @@ def _save_artifacts(  # pylint: disable=too-many-arguments
 # ---------------------------------------------------------------------------
 
 
-def train_hold_detector(  # pylint: disable=too-many-arguments,too-many-locals
+def train_hold_detector(  # pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
     dataset: dict[str, Any],
     dataset_root: Path | str,
     hyperparameters: DetectionHyperparameters | None = None,
     output_dir: Path | str | None = None,
     model_size: str = DEFAULT_MODEL_SIZE,
+    finetune_from: Path | None = None,
+    max_images: int | None = None,
 ) -> TrainingResult:
     """Train a YOLOv8 hold detection model.
 
     Orchestrates the full training pipeline:
     1. Validate dataset root has data.yaml
-    2. Build the YOLO model
+    2. Build the YOLO model (or load from checkpoint for fine-tuning)
     3. Run training via model.train()
     4. Extract metrics from results
     5. Save artifacts (weights + metadata.json) to versioned directory
@@ -340,12 +350,22 @@ def train_hold_detector(  # pylint: disable=too-many-arguments,too-many-locals
         output_dir: Base directory to save model artifacts. Defaults to
             MODELS_BASE_DIR ('models/detection').
         model_size: YOLOv8 variant to train (default: DEFAULT_MODEL_SIZE).
+            Ignored when ``finetune_from`` is provided.
+        finetune_from: Path to a ``weights/best.pt`` file to warm-start from.
+            YOLOv8 natively supports fine-tuning by initialising from an
+            existing checkpoint.  When provided, ``model_size`` is ignored and
+            the checkpoint's architecture is used.
+        max_images: Per-run cap on training images.  Stored in metadata only
+            — the actual subsampling is controlled by the ``dataset`` dict's
+            ``metadata["sampled_train_files"]`` key (set by
+            :func:`~src.training.datasets.load_hold_detection_dataset`).
 
     Returns:
         TrainingResult with paths to saved artifacts and training metrics.
 
     Raises:
         DatasetNotFoundError: If data.yaml is not found in dataset_root.
+        ModelArtifactError: If ``finetune_from`` does not exist.
         TrainingRunError: If model.train() raises an exception.
         ModelArtifactError: If saving artifacts fails after training.
 
@@ -370,21 +390,39 @@ def train_hold_detector(  # pylint: disable=too-many-arguments,too-many-locals
     # Validate data.yaml exists
     data_yaml_path = _resolve_data_yaml(resolved_root)
 
+    # Validate and resolve fine-tuning checkpoint path
+    if finetune_from is not None:
+        finetune_path = Path(finetune_from).resolve()
+        if not finetune_path.exists():
+            raise ModelArtifactError(
+                f"finetune_from path does not exist: {finetune_path}"
+            )
+        finetune_version: str | None = finetune_path.parent.parent.name
+    else:
+        finetune_path = None
+        finetune_version = None
+
     # Capture a single timestamp for version and trained_at so they match exactly
     now = datetime.now(tz=timezone.utc)
     version = now.strftime(VERSION_FORMAT)
     git_commit = _get_git_commit_hash()
     trained_at = now.isoformat()
 
+    effective_model = finetune_version or model_size
     logger.info(
         "Starting training run %s with model=%s, epochs=%d",
         version,
-        model_size,
+        effective_model,
         hyperparameters.epochs,
     )
 
-    # Build model and run training
-    model = build_hold_detector(model_size=model_size)
+    # Build model — from checkpoint if fine-tuning, otherwise fresh
+    if finetune_path is not None:
+        model = YOLO(str(finetune_path))
+        logger.info("Fine-tuning from checkpoint: %s", finetune_path)
+    else:
+        model = build_hold_detector(model_size=model_size)
+
     project_dir = resolved_output / "_runs"
     yolo_results, yolo_save_dir = _run_yolo_training(
         model=model,
@@ -408,6 +446,7 @@ def train_hold_detector(  # pylint: disable=too-many-arguments,too-many-locals
         dataset_val_image_count=dataset.get("val_image_count", 0),
         hyperparameters=hyperparameters,
         metrics=metrics,
+        finetune_from=finetune_version,
     )
 
     # Save artifacts
@@ -436,4 +475,5 @@ def train_hold_detector(  # pylint: disable=too-many-arguments,too-many-locals
         git_commit=git_commit,
         trained_at=trained_at,
         hyperparameters=hyperparameters.to_dict(),
+        finetune_from=finetune_version,
     )

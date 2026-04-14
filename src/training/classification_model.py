@@ -260,9 +260,9 @@ def build_hold_classifier(
         hyperparameters = ClassifierHyperparameters()
 
     num_classes = hyperparameters.num_classes
-    if num_classes != HOLD_CLASS_COUNT:
+    if not (1 <= num_classes <= HOLD_CLASS_COUNT):
         raise ValueError(
-            f"num_classes must be {HOLD_CLASS_COUNT} for hold classification, "
+            f"num_classes must be between 1 and {HOLD_CLASS_COUNT} for hold classification, "
             f"got {num_classes}"
         )
 

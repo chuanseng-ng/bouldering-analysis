@@ -15,6 +15,7 @@ Example:
     500
 """
 
+import random
 import warnings
 from pathlib import Path
 from typing import Any, Final, TypedDict
@@ -74,11 +75,23 @@ class ClassificationDatasetConfig(TypedDict):
         test: Absolute path to the test split directory, or None.
         nc: Number of classes (always 7).
         names: List of class name strings in ``HOLD_CLASSES`` order.
-        train_image_count: Total number of training images.
+        train_image_count: Total number of training images (after any sampling).
         val_image_count: Total number of validation images.
         test_image_count: Total number of test images (0 if no test split).
-        class_counts: Per-class image counts from the training split.
-        class_weights: Inverse-frequency weights (length HOLD_CLASS_COUNT, HOLD_CLASSES order).
+        class_counts: Per-class image counts from the training split
+            (after any sampling).
+        class_weights: Inverse-frequency weights (length HOLD_CLASS_COUNT,
+            HOLD_CLASSES order).  Zero-weight entries indicate masked classes
+            (no training samples).
+        active_classes: Canonical class names that have at least one training
+            image.  A subset of ``HOLD_CLASSES`` when partial-class datasets
+            are used.
+        class_mask: Boolean list aligned with ``HOLD_CLASSES``; ``True`` means
+            the class has training samples, ``False`` means it is masked.
+        sampled_train_files: Mapping from canonical class name to the list of
+            sampled file :class:`~pathlib.Path` objects used for training, when
+            ``max_samples_per_class`` was set.  ``None`` when no volume cap is
+            applied (all files are used).
         version: Always ``None`` (no version source in folder-per-class format).
         metadata: Extensible metadata dict (empty by default).
     """
@@ -93,11 +106,17 @@ class ClassificationDatasetConfig(TypedDict):
     test_image_count: int
     class_counts: dict[str, int]
     class_weights: list[float]  # length == HOLD_CLASS_COUNT, HOLD_CLASSES order
+    active_classes: list[str]
+    class_mask: list[bool]
+    sampled_train_files: dict[str, list[Path]] | None
     version: None
     metadata: dict[str, Any]
 
 
-def compute_class_weights(class_counts: dict[str, int]) -> list[float]:
+def compute_class_weights(
+    class_counts: dict[str, int],
+    allow_missing: bool = False,
+) -> list[float]:
     """Compute inverse-frequency class weights for imbalanced datasets.
 
     Uses the sklearn convention: ``total / (n_classes * count_per_class)``.
@@ -107,25 +126,41 @@ def compute_class_weights(class_counts: dict[str, int]) -> list[float]:
     Args:
         class_counts: Mapping of class name to image count.
             Must contain exactly the keys from ``HOLD_CLASSES`` — no more,
-            no fewer.  Every count must be ≥1; zero-count classes are always
-            rejected regardless of any ``strict`` flag on the caller, because
-            ``torch.nn.CrossEntropyLoss(weight=...)`` requires a weight for
-            every class and silently assigning weight 0 would cause that class
-            to be skipped during training — a correctness hazard, not just a
-            validation warning.
+            no fewer.
+        allow_missing: If ``False`` (default), raises
+            :class:`~src.training.exceptions.DatasetValidationError` when any
+            class has zero images — the original behaviour.  If ``True``,
+            zero-count classes are assigned a weight of ``0.0`` instead.
+            Weight computation uses only the active (non-zero) classes so the
+            remaining weights are still properly normalised.  Use this flag
+            only for partial-class datasets paired with a fine-tuning
+            checkpoint; training from scratch with masked classes produces
+            uninitialised output heads.
 
     Returns:
-        List of float weights in ``HOLD_CLASSES`` order.
+        List of float weights in ``HOLD_CLASSES`` order.  Zero-weight entries
+        indicate masked classes that will be ignored by
+        ``torch.nn.CrossEntropyLoss(weight=...)``.
 
     Raises:
-        DatasetValidationError: If any class has zero images, if required
-            class keys are missing, or if unexpected keys are present.
+        DatasetValidationError: If required class keys are missing, unexpected
+            keys are present, or (when ``allow_missing=False``) any class has
+            zero images.  Also raised when ``allow_missing=True`` but *all*
+            classes have zero images.
 
     Example:
         >>> counts = {"jug": 10, "crimp": 10, "sloper": 10,
         ...           "pinch": 10, "pocket": 10, "foothold": 10, "unknown": 10}
         >>> compute_class_weights(counts)
         [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+        >>> partial = {"jug": 10, "crimp": 20, "sloper": 0,
+        ...            "pinch": 0, "pocket": 0, "foothold": 0, "unknown": 0}
+        >>> weights = compute_class_weights(partial, allow_missing=True)
+        >>> weights[0] > 0  # jug has weight
+        True
+        >>> weights[2] == 0.0  # sloper is masked
+        True
     """
     hold_classes_set = set(HOLD_CLASSES)
     missing = [cls for cls in HOLD_CLASSES if cls not in class_counts]
@@ -137,6 +172,23 @@ def compute_class_weights(class_counts: dict[str, int]) -> list[float]:
         raise DatasetValidationError(
             f"Unexpected class keys in counts (not in HOLD_CLASSES): {unexpected}"
         )
+
+    if allow_missing:
+        active_counts = {cls: c for cls, c in class_counts.items() if c > 0}
+        if not active_counts:
+            raise DatasetValidationError(
+                "No classes with positive image counts — cannot compute weights."
+            )
+        total_active = sum(active_counts.values())
+        n_active = len(active_counts)
+        return [
+            (
+                total_active / (n_active * class_counts[cls])
+                if class_counts[cls] > 0
+                else 0.0
+            )
+            for cls in HOLD_CLASSES
+        ]
 
     non_positive_classes = [cls for cls in HOLD_CLASSES if class_counts[cls] < 1]
     if non_positive_classes:
@@ -197,6 +249,69 @@ def count_images_per_class(split_path: Path | str) -> dict[str, int]:
         )
 
     return counts
+
+
+def _sample_class_images(
+    split_path: Path,
+    max_per_class: int,
+    seed: int = 42,
+) -> dict[str, list[Path]]:
+    """Sample up to ``max_per_class`` image paths per class from a split directory.
+
+    Iterates over class sub-folders (applying ``LABEL_ALIASES``), collects all
+    image files, and randomly samples up to ``max_per_class`` per class.  When
+    a class has fewer than ``max_per_class`` images all of its files are kept.
+
+    Args:
+        split_path: Path to the split directory (e.g. ``train/``).
+        max_per_class: Maximum number of files to retain per canonical class.
+            Must be ≥ 1.
+        seed: Random seed for reproducibility (default: 42).
+
+    Returns:
+        Dict mapping canonical class name to a list of sampled
+        :class:`~pathlib.Path` objects.  All seven ``HOLD_CLASSES`` keys are
+        always present; classes with no files have an empty list.
+
+    Raises:
+        DatasetNotFoundError: If ``split_path`` does not exist.
+
+    Example:
+        >>> sampled = _sample_class_images(Path("data/crops/train"), max_per_class=50)
+        >>> len(sampled["jug"]) <= 50
+        True
+    """
+    split_path = Path(split_path).resolve()
+    if not split_path.is_dir():
+        from src.training.exceptions import (
+            DatasetNotFoundError,
+        )  # local to avoid circular
+
+        raise DatasetNotFoundError(f"Split directory not found: {split_path}")
+
+    rng = random.Random(seed)
+    result: dict[str, list[Path]] = {cls: [] for cls in HOLD_CLASSES}
+
+    for item in split_path.iterdir():
+        if not item.is_dir():
+            continue
+        normalized = item.name.lower()
+        target = LABEL_ALIASES.get(normalized)
+        if target is None:
+            continue
+
+        all_files = [
+            f
+            for f in item.iterdir()
+            if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
+        ]
+
+        if len(all_files) <= max_per_class:
+            result[target].extend(all_files)
+        else:
+            result[target].extend(rng.sample(all_files, max_per_class))
+
+    return result
 
 
 def _validate_class_taxonomy_structure(
@@ -308,6 +423,7 @@ def validate_classification_structure(
 def load_hold_classification_dataset(
     dataset_root: Path | str,
     strict: bool = True,
+    max_samples_per_class: int | None = None,
 ) -> ClassificationDatasetConfig:
     """Load and validate a hold classification dataset.
 
@@ -321,15 +437,19 @@ def load_hold_classification_dataset(
         strict: If True, raise errors for taxonomy mismatches (missing or
             extra class folders).  If False, emit :class:`UserWarning` and
             continue.
+        max_samples_per_class: When set, at most this many images are used
+            per class during training.  Sampling is random but reproducible
+            (seed 42).  Original files are **never deleted** — the cap is
+            applied only at load time.  The returned ``sampled_train_files``
+            field stores the selected file paths for use by the data loader.
+            When ``None`` (default) all available images are used.
 
         Note:
             ``strict=False`` tolerates *extra* class folders without
-            interrupting the pipeline.  It does **not** allow the pipeline to
-            complete when class folders are *missing* — a missing folder
-            produces a zero image count, and weight computation always fails
-            on zero-count classes.  Use ``strict=False`` only when the dataset
-            may contain unexpected extra folders (e.g., unreleased hold types
-            added to a Roboflow export).
+            interrupting the pipeline.  A *missing* class folder produces a
+            zero count.  When ``max_samples_per_class`` is provided a
+            missing class simply contributes zero samples; when the parameter
+            is ``None`` the standard behaviour raises immediately.
 
     Returns:
         :class:`ClassificationDatasetConfig` typed dict containing:
@@ -338,11 +458,16 @@ def load_hold_classification_dataset(
             - test: Absolute path to test split (or None)
             - nc: Number of classes (always 7)
             - names: List of class names
-            - train_image_count: Total training images
+            - train_image_count: Total training images (after any sampling)
             - val_image_count: Total validation images
             - test_image_count: Total test images (0 if no test split)
-            - class_counts: Per-class image counts from train split
-            - class_weights: Inverse-frequency weights (len=HOLD_CLASS_COUNT)
+            - class_counts: Per-class image counts (after any sampling)
+            - class_weights: Inverse-frequency weights (len=HOLD_CLASS_COUNT);
+              zero for masked classes
+            - active_classes: Classes with ≥1 training image
+            - class_mask: Boolean list aligned with HOLD_CLASSES
+            - sampled_train_files: Sampled file paths when max_samples_per_class
+              is set, else None
             - version: Always None (no version source in this format)
             - metadata: Empty dict (extensible for future use)
 
@@ -378,8 +503,16 @@ def load_hold_classification_dataset(
     test_path_candidate = root / "test"
     test_path = test_path_candidate.resolve() if test_path_candidate.is_dir() else None
 
-    # Count images
-    train_counts = count_images_per_class(train_path)
+    # Volume control: sample train images when a cap is requested
+    sampled_train_files: dict[str, list[Path]] | None = None
+    if max_samples_per_class is not None:
+        sampled_train_files = _sample_class_images(train_path, max_samples_per_class)
+        train_counts: dict[str, int] = {
+            cls: len(paths) for cls, paths in sampled_train_files.items()
+        }
+    else:
+        train_counts = count_images_per_class(train_path)
+
     val_counts = count_images_per_class(val_path)
     test_counts = count_images_per_class(test_path) if test_path else {}
 
@@ -387,14 +520,24 @@ def load_hold_classification_dataset(
     val_total = sum(val_counts.values())
     test_total = sum(test_counts.values()) if test_counts else 0
 
-    # Compute class weights from training distribution
-    class_weights = compute_class_weights(train_counts)
+    # Determine active classes and mask
+    active_classes = [cls for cls in HOLD_CLASSES if train_counts.get(cls, 0) > 0]
+    class_mask = [train_counts.get(cls, 0) > 0 for cls in HOLD_CLASSES]
+
+    # Compute class weights — allow zero-count classes when any are missing
+    has_missing_class = any(count == 0 for count in train_counts.values())
+    class_weights = compute_class_weights(
+        train_counts,
+        allow_missing=has_missing_class,
+    )
 
     logger.info(
-        "Dataset loaded: train=%d, val=%d, test=%d images",
+        "Dataset loaded: train=%d, val=%d, test=%d images (active_classes=%d/%d)",
         train_total,
         val_total,
         test_total,
+        len(active_classes),
+        HOLD_CLASS_COUNT,
     )
 
     return {
@@ -408,6 +551,9 @@ def load_hold_classification_dataset(
         "test_image_count": test_total,
         "class_counts": train_counts,
         "class_weights": class_weights,
+        "active_classes": active_classes,
+        "class_mask": class_mask,
+        "sampled_train_files": sampled_train_files,
         "version": None,
         "metadata": {},
     }

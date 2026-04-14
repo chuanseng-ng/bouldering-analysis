@@ -55,6 +55,7 @@ from src.training.classification_dataset import (
     HOLD_CLASSES,
     load_hold_classification_dataset,
 )
+from src.training.dataset_registry import DatasetRegistry
 from src.training.datasets import EXPECTED_CLASSES
 from src.training.classification_model import ClassifierHyperparameters
 from src.training.train_classification import (
@@ -145,6 +146,37 @@ def _parse_args() -> argparse.Namespace:
         type=str,
         default="",
         help="Compute device: 'cuda', 'cpu', '0', or '' for auto-detect.",
+    )
+    parser.add_argument(
+        "--max-samples-per-class",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Cap the number of training images per class at N "
+            "(default: no cap, all images are used)."
+        ),
+    )
+    parser.add_argument(
+        "--finetune-from",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Path to a weights/best.pt checkpoint to warm-start from. "
+            "Required when training on a partial-class dataset."
+        ),
+    )
+    parser.add_argument(
+        "--register-dataset",
+        action="store_true",
+        help="Register the crops dataset in the dataset registry after training.",
+    )
+    parser.add_argument(
+        "--registry-path",
+        type=Path,
+        default=Path("data/dataset_registry.json"),
+        help="Path to the dataset registry JSON file (default: data/dataset_registry.json).",
     )
     return parser.parse_args()
 
@@ -281,21 +313,37 @@ def _validate_dataset_names(source_dataset: Path) -> None:
         sys.exit(1)
 
 
-def _validate_train_split_classes(class_counts: dict[str, int]) -> None:
+def _validate_train_split_classes(
+    class_counts: dict[str, int],
+    allow_partial: bool = False,
+) -> None:
     """Exit with an error if any HOLD_CLASS has zero images in the train split.
+
+    When ``allow_partial=True`` (fine-tuning mode) a warning is emitted
+    instead of exiting, because the pretrained model handles missing classes.
 
     Args:
         class_counts: Mapping of class name to image count from the train split.
+        allow_partial: If True, missing classes emit a warning instead of
+            terminating the script.
     """
     missing = [cls for cls in HOLD_CLASSES if class_counts.get(cls, 0) == 0]
     if missing:
-        print(
-            f"\nERROR: Train split is missing crops for class(es): {missing}.\n"
-            "  Every class must have at least one training image.\n"
-            "  Add annotated images for the missing classes and re-run.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        if allow_partial:
+            print(
+                f"\n[!]  Partial-class dataset: no crops for {missing}.\n"
+                "     Fine-tuning mode: pretrained model will retain knowledge "
+                "of these classes.",
+            )
+        else:
+            print(
+                f"\nERROR: Train split is missing crops for class(es): {missing}.\n"
+                "  Every class must have at least one training image.\n"
+                "  Add annotated images for the missing classes and re-run,\n"
+                "  or use --finetune-from for partial-class training.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
 
 def extract_crops(source_dataset: Path, crops_dataset: Path) -> None:
@@ -421,19 +469,38 @@ def main() -> int:
             return 1
         extract_crops(args.source_dataset, args.crops_dataset)
 
+    allow_partial = args.finetune_from is not None
+
     # ── Phase 2: load dataset + train ─────────────────────────────────────
     print(f"\nPhase 2 — Loading crops dataset from: {args.crops_dataset}")
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning)
-        dataset = load_hold_classification_dataset(args.crops_dataset, strict=False)
+        dataset = load_hold_classification_dataset(
+            args.crops_dataset,
+            strict=False,
+            max_samples_per_class=args.max_samples_per_class,
+        )
 
-    # Validate train split even when extraction was skipped.
-    _validate_train_split_classes(dataset["class_counts"])
+    # Validate train split — partial classes only allowed when fine-tuning.
+    _validate_train_split_classes(
+        dataset["class_counts"],
+        allow_partial=allow_partial,
+    )
 
     print(
         f"  Classes : {dataset['names']} ({dataset['nc']} total)\n"
-        f"  Train   : {dataset['train_image_count']} images\n"
-        f"  Val     : {dataset['val_image_count']} images"
+        f"  Train   : {dataset['train_image_count']} images"
+        + (
+            f" (capped at {args.max_samples_per_class}/class)"
+            if args.max_samples_per_class
+            else ""
+        )
+        + f"\n  Val     : {dataset['val_image_count']} images"
+    )
+    print(
+        f"  Active  : {dataset['active_classes']}"
+        if len(dataset["active_classes"]) < len(dataset["names"])
+        else ""
     )
     print("  Per-class counts (train):")
     for cls, cnt in dataset["class_counts"].items():
@@ -452,11 +519,17 @@ def main() -> int:
 
     print(
         f"\nTraining config:"
-        f"\n  Architecture : {hyperparameters.architecture}"
-        f"\n  Epochs       : {hyperparameters.epochs}"
-        f"\n  Batch size   : {hyperparameters.batch_size}"
-        f"\n  LR           : {hyperparameters.learning_rate}"
-        f"\n  Device       : {_device_label}"
+        f"\n  Architecture     : {hyperparameters.architecture}"
+        f"\n  Epochs           : {hyperparameters.epochs}"
+        f"\n  Batch size       : {hyperparameters.batch_size}"
+        f"\n  LR               : {hyperparameters.learning_rate}"
+        f"\n  Device           : {_device_label}"
+        f"\n  Finetune from    : {args.finetune_from or 'none (train from scratch)'}"
+        + (
+            f"\n  Max samples/cls  : {args.max_samples_per_class}"
+            if args.max_samples_per_class
+            else ""
+        )
     )
 
     print("\nStarting training ...\n")
@@ -465,9 +538,24 @@ def main() -> int:
         dataset_root=args.crops_dataset,
         hyperparameters=hyperparameters,
         output_dir=args.output_dir,
+        finetune_from=args.finetune_from,
+        max_samples_per_class=args.max_samples_per_class,
     )
 
     _print_result(result)
+
+    # ── Optional: register dataset in registry ─────────────────────────────
+    if args.register_dataset:
+        registry = DatasetRegistry(args.registry_path)
+        registry.add(
+            name=str(args.crops_dataset.name),
+            source_path=str(args.crops_dataset.resolve()),
+            nc=dataset["nc"],
+            names=dataset["names"],
+            sample_counts=dataset["class_counts"],
+        )
+        print(f"\n[OK]  Dataset registered at: {args.registry_path}")
+
     success = (
         result.metrics.top1_accuracy >= ACCURACY_THRESHOLD
         and result.metrics.ece < ECE_THRESHOLD

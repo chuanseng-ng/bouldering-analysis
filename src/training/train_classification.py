@@ -99,6 +99,11 @@ class ClassificationTrainingResult(BaseModel):
         git_commit: Short git commit hash at training time, or None.
         trained_at: ISO-8601 UTC timestamp when training completed.
         hyperparameters: Dictionary of hyperparameter values used.
+        finetune_from: Version string of the base model used for warm-start,
+            or None when training from scratch.
+        active_classes: Class names that had at least one training sample in
+            this run.
+        max_samples_per_class: Per-class sample cap that was applied, or None.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -113,6 +118,9 @@ class ClassificationTrainingResult(BaseModel):
     git_commit: str | None
     trained_at: str
     hyperparameters: dict[str, Any]
+    finetune_from: str | None = None
+    active_classes: list[str] = Field(default_factory=list)
+    max_samples_per_class: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +271,11 @@ def _build_data_loaders(
 ) -> tuple[DataLoader, DataLoader]:  # type: ignore[type-arg]
     """Build training and validation DataLoaders from an ImageFolder dataset.
 
+    When ``dataset["sampled_train_files"]`` is set, the training loader is
+    restricted to those specific files only (volume control).  The full
+    directory is still used to discover the class-to-index mapping; only the
+    ``samples`` and ``targets`` lists are filtered afterwards.
+
     Args:
         dataset: Validated classification dataset config with ``train`` and
             ``val`` split paths.
@@ -275,6 +288,23 @@ def _build_data_loaders(
         root=str(dataset["train"]),
         transform=_build_transforms(hp, training=True),
     )
+
+    # Volume control: restrict training samples to the sampled subset.
+    sampled_train_files = dataset.get("sampled_train_files")
+    if sampled_train_files:
+        sampled_resolved: set[str] = {
+            str(Path(p).resolve())
+            for file_list in sampled_train_files.values()
+            for p in file_list
+        }
+        filtered = [
+            (path, label)
+            for path, label in train_ds.samples
+            if str(Path(path).resolve()) in sampled_resolved
+        ]
+        train_ds.samples = filtered
+        train_ds.targets = [label for _, label in filtered]
+
     val_ds = ImageFolder(
         root=str(dataset["val"]),
         transform=_build_transforms(hp, training=False),
@@ -546,6 +576,9 @@ def _build_metadata(  # pylint: disable=too-many-arguments,too-many-positional-a
     dataset_root: str,
     hyperparameters: ClassifierHyperparameters,
     metrics: ClassificationMetrics,
+    finetune_from: str | None = None,
+    active_classes: list[str] | None = None,
+    max_samples_per_class: int | None = None,
 ) -> dict[str, Any]:
     """Assemble the metadata dictionary to be serialised as metadata.json.
 
@@ -557,6 +590,9 @@ def _build_metadata(  # pylint: disable=too-many-arguments,too-many-positional-a
         dataset_root: Path string to the dataset root.
         hyperparameters: Hyperparameters used for training.
         metrics: Final training metrics.
+        finetune_from: Version string of the base model, or None.
+        active_classes: Class names that had training samples, or None.
+        max_samples_per_class: Per-class sample cap applied, or None.
 
     Returns:
         JSON-serialisable dictionary with all required metadata fields.
@@ -569,6 +605,9 @@ def _build_metadata(  # pylint: disable=too-many-arguments,too-many-positional-a
         "dataset_root": dataset_root,
         "hyperparameters": hyperparameters.to_dict(),
         "metrics": metrics.model_dump(),
+        "finetune_from": finetune_from,
+        "active_classes": active_classes if active_classes is not None else [],
+        "max_samples_per_class": max_samples_per_class,
     }
 
 
@@ -631,11 +670,13 @@ def _save_artifacts(
 # ---------------------------------------------------------------------------
 
 
-def train_hold_classifier(  # pylint: disable=too-many-locals
+def train_hold_classifier(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
     dataset: ClassificationDatasetConfig,
     dataset_root: Path | str,
     hyperparameters: ClassifierHyperparameters | None = None,
     output_dir: Path | str | None = None,
+    finetune_from: Path | None = None,
+    max_samples_per_class: int | None = None,
 ) -> ClassificationTrainingResult:
     """Train a ResNet-18 or MobileNetV3 hold classifier.
 
@@ -643,11 +684,12 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
 
     1. Resolve hyperparameters and output directory.
     2. Build the model via :func:`build_hold_classifier` and apply dropout.
-    3. Build data loaders, optimizer, scheduler, and loss function.
-    4. Run ``hp.epochs`` training + validation epochs.
-    5. Track best checkpoint by minimum validation loss.
-    6. Compute ECE on the final best validation predictions.
-    7. Save artifacts (``best.pt``, ``last.pt``, ``metadata.json``) to
+    3. Optionally warm-start from a previous checkpoint (``finetune_from``).
+    4. Build data loaders, optimizer, scheduler, and loss function.
+    5. Run ``hp.epochs`` training + validation epochs.
+    6. Track best checkpoint by minimum validation loss.
+    7. Compute ECE on the final best validation predictions.
+    8. Save artifacts (``best.pt``, ``last.pt``, ``metadata.json``) to
        a versioned sub-directory.
 
     Args:
@@ -659,15 +701,26 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
         hyperparameters: Training hyperparameters.  Uses defaults if ``None``.
         output_dir: Base directory to save model artifacts.  Defaults to
             ``MODELS_BASE_DIR`` (``models/classification``).
+        finetune_from: Path to a ``weights/best.pt`` checkpoint to warm-start
+            from.  The state_dict is loaded before the training loop begins so
+            the model retains knowledge of hold types not present in the new
+            dataset.  Required when ``dataset["class_mask"]`` contains any
+            ``False`` entries (partial-class training).
+        max_samples_per_class: Per-class sample cap forwarded to the data
+            loader when the ``ClassificationDatasetConfig`` was loaded with a
+            cap.  Stored in metadata only — the actual subsampling is
+            controlled by ``dataset["sampled_train_files"]``.
 
     Returns:
         :class:`ClassificationTrainingResult` with paths to saved artifacts
         and training metrics.
 
     Raises:
-        TrainingRunError: If an unsupported optimizer is specified or the
-            training loop encounters a fatal error.
-        ModelArtifactError: If saving artifacts fails after training.
+        TrainingRunError: If an unsupported optimizer is specified, the
+            training loop encounters a fatal error, or a partial-class dataset
+            is provided without ``finetune_from``.
+        ModelArtifactError: If ``finetune_from`` does not exist or saving
+            artifacts fails after training.
 
     Example:
         >>> from src.training.classification_dataset import load_hold_classification_dataset
@@ -687,17 +740,46 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
         else MODELS_BASE_DIR.resolve()
     )
 
+    # Guard: partial-class dataset without a base checkpoint is unsupported.
+    class_mask: list[bool] = dataset.get(
+        "class_mask", [True] * hyperparameters.num_classes
+    )
+    if any(not active for active in class_mask) and finetune_from is None:
+        raise TrainingRunError(
+            "Partial-class datasets (class_mask contains False entries) require "
+            "finetune_from to avoid uninitialised class heads. "
+            "Pass a checkpoint path via finetune_from."
+        )
+
+    # Validate finetune_from path if provided
+    if finetune_from is not None:
+        finetune_path = Path(finetune_from).resolve()
+        if not finetune_path.exists():
+            raise ModelArtifactError(
+                f"finetune_from path does not exist: {finetune_path}"
+            )
+        # Derive version string from directory layout: .../weights/best.pt → version dir
+        finetune_version: str | None = finetune_path.parent.parent.name
+    else:
+        finetune_path = None
+        finetune_version = None
+
     # Capture a single timestamp so version and trained_at match exactly
     now = datetime.now(tz=timezone.utc)
     version = now.strftime(VERSION_FORMAT)
     trained_at = now.isoformat()
     git_commit = _get_git_commit_hash()
 
+    active_classes: list[str] = dataset.get(
+        "active_classes", list(dataset.get("names", []))
+    )
+
     logger.info(
-        "Starting classification training run %s (arch=%s, epochs=%d)",
+        "Starting classification training run %s (arch=%s, epochs=%d, finetune=%s)",
         version,
         hyperparameters.architecture,
         hyperparameters.epochs,
+        finetune_version or "none",
     )
 
     device = (
@@ -710,12 +792,19 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
     config = build_hold_classifier(hyperparameters)
     model: nn.Module = config["model"]
     model = _apply_dropout(model, hyperparameters)
+
+    # Warm-start from previous checkpoint if fine-tuning
+    if finetune_path is not None:
+        state = torch.load(finetune_path, weights_only=True)
+        model.load_state_dict(state)
+        logger.info("Loaded fine-tuning checkpoint from: %s", finetune_path)
+
     model = model.to(device)
 
     # Build data pipeline
     train_loader, val_loader = _build_data_loaders(dataset, hyperparameters)
 
-    # Build class-weighted loss
+    # Build class-weighted loss (zero weights for masked classes)
     class_weights_tensor = torch.tensor(
         dataset["class_weights"], dtype=torch.float32
     ).to(device)
@@ -785,6 +874,9 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
         dataset_root=resolved_root,
         hyperparameters=hyperparameters,
         metrics=metrics,
+        finetune_from=finetune_version,
+        active_classes=active_classes,
+        max_samples_per_class=max_samples_per_class,
     )
 
     best_path, last_path, meta_path = _save_artifacts(
@@ -814,4 +906,7 @@ def train_hold_classifier(  # pylint: disable=too-many-locals
         git_commit=git_commit,
         trained_at=trained_at,
         hyperparameters=hyperparameters.to_dict(),
+        finetune_from=finetune_version,
+        active_classes=active_classes,
+        max_samples_per_class=max_samples_per_class,
     )

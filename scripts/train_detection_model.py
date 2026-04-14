@@ -88,6 +88,18 @@ def _parse_args() -> argparse.Namespace:
         default="",
         help="Compute device: 'cuda', 'cpu', '0', or '' for auto-detect.",
     )
+    parser.add_argument(
+        "--max-images",
+        type=int,
+        default=None,
+        help="Cap number of training images (random sample, seed=42). Default: no cap.",
+    )
+    parser.add_argument(
+        "--finetune-from",
+        type=Path,
+        default=None,
+        help="Path to weights/best.pt to warm-start from (YOLOv8 native fine-tuning).",
+    )
     return parser.parse_args()
 
 
@@ -143,7 +155,7 @@ def main() -> int:
 
     # ── validate dataset ───────────────────────────────────────────────────
     print(f"Loading detection dataset from: {args.dataset}")
-    dataset = load_hold_detection_dataset(args.dataset)
+    dataset = load_hold_detection_dataset(args.dataset, max_images=args.max_images)
 
     print(
         f"  Classes : {dataset['names']} ({dataset['nc']} total)\n"
@@ -163,13 +175,20 @@ def main() -> int:
     _actual = "cuda" if torch.cuda.is_available() and args.device != "cpu" else "cpu"
     _device_label = args.device if args.device else f"auto ({_actual})"
 
+    _max_images_label = str(args.max_images) if args.max_images is not None else "none"
+    _finetune_label = (
+        str(args.finetune_from) if args.finetune_from is not None else "none"
+    )
+
     print(
         f"\nTraining config:"
-        f"\n  Model size : {args.model_size}"
-        f"\n  Epochs     : {hyperparameters.epochs}"
-        f"\n  Batch size : {hyperparameters.batch_size}"
-        f"\n  Patience   : {hyperparameters.patience}"
-        f"\n  Device     : {_device_label}"
+        f"\n  Model size   : {args.model_size}"
+        f"\n  Epochs       : {hyperparameters.epochs}"
+        f"\n  Batch size   : {hyperparameters.batch_size}"
+        f"\n  Patience     : {hyperparameters.patience}"
+        f"\n  Device       : {_device_label}"
+        f"\n  Max images   : {_max_images_label}"
+        f"\n  Finetune from: {_finetune_label}"
     )
 
     # ── train ──────────────────────────────────────────────────────────────
@@ -180,6 +199,8 @@ def main() -> int:
         hyperparameters=hyperparameters,
         output_dir=args.output_dir,
         model_size=args.model_size,
+        finetune_from=args.finetune_from,
+        max_images=args.max_images,
     )
 
     _print_result(result)
