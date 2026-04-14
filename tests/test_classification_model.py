@@ -410,11 +410,22 @@ class TestBuildHoldClassifier:
         config = build_hold_classifier()
         assert config["input_size"] == INPUT_SIZE == 224
 
-    def test_wrong_num_classes_raises_value_error(self) -> None:
-        """num_classes != HOLD_CLASS_COUNT must raise ValueError."""
-        hp = ClassifierHyperparameters(num_classes=3)
+    def test_num_classes_above_max_raises_value_error(self) -> None:
+        """num_classes above HOLD_CLASS_COUNT must raise ValueError."""
+        # HOLD_CLASS_COUNT is 7; 8 exceeds it
+        hp = ClassifierHyperparameters(num_classes=8)
         with pytest.raises(ValueError, match="num_classes"):
             build_hold_classifier(hp)
+
+    @patch("src.training.classification_model.models.resnet18")
+    def test_partial_num_classes_is_valid(self, mock_resnet18: MagicMock) -> None:
+        """num_classes between 1 and HOLD_CLASS_COUNT (inclusive) must succeed."""
+        mock_model = MagicMock()
+        mock_model.fc = MagicMock()
+        mock_resnet18.return_value = mock_model
+        hp = ClassifierHyperparameters(num_classes=3)
+        config = build_hold_classifier(hp)
+        assert config is not None
 
     @patch("src.training.classification_model.models.resnet18")
     def test_none_hyperparameters_uses_defaults(self, mock_resnet18: MagicMock) -> None:

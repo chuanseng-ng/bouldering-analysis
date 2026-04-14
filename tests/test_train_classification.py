@@ -61,12 +61,13 @@ def _make_classification_dataset_config(
     val: Path,
 ) -> ClassificationDatasetConfig:
     """Create a minimal ClassificationDatasetConfig for testing."""
+    _names = ["jug", "crimp", "sloper", "pinch", "volume", "unknown"]
     return ClassificationDatasetConfig(
         train=train,
         val=val,
         test=None,
         nc=6,
-        names=["jug", "crimp", "sloper", "pinch", "volume", "unknown"],
+        names=_names,
         train_image_count=60,
         val_image_count=12,
         test_image_count=0,
@@ -79,6 +80,9 @@ def _make_classification_dataset_config(
             "unknown": 10,
         },
         class_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        active_classes=_names,
+        class_mask=[True] * 6,
+        sampled_train_files=None,
         version=None,
         metadata={},
     )
