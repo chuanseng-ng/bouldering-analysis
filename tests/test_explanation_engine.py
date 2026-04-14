@@ -88,7 +88,6 @@ def _make_vec(**overrides: float) -> dict[str, float]:
         "sloper_ratio": 0.0,
         "pinch_ratio": 0.0,
         "jug_ratio": 0.0,
-        "edges_ratio": 0.0,
         "pocket_ratio": 0.0,
         "avg_move_distance": 0.0,
         "max_move_distance": 0.0,
@@ -328,11 +327,11 @@ class TestGetConfidenceQualifier:
 class TestComputeHoldContributions:
     """Tests for _compute_hold_contributions() private helper."""
 
-    def test_returns_six_contributions(self) -> None:
-        """Must return exactly 6 FeatureContribution instances."""
+    def test_returns_five_contributions(self) -> None:
+        """Must return exactly 5 FeatureContribution instances."""
         vec = _make_vec()
         contribs = _compute_hold_contributions(vec)
-        assert len(contribs) == 6
+        assert len(contribs) == 5
 
     def test_all_zeros_impact_is_zero(self) -> None:
         """All-zero hold ratios → all impacts must be 0.0."""

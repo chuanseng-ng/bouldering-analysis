@@ -131,7 +131,6 @@ class TestFeatureWeights:
             "sloper_ratio",
             "pinch_ratio",
             "jug_ratio",
-            "edges_ratio",
             "pocket_ratio",
         ):
             assert key in FEATURE_WEIGHTS, f"Missing hold type key: {key!r}"

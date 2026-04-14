@@ -44,7 +44,6 @@ class TestHoldFeatures:
             sloper_count=0,
             pinch_count=0,
             pocket_count=0,
-            edges_count=0,
             foothold_count=0,
             unknown_count=0,
             jug_ratio=2 / 3,
@@ -52,7 +51,6 @@ class TestHoldFeatures:
             sloper_ratio=0.0,
             pinch_ratio=0.0,
             pocket_ratio=0.0,
-            edges_ratio=0.0,
             foothold_ratio=0.0,
             unknown_ratio=0.0,
             avg_hold_size=0.01,
@@ -63,14 +61,13 @@ class TestHoldFeatures:
             crimp_soft_ratio=0.1,
             sloper_soft_ratio=0.1,
             pinch_soft_ratio=0.1,
-            pocket_soft_ratio=0.02,
-            edges_soft_ratio=0.02,
+            pocket_soft_ratio=0.04,
             foothold_soft_ratio=0.01,
             unknown_soft_ratio=0.04,
         )
 
-    def test_all_29_fields_exist(self) -> None:
-        """HoldFeatures must expose exactly 29 fields."""
+    def test_all_26_fields_exist(self) -> None:
+        """HoldFeatures must expose exactly 26 fields."""
         expected_fields = {
             "total_count",
             "jug_count",
@@ -78,7 +75,6 @@ class TestHoldFeatures:
             "sloper_count",
             "pinch_count",
             "pocket_count",
-            "edges_count",
             "foothold_count",
             "unknown_count",
             "jug_ratio",
@@ -86,7 +82,6 @@ class TestHoldFeatures:
             "sloper_ratio",
             "pinch_ratio",
             "pocket_ratio",
-            "edges_ratio",
             "foothold_ratio",
             "unknown_ratio",
             "avg_hold_size",
@@ -98,12 +93,11 @@ class TestHoldFeatures:
             "sloper_soft_ratio",
             "pinch_soft_ratio",
             "pocket_soft_ratio",
-            "edges_soft_ratio",
             "foothold_soft_ratio",
             "unknown_soft_ratio",
         }
         assert set(HoldFeatures.model_fields.keys()) == expected_fields
-        assert len(HoldFeatures.model_fields) == 29
+        assert len(HoldFeatures.model_fields) == 26
 
     def test_count_fields_are_int(self) -> None:
         """All count fields must be int instances."""
@@ -115,7 +109,6 @@ class TestHoldFeatures:
             "sloper_count",
             "pinch_count",
             "pocket_count",
-            "edges_count",
             "foothold_count",
             "unknown_count",
         ]
@@ -130,7 +123,6 @@ class TestHoldFeatures:
             "sloper_ratio",
             "pinch_ratio",
             "pocket_ratio",
-            "edges_ratio",
             "foothold_ratio",
             "unknown_ratio",
             "jug_soft_ratio",
@@ -138,7 +130,6 @@ class TestHoldFeatures:
             "sloper_soft_ratio",
             "pinch_soft_ratio",
             "pocket_soft_ratio",
-            "edges_soft_ratio",
             "foothold_soft_ratio",
             "unknown_soft_ratio",
         ]
@@ -155,7 +146,6 @@ class TestHoldFeatures:
             sloper_count=0,
             pinch_count=0,
             pocket_count=0,
-            edges_count=0,
             foothold_count=0,
             unknown_count=0,
             jug_ratio=0.0,
@@ -163,7 +153,6 @@ class TestHoldFeatures:
             sloper_ratio=0.0,
             pinch_ratio=0.0,
             pocket_ratio=0.0,
-            edges_ratio=0.0,
             foothold_ratio=0.0,
             unknown_ratio=0.0,
             avg_hold_size=0.0,
@@ -175,7 +164,6 @@ class TestHoldFeatures:
             sloper_soft_ratio=0.0,
             pinch_soft_ratio=0.0,
             pocket_soft_ratio=0.0,
-            edges_soft_ratio=0.0,
             foothold_soft_ratio=0.0,
             unknown_soft_ratio=0.0,
         )
@@ -219,7 +207,6 @@ class TestCountByType:
         assert result["sloper"] == 0
         assert result["pinch"] == 0
         assert result["pocket"] == 0
-        assert result["edges"] == 0
         assert result["foothold"] == 0
         assert result["unknown"] == 0
 
@@ -244,7 +231,6 @@ class TestCountByType:
         assert result["sloper"] == 1
         assert result["pinch"] == 0
         assert result["pocket"] == 0
-        assert result["edges"] == 0
         assert result["foothold"] == 0
         assert result["unknown"] == 0
 
@@ -255,12 +241,12 @@ class TestCountByType:
         assert result["unknown"] == 1
         assert result["jug"] == 0
 
-    def test_all_eight_types_present_in_result(self) -> None:
-        """Result dict must always contain exactly the 8 HOLD_CLASSES keys."""
+    def test_all_seven_types_present_in_result(self) -> None:
+        """Result dict must always contain exactly the 7 HOLD_CLASSES keys."""
         holds = [_make_classified_hold(hold_id=0, hold_type="pocket")]
         result = _count_by_type(holds)
         assert set(result.keys()) == set(HOLD_CLASSES)
-        assert len(result) == 8
+        assert len(result) == 7
 
     @pytest.mark.parametrize("cls", list(HOLD_CLASSES))
     def test_each_class_produces_nonzero_count_ratio_and_soft_ratio(
@@ -521,7 +507,6 @@ class TestExtractHoldFeatures:
             + result.sloper_ratio
             + result.pinch_ratio
             + result.pocket_ratio
-            + result.edges_ratio
             + result.foothold_ratio
             + result.unknown_ratio
         )
@@ -540,7 +525,6 @@ class TestExtractHoldFeatures:
             + result.sloper_soft_ratio
             + result.pinch_soft_ratio
             + result.pocket_soft_ratio
-            + result.edges_soft_ratio
             + result.foothold_soft_ratio
             + result.unknown_soft_ratio
         )
@@ -591,7 +575,6 @@ class TestExtractHoldFeatures:
         assert result.sloper_soft_ratio == pytest.approx(0.0)
         assert result.pinch_soft_ratio == pytest.approx(0.0)
         assert result.pocket_soft_ratio == pytest.approx(0.0)
-        assert result.edges_soft_ratio == pytest.approx(0.0)
         assert result.foothold_soft_ratio == pytest.approx(0.0)
         assert result.unknown_soft_ratio == pytest.approx(0.0)
 

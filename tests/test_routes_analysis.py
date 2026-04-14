@@ -105,7 +105,6 @@ def _make_hold_rows(n: int = 3) -> list[dict[str, Any]]:
                 "prob_sloper": 0.02,
                 "prob_pinch": 0.02,
                 "prob_pocket": 0.02,
-                "prob_edges": 0.02,
                 "prob_foothold": 0.02,
                 "prob_unknown": 0.02,
             }
@@ -722,7 +721,6 @@ class TestDbRowToHoldResponse:
             "prob_sloper": 0.03,
             "prob_pinch": 0.03,
             "prob_pocket": 0.03,
-            "prob_edges": 0.03,
             "prob_foothold": 0.03,
             "prob_unknown": 0.03,
         }
@@ -736,7 +734,7 @@ class TestDbRowToHoldResponse:
         assert result.type_confidence == 0.80
         assert result.type_probabilities["crimp"] == 0.80
 
-    def test_probabilities_dict_has_eight_keys(self) -> None:
+    def test_probabilities_dict_has_seven_keys(self) -> None:
         result = _db_row_to_hold_response(self._make_row())
         assert set(result.type_probabilities.keys()) == {
             "jug",
@@ -744,7 +742,6 @@ class TestDbRowToHoldResponse:
             "sloper",
             "pinch",
             "pocket",
-            "edges",
             "foothold",
             "unknown",
         }
@@ -764,12 +761,11 @@ class TestDbRowsToClassifiedHolds:
             "detection_confidence": 0.9,
             "hold_type": "jug",
             "type_confidence": 0.85,
-            "prob_jug": 0.85 * scale,
+            "prob_jug": 0.87 * scale,
             "prob_crimp": 0.02 * scale,
             "prob_sloper": 0.02 * scale,
             "prob_pinch": 0.02 * scale,
             "prob_pocket": 0.02 * scale,
-            "prob_edges": 0.02 * scale,
             "prob_foothold": 0.02 * scale,
             "prob_unknown": 0.03 * scale,
         }

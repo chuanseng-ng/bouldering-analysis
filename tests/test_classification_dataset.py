@@ -16,6 +16,7 @@ from src.training.classification_dataset import (
     HOLD_CLASS_COUNT,
     HOLD_CLASSES,
     IMAGE_EXTENSIONS,
+    LABEL_ALIASES,
     ClassificationDatasetConfig,
     compute_class_weights,
     count_images_per_class,
@@ -67,7 +68,6 @@ def valid_classification_dataset(tmp_path: Path) -> Path:
         "sloper",
         "pinch",
         "pocket",
-        "edges",
         "foothold",
         "unknown",
     ]
@@ -94,7 +94,6 @@ def valid_classification_dataset_with_test(
         "sloper",
         "pinch",
         "pocket",
-        "edges",
         "foothold",
         "unknown",
     ]
@@ -105,6 +104,8 @@ def valid_classification_dataset_with_test(
 @pytest.fixture
 def dataset_with_extra_class(tmp_path: Path) -> Path:
     """Create a dataset with an extra class folder (volume) in train split.
+
+    volume is not in LABEL_ALIASES, so it triggers an "Unexpected class" warning/error.
 
     Args:
         tmp_path: Pytest temporary path fixture.
@@ -118,7 +119,6 @@ def dataset_with_extra_class(tmp_path: Path) -> Path:
         "sloper",
         "pinch",
         "pocket",
-        "edges",
         "foothold",
         "unknown",
         "volume",
@@ -130,7 +130,6 @@ def dataset_with_extra_class(tmp_path: Path) -> Path:
         "sloper",
         "pinch",
         "pocket",
-        "edges",
         "foothold",
         "unknown",
     ]
@@ -154,7 +153,6 @@ def dataset_with_missing_class(tmp_path: Path) -> Path:
         "sloper",
         "pinch",
         "pocket",
-        "edges",
         "foothold",
     ]  # missing "unknown"
     _create_class_folders(tmp_path / "train", classes, image_count=2)
@@ -164,7 +162,6 @@ def dataset_with_missing_class(tmp_path: Path) -> Path:
         "sloper",
         "pinch",
         "pocket",
-        "edges",
         "foothold",
         "unknown",
     ]
@@ -181,14 +178,13 @@ class TestConstants:
     """Tests for module-level constants."""
 
     def test_hold_classes_value(self) -> None:
-        """HOLD_CLASSES should contain the 8 hold types in expected order."""
+        """HOLD_CLASSES should contain the 7 canonical hold types in expected order."""
         assert HOLD_CLASSES == (
             "jug",
             "crimp",
             "sloper",
             "pinch",
             "pocket",
-            "edges",
             "foothold",
             "unknown",
         )
@@ -197,9 +193,13 @@ class TestConstants:
         """HOLD_CLASSES should be a tuple (immutable constant)."""
         assert isinstance(HOLD_CLASSES, tuple)
 
+    def test_edges_not_in_hold_classes(self) -> None:
+        """edges must not appear in HOLD_CLASSES — it is aliased to crimp."""
+        assert "edges" not in HOLD_CLASSES
+
     def test_hold_class_count_value(self) -> None:
-        """HOLD_CLASS_COUNT should be 8."""
-        assert HOLD_CLASS_COUNT == 8
+        """HOLD_CLASS_COUNT should be 7."""
+        assert HOLD_CLASS_COUNT == 7
 
     def test_hold_class_count_matches_classes(self) -> None:
         """HOLD_CLASS_COUNT should match length of HOLD_CLASSES."""
@@ -230,7 +230,6 @@ class TestComputeClassWeights:
             "sloper": 10,
             "pinch": 10,
             "pocket": 10,
-            "edges": 10,
             "foothold": 10,
             "unknown": 10,
         }
@@ -248,18 +247,17 @@ class TestComputeClassWeights:
             "sloper": 20,
             "pinch": 10,
             "pocket": 5,
-            "edges": 5,
             "foothold": 5,
             "unknown": 5,
         }
-        total = 140
-        n_classes = 8
+        total = 135
+        n_classes = 7
         weights = compute_class_weights(counts)
 
-        # Weight for jug: 140 / (8 * 60) = 0.2916...
+        # Weight for jug: 135 / (7 * 60) ≈ 0.3214...
         assert weights[0] == pytest.approx(total / (n_classes * 60))
-        # Weight for unknown: 140 / (8 * 5) = 3.5
-        assert weights[7] == pytest.approx(total / (n_classes * 5))
+        # Weight for unknown: 135 / (7 * 5) ≈ 3.857...
+        assert weights[6] == pytest.approx(total / (n_classes * 5))
 
     def test_weights_order_matches_hold_classes(self) -> None:
         """Weights should be in HOLD_CLASSES order."""
@@ -269,9 +267,8 @@ class TestComputeClassWeights:
             "sloper": 30,
             "pinch": 40,
             "pocket": 50,
-            "edges": 60,
-            "foothold": 70,
-            "unknown": 80,
+            "foothold": 60,
+            "unknown": 70,
         }
         weights = compute_class_weights(counts)
 
@@ -284,7 +281,6 @@ class TestComputeClassWeights:
             > weights[4]
             > weights[5]
             > weights[6]
-            > weights[7]
         )
 
     def test_returns_list_of_floats(self) -> None:
@@ -295,7 +291,6 @@ class TestComputeClassWeights:
             "sloper": 5,
             "pinch": 5,
             "pocket": 5,
-            "edges": 5,
             "foothold": 5,
             "unknown": 5,
         }
@@ -313,7 +308,6 @@ class TestComputeClassWeights:
             "sloper": 10,
             "pinch": 10,
             "pocket": 10,
-            "edges": 10,
             "foothold": 10,
             "unknown": 10,
         }
@@ -329,7 +323,6 @@ class TestComputeClassWeights:
             "sloper": 10,
             "pinch": 10,
             "pocket": 10,
-            "edges": 10,
             "foothold": 10,
             "unknown": 10,
         }
@@ -343,7 +336,7 @@ class TestComputeClassWeights:
             "jug": 10,
             "crimp": 10,
             "sloper": 10,
-        }  # missing pinch, pocket, edges, foothold, unknown
+        }  # missing pinch, pocket, foothold, unknown
 
         with pytest.raises(DatasetValidationError, match="Missing class"):
             compute_class_weights(counts)
@@ -356,10 +349,9 @@ class TestComputeClassWeights:
             "sloper": 10,
             "pinch": 10,
             "pocket": 10,
-            "edges": 10,
             "foothold": 10,
             "unknown": 10,
-            "volume": 5,  # unexpected
+            "edges": 5,  # unexpected — aliasing is done before counting, not here
         }
 
         with pytest.raises(DatasetValidationError, match="Unexpected class"):
@@ -439,7 +431,7 @@ class TestCountImagesPerClass:
             assert counts[cls] == 0
 
     def test_only_counts_known_classes(self, tmp_path: Path) -> None:
-        """Only count images in folders matching HOLD_CLASSES names."""
+        """Folders with no LABEL_ALIASES entry emit a warning and are excluded."""
         split_path = tmp_path / "train"
         for cls in HOLD_CLASSES:
             (split_path / cls).mkdir(parents=True)
@@ -447,9 +439,27 @@ class TestCountImagesPerClass:
         extra.mkdir()
         (extra / "img.jpg").touch()
 
-        counts = count_images_per_class(split_path)
+        with pytest.warns(UserWarning, match="Unknown class folder"):
+            counts = count_images_per_class(split_path)
 
         assert "volume" not in counts
+
+    def test_aliased_folder_merges_into_target(self, tmp_path: Path) -> None:
+        """Edges/ folder images must be aggregated into the crimp count."""
+        split_path = tmp_path / "train"
+        crimp_dir = split_path / "crimp"
+        crimp_dir.mkdir(parents=True)
+        (crimp_dir / "a.jpg").touch()
+        (crimp_dir / "b.jpg").touch()
+        edges_dir = split_path / "Edges"  # capitalised, as Roboflow exports
+        edges_dir.mkdir(parents=True)
+        (edges_dir / "c.jpg").touch()
+
+        counts = count_images_per_class(split_path)
+
+        # crimp (2) + Edges→crimp (1) = 3 total
+        assert counts["crimp"] == 3
+        assert "edges" not in counts
 
     def test_file_path_raises(self, tmp_path: Path) -> None:
         """File path (not a directory) should raise DatasetNotFoundError."""
@@ -532,10 +542,10 @@ class TestLoadHoldClassificationDataset:
         assert result["train"] == (valid_classification_dataset / "train").resolve()
         assert result["val"] == (valid_classification_dataset / "val").resolve()
         assert result["test"] is None
-        assert result["nc"] == 8
+        assert result["nc"] == 7
         assert result["names"] == list(HOLD_CLASSES)
-        assert result["train_image_count"] == 40  # 8 classes * 5 images
-        assert result["val_image_count"] == 24  # 8 classes * 3 images
+        assert result["train_image_count"] == 35  # 7 classes * 5 images
+        assert result["val_image_count"] == 21  # 7 classes * 3 images
         assert result["test_image_count"] == 0
 
     def test_load_with_test_split(
@@ -547,13 +557,13 @@ class TestLoadHoldClassificationDataset:
         )
 
         assert result["test"] is not None
-        assert result["test_image_count"] == 16  # 8 classes * 2 images
+        assert result["test_image_count"] == 14  # 7 classes * 2 images
 
     def test_string_path_accepted(self, valid_classification_dataset: Path) -> None:
         """String path should be accepted and converted."""
         result = load_hold_classification_dataset(str(valid_classification_dataset))
 
-        assert result["nc"] == 8
+        assert result["nc"] == 7
         assert isinstance(result["train"], Path)
 
     def test_nonexistent_root_raises(self, tmp_path: Path) -> None:
@@ -639,7 +649,7 @@ class TestLoadHoldClassificationDataset:
                 dataset_with_extra_class, strict=False
             )
 
-        assert result["nc"] == 8
+        assert result["nc"] == 7
         assert result["names"] == list(HOLD_CLASSES)
 
     def test_non_strict_missing_class_raises_at_weights(
@@ -651,3 +661,41 @@ class TestLoadHoldClassificationDataset:
                 load_hold_classification_dataset(
                     dataset_with_missing_class, strict=False
                 )
+
+
+# ============================================================================
+# TestLabelAliases
+# ============================================================================
+
+
+class TestLabelAliases:
+    """Tests for the LABEL_ALIASES constant and alias-based folder resolution."""
+
+    def test_edges_maps_to_crimp(self) -> None:
+        """edges must alias to crimp (same difficulty profile)."""
+        assert LABEL_ALIASES["edges"] == "crimp"
+
+    def test_crimp_maps_to_crimp(self) -> None:
+        """crimp maps to itself."""
+        assert LABEL_ALIASES["crimp"] == "crimp"
+
+    def test_foothold_maps_to_foothold(self) -> None:
+        """foothold maps to itself."""
+        assert LABEL_ALIASES["foothold"] == "foothold"
+
+    def test_hand_holds_maps_to_unknown(self) -> None:
+        """hand-holds Roboflow folder maps to unknown."""
+        assert LABEL_ALIASES["hand-holds"] == "unknown"
+
+    def test_all_alias_targets_are_in_hold_classes(self) -> None:
+        """Every alias target must be a valid canonical class."""
+        for key, target in LABEL_ALIASES.items():
+            assert target in HOLD_CLASSES, (
+                f"LABEL_ALIASES[{key!r}] = {target!r} is not in HOLD_CLASSES"
+            )
+
+    def test_all_hold_classes_covered_by_at_least_one_alias(self) -> None:
+        """Every HOLD_CLASSES entry must be reachable via at least one alias."""
+        targets = set(LABEL_ALIASES.values())
+        for cls in HOLD_CLASSES:
+            assert cls in targets, f"{cls!r} not reachable from any LABEL_ALIASES entry"
